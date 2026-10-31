@@ -82,6 +82,7 @@ SHOP_ITEMS = {
     "Кейс с Супер Донатом": {"price": 4500, "type": "кейс"},
 
     "Кейс с Супер Риллами": {"price": 3000, "type": "кейс"},
+    "Снятие 1 выговора": {"price": 400, "type": "услуга"},
 
 }
 # ================== РОЛИ ==================
@@ -481,6 +482,9 @@ async def shop(interaction: discord.Interaction):
 
         "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
 
+        "📜・**УСЛУГИ**\n"
+        "📝 Снятие 1 выговора — 400 баллов\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         "📜・**ПРАВИЛА МАГАЗИНА**\n"
 
         "🔹 За каждые 5 просмотров начисляется 1 балл.\n"
@@ -503,7 +507,7 @@ async def shop(interaction: discord.Interaction):
 
     embed = discord.Embed(description=shop_text, color=0x9B59B6)
 
-    embed.set_footer(text="Для покупки используй /kit, /донат или /case")
+    embed.set_footer(text="Для покупки используй /kit, /донат, /case или /услуга")
 
     await interaction.response.send_message(embed=embed)
 # -------- /kit --------
@@ -582,6 +586,15 @@ async def kit(interaction: discord.Interaction, name: app_commands.Choice[str]):
 async def donat(interaction: discord.Interaction, name: app_commands.Choice[str]):
 
     await process_purchase(interaction, name.value)
+# -------- /услуга --------
+@bot.tree.command(name="услуга", description="Купить услугу за баллы")
+@app_commands.describe(name="Какую услугу ты хочешь купить")
+@app_commands.choices(name=[
+    app_commands.Choice(name="Снятие 1 выговора — 400 баллов", value="Снятие 1 выговора"),
+])
+async def service(interaction: discord.Interaction, name: app_commands.Choice[str]):
+    await process_purchase(interaction, name.value)
+
 # -------- /case --------
 @bot.tree.command(name="case", description="Купить кейс за баллы")
 
