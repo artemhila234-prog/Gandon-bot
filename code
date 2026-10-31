@@ -1,1 +1,904 @@
+import discord
 
+from discord import app_commands
+
+from discord.ext import commands
+
+import sqlite3
+import os
+import json
+from datetime import datetime, timezone, timedelta
+# ================== КОНФИГ ==================
+TOKEN = os.getenv("DISCORD_TOKEN")
+# --- Каналы и категории ---
+REPORT_CHANNEL_ID = 1231958902474678364
+
+JOIN_CHANNEL_ID = 1551952140929601576
+
+CATEGORY_ID = 1551950227865608292
+
+SHOP_CHANNEL_ID = 1564188124844662814  # ID канала для логов покупок
+
+POVIXA_CHANNEL_ID = 1564557395907186798  # ID канала, где должна работать команда /povixa
+# Настройка московского времени (UTC+3)
+MSK = timezone(timedelta(hours=3))
+# ================== МАГАЗИН ==================
+SHOP_ITEMS = {
+
+    "PVP": {"price": 1000, "type": "kit"},
+
+    "CYBER": {"price": 1500, "type": "kit"},
+
+    "RICH": {"price": 2000, "type": "kit"},
+
+    "TOPER": {"price": 2500, "type": "kit"},
+
+    "D.OWNER": {"price": 2300, "type": "kit"},
+
+    "DADMIN": {"price": 1000, "type": "kit"},
+
+    "D.GLMODER": {"price": 900, "type": "kit"},
+
+    "D.STMODER": {"price": 750, "type": "kit"},
+
+    "D.MODER": {"price": 500, "type": "kit"},
+
+    "kit downer": {"price": 1500, "type": "kit"},
+
+    "kit toper":  {"price": 2500, "type": "kit"},
+
+    "kit dadmin": {"price": 1500, "type": "kit"},
+
+    "WHITE": {"price": 5000, "type": "донат"},
+
+    "RABBIT": {"price": 4500, "type": "донат"},
+
+    "DHELPER": {"price": 4500, "type": "донат"},
+
+    "GOD": {"price": 4000, "type": "донат"},
+
+    "ENDER": {"price": 4000, "type": "донат"},
+
+    "DRACULA": {"price": 3500, "type": "донат"},
+
+    "BERSERK": {"price": 3500, "type": "донат"},
+
+    "COBRA": {"price": 3000, "type": "донат"},
+
+    "White":   {"price": 5000, "type": "донат"},
+
+    "Sponsor": {"price": 6000, "type": "донат"},
+
+    "Rabbit":  {"price": 3000, "type": "донат"},
+
+    "Dracula": {"price": 1000, "type": "донат"},
+
+    "Cobra":   {"price": 800,  "type": "донат"},
+
+    "God":     {"price": 2000, "type": "донат"},
+
+    "Кейс «Всё или ничего»": {"price": 6000, "type": "кейс"},
+
+    "Кейс с Супер Донатом": {"price": 4500, "type": "кейс"},
+
+    "Кейс с Супер Риллами": {"price": 3000, "type": "кейс"},
+
+}
+# ================== РОЛИ ==================
+MOD_ROLE_IDS = [1546125576136560660]
+
+WARN_1_ROLE_ID = 1546125538198823033
+
+WARN_2_ROLE_ID = 1546125541571043398
+
+WARN_3_ROLE_ID = 1546125544888729761
+
+PROTECTED_ROLE_IDS = [
+
+    1546125455633944598, 1546125498340614195, 1546125488496451686,
+
+    1546125469093732372, 1546125465482174484, 1547654044263252038,
+
+    1546125472897961984, 1546125480321749053, 1550200782177968178,
+
+]
+
+PLAYER_ROLE_ID = 1539269779267915827
+
+APPROVER_ROLE_ID = 1546125576136560660
+
+APPROVER_POINTS_ROLE_IDS = [
+
+    1546125455633944598, 1546125498340614195
+
+]
+# ⚠️ РОЛИ, КОТОРЫЕ МОГУТ ИСПОЛЬЗОВАТЬ КОМАНДУ /povixa (добавляй через запятую)
+POVIXA_ROLE_IDS = [
+
+    1546125455633944598,  # Замени на реальные ID ролей!
+
+    1546125498340614195
+
+]
+
+ROLES_TO_GIVE = [1546125522675962027, 1546125519240564797]
+
+STAFF_ROLES = [
+
+    1546125455633944598, 1546125498340614195, 1547654044263252038,
+
+    1546125465482174484, 1546125449594282118
+
+]
+
+ALLOWED_GUILDS = [1546125037545988207]
+# ================== БАЗА ДАННЫХ ==================
+conn = sqlite3.connect('bot_data.db')
+
+cursor = conn.cursor()
+
+cursor.execute('''CREATE TABLE IF NOT EXISTS users (
+
+    user_id INTEGER PRIMARY KEY,
+
+    balance INTEGER DEFAULT 0,
+
+    warns INTEGER DEFAULT 0,
+
+    personal_channel_id INTEGER
+
+)''')
+
+cursor.execute('''CREATE TABLE IF NOT EXISTS reports (
+
+    message_id INTEGER PRIMARY KEY,
+
+    author_id INTEGER,
+
+    ban_number INTEGER,
+
+    mute_number INTEGER,
+
+    proof TEXT,
+
+    approved BOOLEAN DEFAULT 0
+
+)''')
+
+cursor.execute('''CREATE TABLE IF NOT EXISTS purchases (
+
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+    user_id INTEGER,
+
+    item TEXT,
+
+    price INTEGER,
+
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+
+)''')
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS pending_requests (
+    request_type TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    data TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (request_type, user_id)
+)
+""")
+
+conn.commit()
+# ================== БОТ ==================
+intents = discord.Intents.default()
+
+intents.message_content = True
+
+intents.members = True
+
+bot = commands.Bot(command_prefix='!', intents=intents)
+# ================== ФУНКЦИИ ==================
+def get_user_data(user_id):
+
+    cursor.execute('SELECT balance, warns, personal_channel_id FROM users WHERE user_id = ?', (user_id,))
+
+    row = cursor.fetchone()
+
+    if row:
+
+        return {'balance': row[0], 'warns': row[1], 'personal_channel_id': row[2]}
+
+    cursor.execute('INSERT INTO users (user_id, balance, warns, personal_channel_id) VALUES (?, 0, 0, NULL)', (user_id,))
+
+    conn.commit()
+
+    return {'balance': 0, 'warns': 0, 'personal_channel_id': None}
+
+def update_warns(user_id, new_warns):
+
+    cursor.execute('UPDATE users SET warns = ? WHERE user_id = ?', (new_warns, user_id))
+
+    conn.commit()
+
+def update_balance(user_id, amount):
+
+    cursor.execute('UPDATE users SET balance = balance + ? WHERE user_id = ?', (amount, user_id))
+
+    if cursor.rowcount == 0:
+
+        cursor.execute('INSERT INTO users (user_id, balance) VALUES (?, ?)', (user_id, amount))
+
+    conn.commit()
+
+def add_purchase(user_id, item, price):
+
+    cursor.execute('INSERT INTO purchases (user_id, item, price) VALUES (?, ?, ?)', (user_id, item, price))
+
+    conn.commit()
+
+def set_personal_channel(user_id, channel_id):
+
+    cursor.execute('UPDATE users SET personal_channel_id = ? WHERE user_id = ?', (channel_id, user_id))
+
+    conn.commit()
+
+def get_personal_channel(user_id):
+
+    cursor.execute('SELECT personal_channel_id FROM users WHERE user_id = ?', (user_id,))
+
+    row = cursor.fetchone()
+
+    return row[0] if row else None
+
+def add_report(message_id, author_id, ban_number, mute_number, proof):
+
+    cursor.execute('INSERT INTO reports (message_id, author_id, ban_number, mute_number, proof) VALUES (?, ?, ?, ?, ?)',
+
+                   (message_id, author_id, ban_number, mute_number, proof))
+
+    conn.commit()
+
+def get_report(message_id):
+
+    cursor.execute('SELECT author_id, ban_number, mute_number, approved FROM reports WHERE message_id = ?', (message_id,))
+
+    return cursor.fetchone()
+
+def approve_report(message_id):
+
+    cursor.execute('UPDATE reports SET approved = 1 WHERE message_id = ?', (message_id,))
+
+    conn.commit()
+
+def is_personal_channel(channel):
+
+    if channel is None: return False
+
+    if channel.id == REPORT_CHANNEL_ID: return True
+
+    cursor.execute('SELECT 1 FROM users WHERE personal_channel_id = ? LIMIT 1', (channel.id,))
+
+    if cursor.fetchone() is not None: return True
+
+    if CATEGORY_ID and getattr(channel, 'category_id', None) == CATEGORY_ID: return True
+
+    return False
+
+def has_protected_role(member):
+
+    return any(role.id in PROTECTED_ROLE_IDS for role in member.roles)
+
+def is_moderator(member):
+
+    if member.guild_permissions.kick_members: return True
+
+    return any(role.id in MOD_ROLE_IDS for role in member.roles)
+
+def has_verification_role(member):
+
+    return any(role.id == APPROVER_ROLE_ID for role in member.roles)
+
+def has_points_role(member):
+
+    if not APPROVER_POINTS_ROLE_IDS: return False
+
+    return any(role.id in APPROVER_POINTS_ROLE_IDS for role in member.roles)
+# Функция для проверки права на /povixa
+def has_povixa_role(member):
+
+    if not POVIXA_ROLE_IDS: return False
+
+    return any(role.id in POVIXA_ROLE_IDS for role in member.roles)
+# Функция для получения форматированной строки времени МСК
+def get_msk_time_str():
+
+    return datetime.now(MSK).strftime('%d.%m.%Y %H:%M')
+
+def save_pending_request(request_type, user_id, data):
+    cursor.execute(
+        """INSERT INTO pending_requests (request_type, user_id, data)
+           VALUES (?, ?, ?)
+           ON CONFLICT(request_type, user_id)
+           DO UPDATE SET data = excluded.data, created_at = CURRENT_TIMESTAMP""",
+        (request_type, user_id, json.dumps(data, ensure_ascii=False))
+    )
+    conn.commit()
+
+
+def load_pending_requests(request_type):
+    cursor.execute(
+        "SELECT user_id, data FROM pending_requests WHERE request_type = ?",
+        (request_type,)
+    )
+    loaded = {}
+    for user_id, raw_data in cursor.fetchall():
+        try:
+            loaded[user_id] = json.loads(raw_data)
+        except (TypeError, json.JSONDecodeError):
+            print(f"Не удалось прочитать заявку {request_type} пользователя {user_id}")
+    return loaded
+
+
+def delete_pending_request(request_type, user_id):
+    cursor.execute(
+        "DELETE FROM pending_requests WHERE request_type = ? AND user_id = ?",
+        (request_type, user_id)
+    )
+    conn.commit()
+
+
+def complete_points_request(user_id, points):
+    try:
+        cursor.execute("BEGIN IMMEDIATE")
+        cursor.execute(
+            "SELECT 1 FROM pending_requests WHERE request_type = 'points' AND user_id = ?",
+            (user_id,)
+        )
+        if cursor.fetchone() is None:
+            conn.rollback()
+            return None
+        cursor.execute(
+            """INSERT INTO users (user_id, balance, warns, personal_channel_id)
+               VALUES (?, ?, 0, NULL)
+               ON CONFLICT(user_id) DO UPDATE SET balance = balance + excluded.balance""",
+            (user_id, points)
+        )
+        cursor.execute(
+            "DELETE FROM pending_requests WHERE request_type = 'points' AND user_id = ?",
+            (user_id,)
+        )
+        cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+        balance = cursor.fetchone()[0]
+        conn.commit()
+        return balance
+    except Exception:
+        conn.rollback()
+        raise
+
+
+pending_apps = load_pending_requests("join")
+pending_points = load_pending_requests("points")
+print(f"Загружено заявок: вступление — {len(pending_apps)}, баллы — {len(pending_points)}")
+# ================== ВЫДАЧА PLAYER ПРИ ВХОДЕ ==================
+@bot.event
+
+async def on_member_join(member):
+
+    if member.guild.id not in ALLOWED_GUILDS: return
+
+    role = member.guild.get_role(PLAYER_ROLE_ID)
+
+    if role:
+
+        try:
+
+            await member.add_roles(role, reason="Автовыдача PLAYER")
+
+            print(f"✅ {member.name} получил {role.name}")
+
+        except Exception as e:
+
+            print(f"❌ Ошибка: {e}")
+# ================== КОМАНДЫ ==================
+def is_allowed_guild(interaction):
+
+    return interaction.guild is not None and interaction.guild.id in ALLOWED_GUILDS
+# -------- /shop --------
+@bot.tree.command(name="shop", description="Магазин баллов сервера")
+
+async def shop(interaction: discord.Interaction):
+
+    if not is_allowed_guild(interaction):
+
+        await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
+
+        return
+
+    shop_text = (
+
+        "╭━━━━━━━━━━━━━━━━━━━━━━━━╮\n"
+
+        "⭐ **МАГАЗИН БАЛЛОВ**\n"
+
+        "╰━━━━━━━━━━━━━━━━━━━━━━━━╯\n"
+
+        "🎬 Зарабатывай баллы за просмотры, покупай игровые наборы и донаты и получай награды за свою активность!\n\n"
+
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+        "🎥・**КАК ЗАРАБОТАТЬ БАЛЛЫ?**\n"
+
+        "📊 5 просмотров = 1 балл\n"
+
+        "▫️ 500 просмотров — 100 баллов\n"
+
+        "▫️ 1 000 просмотров — 200 баллов\n"
+
+        "▫️ 5 000 просмотров — 1 000 баллов\n"
+
+        "▫️ 10 000 просмотров — 2 000 баллов\n\n"
+
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+        "🎒・**КИТЫ И НАБОРЫ**\n"
+
+        "⚔️ PVP — 1 000 баллов\n"
+
+        "💻 CYBER — 1 500 баллов\n"
+
+        "💰 RICH — 2 000 баллов\n"
+
+        "👑 TOPER — 2 500 баллов\n\n"
+
+        "🔧 D.OWNER — 2 300 баллов\n"
+
+        "⚙️ DADMIN — 1 000 баллов\n"
+
+        "🛡️ D.GLMODER — 900 баллов\n"
+
+        "💠 D.STMODER — 750 баллов\n"
+
+        "🔹 D.MODER — 500 баллов\n\n"
+
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+        "👑・**ДОНАТЫ**\n"
+
+        "🤍 WHITE — 5 000 баллов\n"
+
+        "🐰 RABBIT — 4 500 баллов\n"
+
+        "🎬 DHELPER — 4 500 баллов\n"
+
+        "😇 GOD — 4 000 баллов\n"
+
+        "🔥 ENDER — 4 000 баллов\n"
+
+        "🦇 DRACULA — 3 500 баллов\n"
+
+        "⚡ BERSERK — 3 500 баллов\n"
+
+        "🐍 COBRA — 3 000 баллов\n\n"
+
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+        "🎁・**КЕЙСЫ**\n"
+
+        "🎲 Кейс «Всё или ничего» — 6 000 баллов\n"
+
+        "💎 Кейс с Супер Донатом — 4 500 баллов\n"
+
+        "🎁 Кейс с Супер Риллами — 3 000 баллов\n\n"
+
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+        "📜・**ПРАВИЛА МАГАЗИНА**\n"
+
+        "🔹 За каждые 5 просмотров начисляется 1 балл.\n"
+
+        "🔹 Накрутка просмотров запрещена.\n"
+
+        "🔹 Для покупки обратись к администрации или куратору медиа.\n"
+
+        "🔹 После покупки баллы списываются с баланса.\n"
+
+        "🔹 Перед покупкой убедись, что у тебя достаточно баллов.\n\n"
+
+        "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+        "🌟 **СНИМАЙ • КОПИ • ПОКУПАЙ**\n"
+
+        "🎬 Твои просмотры — твой прогресс!"
+
+    )
+
+    embed = discord.Embed(description=shop_text, color=0x9B59B6)
+
+    embed.set_footer(text="Для покупки используй /kit, /донат или /case")
+
+    await interaction.response.send_message(embed=embed)
+# -------- /kit --------
+@bot.tree.command(name="kit", description="Купить кит за баллы")
+
+@app_commands.describe(name="Какой кит ты хочешь купить")
+
+@app_commands.choices(name=[
+
+    app_commands.Choice(name="PVP — 1000 баллов", value="PVP"),
+
+    app_commands.Choice(name="CYBER — 1500 баллов", value="CYBER"),
+
+    app_commands.Choice(name="RICH — 2000 баллов", value="RICH"),
+
+    app_commands.Choice(name="TOPER — 2500 баллов", value="TOPER"),
+
+    app_commands.Choice(name="D.OWNER — 2300 баллов", value="D.OWNER"),
+
+    app_commands.Choice(name="DADMIN — 1000 баллов", value="DADMIN"),
+
+    app_commands.Choice(name="D.GLMODER — 900 баллов", value="D.GLMODER"),
+
+    app_commands.Choice(name="D.STMODER — 750 баллов", value="D.STMODER"),
+
+    app_commands.Choice(name="D.MODER — 500 баллов", value="D.MODER"),
+
+    app_commands.Choice(name="kit downer (старое)", value="kit downer"),
+
+    app_commands.Choice(name="kit toper (старое)", value="kit toper"),
+
+    app_commands.Choice(name="kit dadmin (старое)", value="kit dadmin"),
+
+])
+
+async def kit(interaction: discord.Interaction, name: app_commands.Choice[str]):
+
+    await process_purchase(interaction, name.value)
+# -------- /донат --------
+@bot.tree.command(name="донат", description="Купить донат-привилегию за баллы")
+
+@app_commands.describe(name="Какой донат ты хочешь купить")
+
+@app_commands.choices(name=[
+
+    app_commands.Choice(name="WHITE — 5000 баллов", value="WHITE"),
+
+    app_commands.Choice(name="RABBIT — 4500 баллов", value="RABBIT"),
+
+    app_commands.Choice(name="DHELPER — 4500 баллов", value="DHELPER"),
+
+    app_commands.Choice(name="GOD — 4000 баллов", value="GOD"),
+
+    app_commands.Choice(name="ENDER — 4000 баллов", value="ENDER"),
+
+    app_commands.Choice(name="DRACULA — 3500 баллов", value="DRACULA"),
+
+    app_commands.Choice(name="BERSERK — 3500 баллов", value="BERSERK"),
+
+    app_commands.Choice(name="COBRA — 3000 баллов", value="COBRA"),
+
+    app_commands.Choice(name="White (старое)", value="White"),
+
+    app_commands.Choice(name="Sponsor (старое)", value="Sponsor"),
+
+    app_commands.Choice(name="Rabbit (старое)", value="Rabbit"),
+
+    app_commands.Choice(name="Dracula (старое)", value="Dracula"),
+
+    app_commands.Choice(name="Cobra (старое)", value="Cobra"),
+
+    app_commands.Choice(name="God (старое)", value="God"),
+
+])
+
+async def donat(interaction: discord.Interaction, name: app_commands.Choice[str]):
+
+    await process_purchase(interaction, name.value)
+# -------- /case --------
+@bot.tree.command(name="case", description="Купить кейс за баллы")
+
+@app_commands.describe(name="Какой кейс ты хочешь купить")
+
+@app_commands.choices(name=[
+
+    app_commands.Choice(name="Кейс «Всё или ничего» — 6000 баллов", value="Кейс «Всё или ничего»"),
+
+    app_commands.Choice(name="Кейс с Супер Донатом — 4500 баллов", value="Кейс с Супер Донатом"),
+
+    app_commands.Choice(name="Кейс с Супер Риллами — 3000 баллов", value="Кейс с Супер Риллами"),
+
+])
+
+async def case_cmd(interaction: discord.Interaction, name: app_commands.Choice[str]):
+
+    await process_purchase(interaction, name.value)
+# -------- Общая функция покупки --------
+async def process_purchase(interaction: discord.Interaction, item_key: str):
+
+    if not is_allowed_guild(interaction):
+
+        await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
+
+        return
+
+    item = SHOP_ITEMS.get(item_key)
+
+    if not item:
+
+        await interaction.response.send_message("❌ Товар не найден.", ephemeral=True)
+
+        return
+
+    price = item["price"]
+
+    data = get_user_data(interaction.user.id)
+
+    balance = data['balance']
+
+    time_str = get_msk_time_str()
+
+    if balance < price:
+
+        embed = discord.Embed(
+
+            title="❌ Не оплачено!",
+
+            color=0xE74C3C,
+
+            description=f"У вас не хватает баллов на покупку данного товара.\n\n"
+
+                        f"**Товар:** `{item_key}`\n"
+
+                        f"**Цена:** {price} баллов\n"
+
+                        f"**Ваш баланс:** {balance} баллов\n"
+
+                        f"**Не хватает:** {price - balance} баллов",
+
+            timestamp=datetime.now(MSK)
+
+        )
+
+        embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+        return
+
+    update_balance(interaction.user.id, -price)
+
+    add_purchase(interaction.user.id, item_key, price)
+
+    embed = discord.Embed(
+
+        title="✅ Успешно!",
+
+        color=0x2ECC71,
+
+        description=f"Товар будет выдан администрацией.\n\n"
+
+                    f"**Товар:** `{item_key}`\n"
+
+                    f"**Цена:** {price} баллов\n"
+
+                    f"**Остаток:** {balance - price} баллов",
+
+        timestamp=datetime.now(MSK)
+
+    )
+
+    embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
+
+    await interaction.response.send_message(embed=embed)
+
+    try:
+
+        shop_channel = interaction.guild.get_channel(SHOP_CHANNEL_ID)
+
+        if shop_channel:
+
+            log = discord.Embed(
+
+                title="🧾 Новая покупка",
+
+                color=0x3498DB,
+
+                description=f"**Игрок:** {interaction.user.mention}\n"
+
+                            f"**Товар:** `{item_key}`\n"
+
+                            f"**Цена:** {price} баллов",
+
+                timestamp=datetime.now(MSK)
+
+            )
+
+            log.set_footer(text=f"{time_str} МСК")
+
+            await shop_channel.send(embed=log)
+
+    except:
+
+        pass
+# -------- /balance --------
+@bot.tree.command(name="balance", description="Показать баланс и статистику игрока")
+
+@app_commands.describe(игрок="Игрок, чью статистику показать (необязательно)")
+
+async def balance(interaction: discord.Interaction, игрок: discord.Member = None):
+
+    if not is_allowed_guild(interaction):
+
+        await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
+
+        return
+
+    target = игрок if игрок else interaction.user
+
+    cursor.execute('SELECT SUM(ban_number), SUM(mute_number) FROM reports WHERE author_id = ? AND approved = 1', (target.id,))
+
+    row = cursor.fetchone()
+
+    total_bans = row[0] if row[0] else 0
+
+    total_mutes = row[1] if row[1] else 0
+
+    total_points = total_bans * 10 + total_mutes * 5
+
+    user_data = get_user_data(target.id)
+
+    embed = discord.Embed(
+
+        title=f"📊 Статистика игрока {target.display_name}",
+
+        color=discord.Color.green(),
+
+        description=f"**Общее количество баллов:** {total_points}\n"
+
+                    f"**Текущий баланс:** {user_data['balance']} баллов"
+
+    )
+
+    await interaction.response.send_message(embed=embed)
+# -------- /povixa --------
+@bot.tree.command(name="povixa", description="Поздравить игрока с повышением")
+
+@app_commands.describe(игрок="Игрок, которого повысили", роль="Новая роль игрока")
+
+async def povixa(interaction: discord.Interaction, игрок: discord.Member, роль: discord.Role):
+
+    if not is_allowed_guild(interaction):
+
+        await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
+
+        return
+# Проверка на разрешенный канал
+    if interaction.channel.id != POVIXA_CHANNEL_ID:
+
+        await interaction.response.send_message(
+
+            f"❌ Эта команда доступна только в канале <#{POVIXA_CHANNEL_ID}>!", 
+
+            ephemeral=True
+
+        )
+
+        return
+# Проверка на разрешенные роли
+    if not has_povixa_role(interaction.user):
+
+        await interaction.response.send_message("❌ У вас нет прав для использования этой команды.", ephemeral=True)
+
+        return
+# Выдаем роль игроку
+    try:
+
+        await игрок.add_roles(роль, reason=f"Повышение от {interaction.user.display_name}")
+
+    except discord.Forbidden:
+
+        await interaction.response.send_message("❌ У меня недостаточно прав, чтобы выдать эту роль.", ephemeral=True)
+
+        return
+
+    except discord.HTTPException:
+
+        await interaction.response.send_message("❌ Произошла ошибка при выдаче роли.", ephemeral=True)
+
+        return
+
+    time_str = get_msk_time_str()
+
+    embed = discord.Embed(
+
+        color=0x2ECC71,  # Зеленая полоса слева
+
+        description=(
+
+            f"Поздравляем с повышением!\n"
+
+            f"{игрок.mention}\n"
+
+            f"Повышен до: {роль.mention}\n"
+
+            f"Удачной работы!"
+
+        ),
+
+        timestamp=datetime.now(MSK)
+
+    )
+
+    embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
+
+    await interaction.response.send_message(embed=embed)
+# -------- /warn --------
+@bot.tree.command(name="warn", description="Выдать предупреждение игроку (до 2-х)")
+
+@app_commands.describe(игрок="Игрок, которому выдаётся предупреждение", причина="Причина предупреждения")
+
+async def warn(interaction: discord.Interaction, игрок: discord.Member, причина: str):
+
+    if not is_allowed_guild(interaction):
+
+        await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
+
+        return
+
+    if not is_moderator(interaction.user):
+
+        await interaction.response.send_message("❌ У вас нет прав.", ephemeral=True)
+
+        return
+
+    if игрок == interaction.user:
+
+        await interaction.response.send_message("❌ Нельзя выдать предупреждение самому себе.", ephemeral=True)
+
+        return
+
+    if has_protected_role(игрок):
+
+        await interaction.response.send_message("❌ Ошибка: вы не можете выдать варн администрации сервера.", ephemeral=True)
+
+        return
+
+    data = get_user_data(игрок.id)
+
+    current_warns = data['warns']
+
+    if current_warns >= 2:
+
+        await interaction.response.send_message(f"❌ У {игрок.display_name} уже {current_warns} предупреждения. Третий – через /snyat.", ephemeral=True)
+
+        return
+
+    new_warns = current_warns + 1
+
+    update_warns(игрок.id, new_warns)
+
+    role1 = interaction.guild.get_role(WARN_1_ROLE_ID)
+
+    role2 = interaction.guild.get_role(WARN_2_ROLE_ID)
+
+    role3 = interaction.guild.get_role(WARN_3_ROLE_ID)
+
+    if new_warns == 1:
+
+        if role1: await игрок.add_roles(role1, reason=f"Варн #{new_warns}")
+
+        if role2 and role2 in игрок.roles: await игрок.remove_roles(role2)
+
+        if role3 and role3 in игрок.roles: await игрок.remove_roles(role3)
+
+    elif new_warns == 2:
+
+        if role1 and role1 in игрок.roles: await игрок.remove_roles(role1)
+
+        if role2: await игрок.add_roles(role2, reason=f"Варн #{new_warns}")
+
+
+if not TOKEN:
+    raise RuntimeError("Не задан DISCORD_TOKEN. Добавь токен в переменные окружения хостинга.")
+
+bot.run(TOKEN)
