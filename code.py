@@ -28,9 +28,6 @@ SHOP_ITEMS = {
     "D.GLMODER": {"price": 900, "type": "kit"},
     "D.STMODER": {"price": 750, "type": "kit"},
     "D.MODER": {"price": 500, "type": "kit"},
-    "kit downer": {"price": 1500, "type": "kit"},
-    "kit toper":  {"price": 2500, "type": "kit"},
-    "kit dadmin": {"price": 1500, "type": "kit"},
     "WHITE": {"price": 5000, "type": "донат"},
     "RABBIT": {"price": 4500, "type": "донат"},
     "DHELPER": {"price": 4500, "type": "донат"},
@@ -39,12 +36,7 @@ SHOP_ITEMS = {
     "DRACULA": {"price": 3500, "type": "донат"},
     "BERSERK": {"price": 3500, "type": "донат"},
     "COBRA": {"price": 3000, "type": "донат"},
-    "White":   {"price": 5000, "type": "донат"},
-    "Sponsor": {"price": 6000, "type": "донат"},
-    "Rabbit":  {"price": 3000, "type": "донат"},
     "Dracula": {"price": 1000, "type": "донат"},
-    "Cobra":   {"price": 800,  "type": "донат"},
-    "God":     {"price": 2000, "type": "донат"},
     "Кейс «Всё или ничего»": {"price": 6000, "type": "кейс"},
     "Кейс с Супер Донатом": {"price": 4500, "type": "кейс"},
     "Кейс с Супер Риллами": {"price": 3000, "type": "кейс"},
@@ -309,9 +301,6 @@ async def shop(interaction: discord.Interaction):
     app_commands.Choice(name="D.GLMODER — 900 баллов", value="D.GLMODER"),
     app_commands.Choice(name="D.STMODER — 750 баллов", value="D.STMODER"),
     app_commands.Choice(name="D.MODER — 500 баллов", value="D.MODER"),
-    app_commands.Choice(name="kit downer (старое)", value="kit downer"),
-    app_commands.Choice(name="kit toper (старое)", value="kit toper"),
-    app_commands.Choice(name="kit dadmin (старое)", value="kit dadmin"),
 ])
 async def kit(interaction: discord.Interaction, name: app_commands.Choice[str]):
     await process_purchase(interaction, name.value)
@@ -328,12 +317,6 @@ async def kit(interaction: discord.Interaction, name: app_commands.Choice[str]):
     app_commands.Choice(name="DRACULA — 3500 баллов", value="DRACULA"),
     app_commands.Choice(name="BERSERK — 3500 баллов", value="BERSERK"),
     app_commands.Choice(name="COBRA — 3000 баллов", value="COBRA"),
-    app_commands.Choice(name="White (старое)", value="White"),
-    app_commands.Choice(name="Sponsor (старое)", value="Sponsor"),
-    app_commands.Choice(name="Rabbit (старое)", value="Rabbit"),
-    app_commands.Choice(name="Dracula (старое)", value="Dracula"),
-    app_commands.Choice(name="Cobra (старое)", value="Cobra"),
-    app_commands.Choice(name="God (старое)", value="God"),
 ])
 async def donat(interaction: discord.Interaction, name: app_commands.Choice[str]):
     await process_purchase(interaction, name.value)
