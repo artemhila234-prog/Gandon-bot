@@ -1451,9 +1451,12 @@ async def on_message(message):
 
                 proof = line.split(':', 1)[1].strip()
 
-            if low.startswith('1. твой никнейм:') or low.startswith('твой никнейм:') \\
-
-               or low.startswith('1. ник:') or low.startswith('ник:'):
+            if (
+                low.startswith('1. твой никнейм:')
+                or low.startswith('твой никнейм:')
+                or low.startswith('1. ник:')
+                or low.startswith('ник:')
+            ):
 
                 nick = line.split(':', 1)[1].strip()
 
