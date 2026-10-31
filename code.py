@@ -317,8 +317,10 @@ async def kit(interaction: discord.Interaction, name: app_commands.Choice[str]):
     app_commands.Choice(name="BERSERK — 3500 баллов", value="BERSERK"),
     app_commands.Choice(name="COBRA — 3000 баллов", value="COBRA"),
 ])
-async def donat(interaction: discord.Interaction, name: app_commands.Choice[str]):
-    await process_purchase(interaction, name.value)
+async def donat(interaction: discord.Interaction, name: str):
+    # Нормализуем старые значения команд, которые Discord может ещё отправлять из кэша.
+    normalized_name = name.strip().upper()
+    await process_purchase(interaction, normalized_name)
 
 # -------- /case --------
 @bot.tree.command(name="case", description="Купить кейс за баллы")
