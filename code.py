@@ -998,23 +998,29 @@ async def on_raw_reaction_add(payload):
 async def on_ready():
     print(f'Бот {bot.user} запущен!')
 
+    # Регистрируем команды только как серверные (guild commands).
+    # Старые глобальные команды удаляем ниже, чтобы Discord не показывал
+    # две версии каждой slash-команды одновременно.
     for guild_id in ALLOWED_GUILDS:
         guild = bot.get_guild(guild_id)
         if guild:
             try:
-                # Сначала удаляем старые зарегистрированные на сервере варианты slash-команд,
-                # затем публикуем актуальные определения из этого файла.
                 bot.tree.clear_commands(guild=guild)
                 await bot.tree.sync(guild=guild)
 
                 bot.tree.copy_global_to(guild=guild)
                 synced = await bot.tree.sync(guild=guild)
-                print(f'✅ Полностью обновлено {len(synced)} slash-команд на сервере {guild.name}')
-                for command in synced:
-                    if command.name in ("донат", "kit", "case", "услуга"):
-                        print(f'   /{command.name}: актуальные варианты опубликованы')
+                print(f'✅ Обновлено {len(synced)} серверных slash-команд на сервере {guild.name}')
             except Exception as e:
                 print(f'❌ Ошибка синхронизации на {guild_id}: {e}')
+
+    # Удаляем прежние глобальные регистрации. Серверные копии выше остаются.
+    try:
+        bot.tree.clear_commands(guild=None)
+        await bot.tree.sync()
+        print('✅ Старые глобальные slash-команды удалены — дубликатов больше не будет.')
+    except Exception as e:
+        print(f'❌ Ошибка удаления глобальных команд: {e}')
 
     await bot.change_presence(activity=discord.Game(name='/shop | модерация'))
 
