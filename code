@@ -1753,4 +1753,7 @@ async def on_ready():
 
     await bot.change_presence(activity=discord.Game(name='/shop | модерация'))
 
+if not TOKEN:
+    raise RuntimeError("Не задан DISCORD_TOKEN. Добавь токен в переменные окружения хостинга.")
+
 bot.run(TOKEN)
