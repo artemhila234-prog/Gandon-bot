@@ -327,10 +327,7 @@ def save_pending_request(request_type, user_id, data):
 
 
 def load_pending_requests(request_type):
-    cursor.execute(
-        "SELECT user_id, data FROM pending_requests WHERE request_type = ?",
-        (request_type,)
-    )
+    cursor.execute("SELECT user_id, data FROM pending_requests WHERE request_type = ?", (request_type,))
     loaded = {}
     for user_id, raw_data in cursor.fetchall():
         try:
@@ -341,20 +338,14 @@ def load_pending_requests(request_type):
 
 
 def delete_pending_request(request_type, user_id):
-    cursor.execute(
-        "DELETE FROM pending_requests WHERE request_type = ? AND user_id = ?",
-        (request_type, user_id)
-    )
+    cursor.execute("DELETE FROM pending_requests WHERE request_type = ? AND user_id = ?", (request_type, user_id))
     conn.commit()
 
 
 def complete_points_request(user_id, points):
     try:
         cursor.execute("BEGIN IMMEDIATE")
-        cursor.execute(
-            "SELECT 1 FROM pending_requests WHERE request_type = 'points' AND user_id = ?",
-            (user_id,)
-        )
+        cursor.execute("SELECT 1 FROM pending_requests WHERE request_type = 'points' AND user_id = ?", (user_id,))
         if cursor.fetchone() is None:
             conn.rollback()
             return None
@@ -364,10 +355,7 @@ def complete_points_request(user_id, points):
                ON CONFLICT(user_id) DO UPDATE SET balance = balance + excluded.balance""",
             (user_id, points)
         )
-        cursor.execute(
-            "DELETE FROM pending_requests WHERE request_type = 'points' AND user_id = ?",
-            (user_id,)
-        )
+        cursor.execute("DELETE FROM pending_requests WHERE request_type = 'points' AND user_id = ?", (user_id,))
         cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
         balance = cursor.fetchone()[0]
         conn.commit()
@@ -897,8 +885,872 @@ async def warn(interaction: discord.Interaction, игрок: discord.Member, п�
 
         if role2: await игрок.add_roles(role2, reason=f"Варн #{new_warns}")
 
+    time_str = get_msk_time_str()
 
-if not TOKEN:
-    raise RuntimeError("Не задан DISCORD_TOKEN. Добавь токен в переменные окружения хостинга.")
+    embed = discord.Embed(
+
+        title="⚠️ Выдан варн!",
+
+        color=0xFFA500,
+
+        description=f"Игроку {игрок.mention} выдан варн!\n"
+
+                    f"**Причина:** {причина}\n**Выдан варн:** Warn {new_warns}/3",
+
+        timestamp=datetime.now(MSK)
+
+    )
+
+    embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
+
+    await interaction.response.send_message(embed=embed)
+# -------- /unwarn --------
+@bot.tree.command(name="unwarn", description="Снять одно предупреждение с игрока")
+
+@app_commands.describe(игрок="Игрок, у которого снимается предупреждение", причина="Причина снятия")
+
+async def unwarn(interaction: discord.Interaction, игрок: discord.Member, причина: str):
+
+    if not is_allowed_guild(interaction):
+
+        await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
+
+        return
+
+    if not is_moderator(interaction.user):
+
+        await interaction.response.send_message("❌ У вас нет прав.", ephemeral=True)
+
+        return
+
+    data = get_user_data(игрок.id)
+
+    current_warns = data['warns']
+
+    if current_warns <= 0:
+
+        await interaction.response.send_message(f"❌ У игрока **{игрок.display_name}** нет предупреждений.", ephemeral=True)
+
+        return
+
+    new_warns = current_warns - 1
+
+    update_warns(игрок.id, new_warns)
+
+    role1 = interaction.guild.get_role(WARN_1_ROLE_ID)
+
+    role2 = interaction.guild.get_role(WARN_2_ROLE_ID)
+
+    role3 = interaction.guild.get_role(WARN_3_ROLE_ID)
+
+    if role1 and role1 in игрок.roles: await игрок.remove_roles(role1)
+
+    if role2 and role2 in игрок.roles: await игрок.remove_roles(role2)
+
+    if role3 and role3 in игрок.roles: await игрок.remove_roles(role3)
+
+    if new_warns == 1:
+
+        if role1: await игрок.add_roles(role1, reason="Снят варн, осталось 1")
+
+    elif new_warns == 2:
+
+        if role2: await игрок.add_roles(role2, reason="Снят варн, осталось 2")
+
+    time_str = get_msk_time_str()
+
+    embed = discord.Embed(
+
+        title="✅ Снят варн!",
+
+        color=0x2ECC71,
+
+        description=f"Игроку {игрок.mention} снят варн!\n**Причина:** {причина}",
+
+        timestamp=datetime.now(MSK)
+
+    )
+
+    embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
+
+    await interaction.response.send_message(embed=embed)
+# -------- /snyat --------
+@bot.tree.command(name="snyat", description="Снять игрока (Warn 3/3 + кик + удаление личного канала)")
+
+@app_commands.describe(игрок="Игрок, которого нужно снять", причина="Причина снятия")
+
+async def snyat(interaction: discord.Interaction, игрок: discord.Member, причина: str):
+
+    if not is_allowed_guild(interaction):
+
+        await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
+
+        return
+
+    if not is_moderator(interaction.user):
+
+        await interaction.response.send_message("❌ У вас нет прав.", ephemeral=True)
+
+        return
+
+    if игрок == interaction.user:
+
+        await interaction.response.send_message("❌ Нельзя снять самого себя.", ephemeral=True)
+
+        return
+
+    if игрок == interaction.guild.owner:
+
+        await interaction.response.send_message("❌ Нельзя снять владельца сервера.", ephemeral=True)
+
+        return
+
+    if has_protected_role(игрок):
+
+        await interaction.response.send_message("❌ Ошибка: вы не можете выдать варн администрации сервера.", ephemeral=True)
+
+        return
+
+    update_warns(игрок.id, 3)
+
+    role1 = interaction.guild.get_role(WARN_1_ROLE_ID)
+
+    role2 = interaction.guild.get_role(WARN_2_ROLE_ID)
+
+    role3 = interaction.guild.get_role(WARN_3_ROLE_ID)
+
+    if role1 and role1 in игрок.roles: await игрок.remove_roles(role1)
+
+    if role2 and role2 in игрок.roles: await игрок.remove_roles(role2)
+
+    if role3: await игрок.add_roles(role3, reason=f"Снят через /snyat: {причина}")
+
+    channel_id = get_personal_channel(игрок.id)
+
+    if channel_id:
+
+        channel = interaction.guild.get_channel(channel_id)
+
+        if channel:
+
+            try: await channel.delete(reason=f"Удаление личного канала {игрок.display_name}")
+
+            except: pass
+
+        cursor.execute('UPDATE users SET personal_channel_id = NULL WHERE user_id = ?', (игрок.id,))
+
+        conn.commit()
+
+    try:
+
+        await игрок.kick(reason=f"Снят через /snyat от {interaction.user.display_name}: {причина}")
+
+        time_str = get_msk_time_str()
+
+        embed = discord.Embed(
+
+            title="🚫 Снят с Команды Проекта!",
+
+            color=0xE74C3C,
+
+            description=f"Игрок {игрок.mention} снят с Команды Проекта!\n**Причина:** {причина}",
+
+            timestamp=datetime.now(MSK)
+
+        )
+
+        embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
+
+        await interaction.response.send_message(embed=embed)
+
+    except discord.Forbidden:
+
+        await interaction.response.send_message("❌ У меня недостаточно прав для кика.", ephemeral=True)
+
+    except discord.HTTPException:
+
+        await interaction.response.send_message("❌ Ошибка при кике.", ephemeral=True)
+# ================== !принят (верификация) ==================
+@bot.command(name='принят')
+
+async def accept(ctx):
+
+    if not ctx.message.reference:
+
+        await ctx.send("❌ Вы должны ответить на сообщение игрока с заявкой.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    try:
+
+        original_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+
+    except:
+
+        await ctx.send("❌ Не удалось найти исходное сообщение.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    if ctx.channel.id != JOIN_CHANNEL_ID:
+
+        await ctx.send("❌ Эта команда работает только в канале вступления.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    author = ctx.author
+
+    if not has_verification_role(author):
+
+        await ctx.send("❌ У вас нет прав принимать заявки на вступление.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    if original_msg.author.bot or original_msg.author == author:
+
+        await ctx.send("❌ Нельзя принять сообщение от бота или самого себя.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    for reaction in original_msg.reactions:
+
+        if str(reaction.emoji) == '✅':
+
+            await ctx.send("❌ Этот игрок уже принят.", delete_after=10)
+
+            await ctx.message.delete(delay=10)
+
+            return
+
+    member = original_msg.author
+
+    app_data = pending_apps.get(member.id)
+
+    if not app_data:
+
+        await ctx.send("⚠️ Данные заявки не найдены.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    nick = app_data['nick']
+
+    position = app_data['position']
+
+
+    await original_msg.clear_reaction('🕐')
+
+    await original_msg.add_reaction('✅')
+
+    new_nick = f"{nick} | {position}"
+
+    if len(new_nick) > 32: new_nick = new_nick[:32]
+
+    try:
+
+        await member.edit(nick=new_nick, reason=f"Принят от {author.display_name}")
+
+    except Exception as e:
+
+        await ctx.send(f"⚠️ Не удалось изменить никнейм: {e}", delete_after=10)
+
+    roles_to_add = [ctx.guild.get_role(rid) for rid in ROLES_TO_GIVE if ctx.guild.get_role(rid)]
+
+    if roles_to_add:
+
+        try:
+
+            await member.add_roles(*roles_to_add, reason=f"Принят от {author.display_name}")
+
+        except discord.Forbidden:
+
+            await ctx.send("❌ Недостаточно прав для выдачи ролей.")
+
+            return
+
+    category = ctx.guild.get_channel(CATEGORY_ID) if CATEGORY_ID else None
+
+    channel_name = nick.lower()
+
+    overwrites = {
+
+        ctx.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+
+        member: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True, embed_links=True),
+
+        ctx.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True),
+
+    }
+
+    for role_id in STAFF_ROLES:
+
+        role = ctx.guild.get_role(role_id)
+
+        if role:
+
+            overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+
+    try:
+
+        existing_channel_id = get_personal_channel(member.id)
+        channel = ctx.guild.get_channel(existing_channel_id) if existing_channel_id else None
+        if channel is None:
+            channel = await ctx.guild.create_text_channel(
+                channel_name, category=category, overwrites=overwrites,
+                reason=f"Личный канал для {member.display_name}"
+            )
+            set_personal_channel(member.id, channel.id)
+
+        await channel.send(
+
+            f"Привет, {member.mention}! ты попал в Команду Медиа.\n"
+
+            "В этом канале ты обязан оставлять свою недельную норму.\n"
+
+            "Так же в этом канале ты можешь залить свои видео для получения баллов, форма для этого будет ниже.\n"
+
+            "Так же тебя есть такая команда как:\n"
+
+            "/**balance** - это команда которая показывает твой баланс баллов, за них ты сможешь купить что-то в балловом магазине.\n"
+
+            "Так же в этом же канале ты производишь покупки различных товаров с баллового магазина.\n"
+
+            "Удачной работы!\n\n"
+
+            "Все формы -\n\n"
+
+            "**Недельная норма**:\n"
+
+            "1. Твой никнейм: (твой игровой никнейм)\n"
+
+            "2. Ссылки на ролики которые ты сделал: (ссылки)\n\n"
+
+            "**Получение баллов**:\n"
+
+            "1. Твой никнейм: (твой ник в игре)\n"
+
+            "2. Сколько ты хочешь получить балов: (количество)\n"
+
+            "3. Ссылка на ролик: (ссылка)\n\n"
+
+            "**Покупка за баллы**:\n"
+
+            "1. Твой никнейм: (твой ник в игре)\n"
+
+            "2. Что хочешь купить: (товар)"
+
+        )
+
+        await ctx.send(f"✅ {member.mention} принят! Создан личный канал {channel.mention}.")
+        try:
+            await original_msg.clear_reaction('🕐')
+            await original_msg.add_reaction('✅')
+        except discord.HTTPException as reaction_error:
+            print(f"Не удалось обновить реакции заявки {original_msg.id}: {reaction_error}")
+        delete_pending_request("join", member.id)
+        pending_apps.pop(member.id, None)
+
+    except discord.Forbidden:
+
+        await ctx.send("❌ У меня недостаточно прав для создания каналов.")
+
+        return
+
+    except Exception as e:
+
+        await ctx.send(f"❌ Ошибка при создании канала: {e}")
+
+        return
+
+    await ctx.message.delete()
+# ================== !принято (заявки на баллы) ==================
+@bot.command(name='принято')
+
+async def accept_points(ctx):
+
+    if not ctx.message.reference:
+
+        await ctx.send("❌ Вы должны ответить на сообщение с заявкой на баллы.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    try:
+
+        original_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
+
+    except:
+
+        await ctx.send("❌ Не удалось найти исходное сообщение.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    if not is_personal_channel(ctx.channel):
+
+        await ctx.send("❌ Эта команда работает только в личных каналах игроков.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    author = ctx.author
+
+    if not has_points_role(author):
+
+        await ctx.send("❌ У вас нет прав принимать заявки на баллы.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    if original_msg.author.bot or original_msg.author == author:
+
+        await ctx.send("❌ Нельзя принять сообщение от бота или самого себя.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    for reaction in original_msg.reactions:
+
+        if str(reaction.emoji) == '✅':
+
+            await ctx.send("❌ Эта заявка уже одобрена.", delete_after=10)
+
+            await ctx.message.delete(delay=10)
+
+            return
+
+    member = original_msg.author
+
+    app_data = pending_points.get(member.id)
+
+    if not app_data:
+
+        await ctx.send("⚠️ Данные заявки не найдены.", delete_after=10)
+
+        await ctx.message.delete(delay=10)
+
+        return
+
+    points = app_data['points']
+
+    new_balance = complete_points_request(member.id, points)
+    if new_balance is None:
+        await ctx.send("⚠️ Эта заявка уже обработана или больше не найдена.", delete_after=10)
+        await ctx.message.delete(delay=10)
+        return
+    pending_points.pop(member.id, None)
+
+
+    try:
+
+        await original_msg.clear_reaction('🕐')
+
+    except:
+
+        pass
+
+    await original_msg.add_reaction('✅')
+
+
+    time_str = get_msk_time_str()
+
+    embed = discord.Embed(
+
+        title="✅ Заявка одобрена!",
+
+        color=0x2ECC71,
+
+        description=f"Игроку {member.mention} начислено **{points}** баллов.\n"
+
+                    f"**Текущий баланс:** {new_balance} баллов.\n"
+
+                    f"**Одобрил:** {author.mention}",
+
+        timestamp=datetime.now(MSK)
+
+    )
+
+    embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
+
+    await ctx.send(embed=embed)
+
+    await ctx.message.delete()
+# ================== ON_MESSAGE ==================
+@bot.event
+
+async def on_message(message):
+
+    if message.author.bot:
+
+        return
+
+    if message.guild is None or message.guild.id not in ALLOWED_GUILDS:
+
+        return
+# ---------- ЛИЧНЫЕ КАНАЛЫ ----------
+    if is_personal_channel(message.channel):
+
+        if message.content.startswith('!'):
+
+            await bot.process_commands(message)
+
+            return
+
+        lines = message.content.split('\n')
+
+        ban_number = None
+
+        mute_number = None
+
+        proof = None
+
+        nick = None
+
+        points = None
+
+        link = None
+
+        for line in lines:
+
+            line = line.strip()
+
+            if not line:
+
+                continue
+
+            low = line.lower()
+
+            if low.startswith('номер бана:'):
+
+                try: ban_number = int(line.split(':', 1)[1].strip())
+
+                except: pass
+
+            elif low.startswith('номер мута:'):
+
+                try: mute_number = int(line.split(':', 1)[1].strip())
+
+                except: pass
+
+            elif low.startswith('доказательства:'):
+
+                proof = line.split(':', 1)[1].strip()
+
+            if low.startswith('1. твой никнейм:') or low.startswith('твой никнейм:') \\
+
+               or low.startswith('1. ник:') or low.startswith('ник:'):
+
+                nick = line.split(':', 1)[1].strip()
+
+            elif (low.startswith('2. сколько ты хочешь получить балов:') or
+
+                  low.startswith('сколько ты хочешь получить балов:') or
+
+                  low.startswith('2. сколько ты хочешь получить баллов:') or
+
+                  low.startswith('сколько ты хочешь получить баллов:')):
+
+                try:
+
+                    points = int(line.split(':', 1)[1].strip())
+
+                except:
+
+                    points = None
+
+            elif (low.startswith('3. ссылка на ролик:') or
+
+                  low.startswith('ссылка на ролик:') or
+
+                  low.startswith('3. ссылка:') or
+
+                  low.startswith('ссылка:')):
+
+                link = line.split(':', 1)[1].strip()
+# ---- ОТЧЁТ ----
+        if ban_number is not None and mute_number is not None and proof:
+
+            embed = discord.Embed(
+
+                title="📋 Новый отчёт",
+
+                color=discord.Color.blue(),
+
+                description=f"**Автор:** {message.author.mention}\n"
+
+                            f"**Номер бана:** {ban_number}\n"
+
+                            f"**Номер мута:** {mute_number}\n"
+
+                            f"**Доказательства:** {proof}"
+
+            )
+
+            embed.set_footer(text="Нажмите ✅ для одобрения или ❌ для отклонения")
+
+            msg = await message.channel.send(embed=embed)
+
+            await msg.add_reaction('✅')
+
+            await msg.add_reaction('❌')
+
+            add_report(msg.id, message.author.id, ban_number, mute_number, proof)
+
+            await message.delete()
+
+            await message.channel.send(f"✅ Отчёт от {message.author.mention} принят!", delete_after=5)
+
+            return
+# ---- ЗАЯВКА НА БАЛЛЫ ----
+        if nick and points is not None and link:
+
+            request_data = {'nick': nick, 'points': points, 'link': link}
+            pending_points[message.author.id] = request_data
+            save_pending_request('points', message.author.id, request_data)
+
+            await message.add_reaction('🕐')
+
+            mentions = []
+
+            for role_id in APPROVER_POINTS_ROLE_IDS:
+
+                role = message.guild.get_role(role_id)
+
+                if role:
+
+                    mentions.append(role.mention)
+
+            if mentions:
+
+                roles_text = " ".join(mentions)
+
+                await message.channel.send(
+
+                    f"{roles_text}, игрок {message.author.mention} подал заявку на **{points}** баллов.\n"
+
+                    f"Напиши **!принято** ответом на его сообщение, чтобы начислить баллы."
+
+                )
+
+            else:
+
+                await message.channel.send(
+
+                    f"⚠️ Роли для заявок на баллы не найдены.\n"
+
+                    f"Игрок {message.author.mention} ждёт одобрения. Напиши **!принято**."
+
+                )
+
+            return
+
+        return
+# ---------- ЗАЯВКИ НА ВСТУПЛЕНИЕ ----------
+    if message.channel.id == JOIN_CHANNEL_ID:
+
+        if message.content.startswith('!'):
+
+            await bot.process_commands(message)
+
+            return
+
+        lines = message.content.split('\n')
+
+        nick = None
+
+        position = None
+
+        age = None
+
+        for line in lines:
+
+            line = line.strip()
+
+            if not line or line.lower().startswith('форма заявки'):
+
+                continue
+
+            if line.lower().startswith('1. ник:') or line.lower().startswith('ник:'):
+
+                nick = line.split(':', 1)[1].strip()
+
+            elif line.lower().startswith('2. должность:') or line.lower().startswith('должность:'):
+
+                position = line.split(':', 1)[1].strip()
+
+            elif line.lower().startswith('3. возраст:') or line.lower().startswith('возраст:'):
+
+                age = line.split(':', 1)[1].strip()
+
+        if nick and position and age:
+
+            request_data = {'nick': nick, 'position': position, 'age': age}
+            pending_apps[message.author.id] = request_data
+            save_pending_request('join', message.author.id, request_data)
+
+            await message.add_reaction('🕐')
+
+            approver_role = message.guild.get_role(APPROVER_ROLE_ID)
+
+            if approver_role:
+
+                await message.channel.send(
+
+                    f"{approver_role.mention}, игрок {message.author.mention} ждёт твоего одобрения.\n"
+
+                    f"Напиши **!принят** ответом на его сообщение."
+
+                )
+
+            else:
+
+                await message.channel.send(
+
+                    f"⚠️ Роль для верификации не найдена.\nИгрок {message.author.mention} ждёт одобрения. Напиши **!принят**."
+
+                )
+
+        else:
+
+            await message.channel.send(
+
+                "❌ Неверный формат заявки. Используйте:\n"
+
+                "`1. Ник: ...`\n`2. Должность: ...`\n`3. Возраст: ...`",
+
+                delete_after=10
+
+            )
+
+            await message.delete(delay=10)
+
+        return
+
+    await bot.process_commands(message)
+# ================== РЕАКЦИИ ==================
+@bot.event
+
+async def on_raw_reaction_add(payload):
+
+    if payload.user_id == bot.user.id:
+
+        return
+
+    report = get_report(payload.message_id)
+
+    if not report:
+
+        return
+
+    author_id, ban_number, mute_number, approved = report
+
+    if approved:
+
+        return
+
+    if not is_personal_channel(payload.channel_id):
+
+        return
+
+    emoji = str(payload.emoji)
+
+    if emoji not in ('✅', '❌'):
+
+        return
+
+    guild = bot.get_guild(payload.guild_id)
+
+    if not guild: return
+
+    member = guild.get_member(payload.user_id)
+
+    if not member: return
+
+    if not is_moderator(member): return
+
+    channel = guild.get_channel(payload.channel_id)
+
+    if not channel: return
+
+    try:
+
+        msg = await channel.fetch_message(payload.message_id)
+
+    except: return
+
+    embed = msg.embeds[0] if msg.embeds else discord.Embed()
+
+    embed.color = discord.Color.green() if emoji == '✅' else discord.Color.red()
+
+    if emoji == '✅':
+
+        points = 0
+
+        if ban_number > 0: points += 10
+
+        if mute_number > 0: points += 5
+
+        if points > 0:
+
+            update_balance(author_id, points)
+
+            approve_report(payload.message_id)
+
+            embed.add_field(name="✅ Статус", value=f"Одобрено {member.mention}\nНачислено {points} баллов.", inline=False)
+
+        else:
+
+            approve_report(payload.message_id)
+
+            embed.add_field(name="✅ Статус", value=f"Одобрено {member.mention} (без баллов)", inline=False)
+
+    else:
+
+        embed.add_field(name="❌ Статус", value=f"Отклонено {member.mention}", inline=False)
+
+    await msg.edit(embed=embed)
+
+    await msg.clear_reactions()
+# ================== ЗАПУСК ==================
+@bot.event
+
+async def on_ready():
+
+    print(f'Бот {bot.user} запущен!')
+
+    for guild_id in ALLOWED_GUILDS:
+
+        guild = bot.get_guild(guild_id)
+
+        if guild:
+
+            try:
+
+                bot.tree.copy_global_to(guild=guild)
+
+                synced = await bot.tree.sync(guild=guild)
+
+                print(f'✅ Синхронизировано {len(synced)} команд на сервере {guild.name}')
+
+            except Exception as e:
+
+                print(f'❌ Ошибка синхронизации на {guild_id}: {e}')
+
+    await bot.change_presence(activity=discord.Game(name='/shop | модерация'))
 
 bot.run(TOKEN)
