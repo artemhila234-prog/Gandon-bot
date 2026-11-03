@@ -1298,6 +1298,22 @@ def write_audit_log(title, details, guild_id=None):
     """Отправляет аккуратный Embed в Discord; подробности уже сохраняются в latest.log."""
     safe_details = str(details)
 
+    # Сохраняем аудит в latest.log, но не дублируем его в видимой консоли хостинга.
+    timestamp = datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S")
+    console_stream = sys.stdout
+    if hasattr(console_stream, "log_file"):
+        log_line = f"[AUDIT] {title} {safe_details}"
+        lock = getattr(console_stream, "lock", None)
+        if lock:
+            with lock:
+                for line in log_line.splitlines() or [log_line]:
+                    console_stream.log_file.write(f"[{timestamp}] {line}\n")
+                console_stream.log_file.flush()
+        else:
+            for line in log_line.splitlines() or [log_line]:
+                console_stream.log_file.write(f"[{timestamp}] {line}\n")
+            console_stream.log_file.flush()
+
     if bot.user is None:
         return
     channel = bot.get_channel(AUDIT_LOG_CHANNEL_ID)
