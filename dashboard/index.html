@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d0e14">
+  <title>WhiteGrief Control Panel</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#" aria-label="WhiteGrief Control Panel">
+        <span class="brand-mark">W</span>
+        <span><strong>WHITEGRIEF</strong><small>CONTROL PANEL</small></span>
+      </a>
+      <div class="server-card">
+        <div class="server-avatar">WG</div>
+        <div class="server-info"><strong>WhiteGrief</strong><span>Discord Bot</span></div>
+        <span class="server-dot"></span>
+      </div>
+      <div class="nav-label">ОБЗОР</div>
+      <nav class="nav-list" aria-label="Главная навигация">
+        <button class="nav-item active" data-page="dashboard"><span class="nav-icon">▦</span>Главная</button>
+      </nav>
+      <div class="nav-label">УПРАВЛЕНИЕ</div>
+      <nav class="nav-list">
+        <button class="nav-item" data-page="players"><span class="nav-icon">♙</span>Игроки</button>
+        <button class="nav-item" data-page="requests"><span class="nav-icon">▤</span>Заявки</button>
+        <button class="nav-item" data-page="shop"><span class="nav-icon">◇</span>Магазин</button>
+        <button class="nav-item" data-page="messages"><span class="nav-icon">✉</span>Сообщения</button>
+      </nav>
+      <div class="nav-label">СИСТЕМА</div>
+      <nav class="nav-list">
+        <button class="nav-item" data-page="logs"><span class="nav-icon">≋</span>Логи</button>
+        <button class="nav-item" data-page="console"><span class="nav-icon">⌘</span>Консоль</button>
+        <button class="nav-item" data-page="settings"><span class="nav-icon">⚙</span>Настройки</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="connection-line"><span class="pulse"></span><span>Ожидание подключения API</span></div>
+        <div class="user-card"><div class="user-avatar">A</div><div><strong>Администратор</strong><small>Доступ не подтверждён</small></div><span class="more">···</span></div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <button class="icon-button menu-button" id="menuButton" aria-label="Открыть меню">☰</button>
+        <div class="breadcrumbs"><span>WhiteGrief</span><b>/</b><strong id="breadcrumb">Главная</strong></div>
+        <div class="top-actions"><span class="environment"><i></i> WEB PANEL</span><button class="icon-button" title="Уведомления">♧</button><div class="top-avatar">A</div></div>
+      </header>
+
+      <section class="page-content" id="pageContent">
+        <div class="page-heading">
+          <div><div class="eyebrow">CONTROL CENTER <span>•</span> OVERVIEW</div><h1>Панель управления</h1><p>Добро пожаловать в центр управления WhiteGrief.</p></div>
+          <div class="heading-date"><span class="live-dot"></span> Панель создана · API не подключён</div>
+        </div>
+
+        <div class="notice">
+          <div class="notice-icon">✦</div>
+          <div><strong>Первый запуск панели</strong><p>Интерфейс готовится к подключению. Сейчас показатели не загружаются из бота и не являются реальными данными.</p></div>
+          <span class="notice-tag">SETUP</span>
+        </div>
+
+        <div class="section-title"><div><h2>Обзор сервера</h2><p>Основные показатели WhiteGrief</p></div><span class="muted-label">НЕТ ДАННЫХ</span></div>
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-top"><span>Состояние бота</span><span class="stat-icon purple">⌁</span></div><div class="stat-value">—</div><div class="stat-foot"><span class="status-wait">● Не подключён</span><span>Discord Gateway</span></div></article>
+          <article class="stat-card"><div class="stat-top"><span>Участники</span><span class="stat-icon blue">♙</span></div><div class="stat-value">—</div><div class="stat-foot"><span>Ожидание API</span><span>Сервер</span></div></article>
+          <article class="stat-card"><div class="stat-top"><span>Ожидают заявки</span><span class="stat-icon orange">▤</span></div><div class="stat-value">—</div><div class="stat-foot"><span>Ожидание API</span><span>Медиа</span></div></article>
+          <article class="stat-card"><div class="stat-top"><span>Выдано баллов</span><span class="stat-icon green">✧</span></div><div class="stat-value">—</div><div class="stat-foot"><span>Ожидание API</span><span>Экономика</span></div></article>
+        </div>
+
+        <div class="content-grid">
+          <section class="panel activity-panel"><div class="panel-heading"><div><h2>Последние события</h2><p>Активность бота в реальном времени</p></div><button class="text-button" data-go="logs">Все логи ↗</button></div><div class="empty-state"><div class="empty-icon">≋</div><strong>Пока нет событий</strong><p>Здесь появятся действия игроков и события Discord после подключения API.</p></div></section>
+          <section class="panel status-panel"><div class="panel-heading"><div><h2>Система</h2><p>Состояние компонентов</p></div></div><div class="system-row"><span class="system-symbol">◈</span><div><strong>Discord Bot</strong><small>Связь ещё не настроена</small></div><span class="pill pending">Ожидание</span></div><div class="system-row"><span class="system-symbol">▣</span><div><strong>База данных</strong><small>Подключим SQLite бота</small></div><span class="pill pending">Ожидание</span></div><div class="system-row"><span class="system-symbol">⌁</span><div><strong>Audit Logger</strong><small>latest.log · audit.log</small></div><span class="pill pending">Ожидание</span></div><div class="system-row"><span class="system-symbol">⌘</span><div><strong>Hosting Console</strong><small>Нужна интеграция хостинга</small></div><span class="pill pending">Ожидание</span></div></section>
+        </div>
+
+        <div class="section-title quick-title"><div><h2>Быстрый доступ</h2><p>Основные разделы панели</p></div></div>
+        <div class="quick-grid">
+          <button class="quick-card" data-go="players"><span class="quick-icon blue">♙</span><span><strong>Игроки</strong><small>Баллы, варны и роли</small></span><b>↗</b></button>
+          <button class="quick-card" data-go="requests"><span class="quick-icon orange">▤</span><span><strong>Заявки</strong><small>Проверка и одобрение</small></span><b>↗</b></button>
+          <button class="quick-card" data-go="shop"><span class="quick-icon green">◇</span><span><strong>Магазин</strong><small>Товары и стоимость</small></span><b>↗</b></button>
+          <button class="quick-card" data-go="console"><span class="quick-icon purple">⌘</span><span><strong>Консоль</strong><small>Команды и вывод</small></span><b>↗</b></button>
+        </div>
+        <footer>WHITEGRIEF CONTROL PANEL <span>•</span> DEVELOPMENT BUILD</footer>
+      </section>
+    </main>
+  </div>
+  <div class="mobile-overlay" id="overlay"></div>
+  <script src="app.js"></script>
+</body>
+</html>
