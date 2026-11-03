@@ -914,8 +914,14 @@ async def accept_points(ctx):
 # ================== ON_MESSAGE ==================
 @bot.event
 async def on_message(message):
-    # Красивый потоковый просмотр сообщений в консоли Bot-Hosting.
-    if message.guild is not None and message.guild.id in ALLOWED_GUILDS:
+    # Красивый потоковый просмотр обычных текстовых сообщений в консоли Bot-Hosting.
+    # Embed-панели и сообщения без текста/вложений в монитор не выводим.
+    if (
+        message.guild is not None
+        and message.guild.id in ALLOWED_GUILDS
+        and not message.embeds
+        and (message.content.strip() or message.attachments)
+    ):
         reset = "\033[0m"
         cyan = "\033[96m"
         purple = "\033[95m"
@@ -923,18 +929,21 @@ async def on_message(message):
         gray = "\033[90m"
         channel_name = getattr(message.channel, "name", "unknown-channel")
         author_name = getattr(message.author, "display_name", message.author.name)
+        author_type = "БОТ" if message.author.bot else "ИГРОК"
+        author_color = green if message.author.bot else purple
         timestamp = message.created_at.astimezone(MSK).strftime("%H:%M:%S")
-        content = message.content.strip() or "[сообщение без текста]"
+        content = message.content.strip()
         border = "╔" + "═" * 68 + "╗"
         bottom = "╚" + "═" * 68 + "╝"
-        print(f"\n{cyan}{border}{reset}", flush=True)
+        print(f"\\n{cyan}{border}{reset}", flush=True)
         print(f"{cyan}║{reset} {purple}WHITEGRIEF • LIVE CHAT{reset} {gray}{timestamp}{reset}", flush=True)
         print(f"{cyan}╠" + "═" * 68 + f"╣{reset}", flush=True)
         print(f"{cyan}║{reset} Канал: {green}#{channel_name}{reset}  {gray}(ID: {message.channel.id}){reset}", flush=True)
-        print(f"{cyan}║{reset} Игрок: {purple}{author_name}{reset}  {gray}(ID: {message.author.id}){reset}", flush=True)
+        print(f"{cyan}║{reset} {author_type}: {author_color}{author_name}{reset}  {gray}(ID: {message.author.id}){reset}", flush=True)
         print(f"{cyan}╟" + "─" * 68 + f"╢{reset}", flush=True)
-        for line in content.splitlines() or ["[сообщение без текста]"]:
-            print(f"{cyan}║{reset} {line}", flush=True)
+        if content:
+            for line in content.splitlines():
+                print(f"{cyan}║{reset} {line}", flush=True)
         for attachment in message.attachments:
             print(f"{cyan}║{reset} 📎 {attachment.filename}: {attachment.url}", flush=True)
         print(f"{cyan}{bottom}{reset}", flush=True)
