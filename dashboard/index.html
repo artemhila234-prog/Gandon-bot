@@ -38,7 +38,7 @@
       </nav>
       <div class="sidebar-bottom">
         <div class="connection-line"><span class="pulse"></span><span>Ожидание подключения API</span></div>
-        <div class="user-card"><div class="user-avatar">A</div><div><strong>Администратор</strong><small>Доступ не подтверждён</small></div><span class="more">···</span></div>
+        <div class="user-card"><div class="user-avatar" id="sideAvatar">?</div><div><strong id="sideUserName">Гость</strong><small id="sideUserAccess">Вход не выполнен</small></div><span class="more">···</span></div>
       </div>
     </aside>
 
@@ -46,7 +46,7 @@
       <header class="topbar">
         <button class="icon-button menu-button" id="menuButton" aria-label="Открыть меню">☰</button>
         <div class="breadcrumbs"><span>WhiteGrief</span><b>/</b><strong id="breadcrumb">Главная</strong></div>
-        <div class="top-actions"><span class="environment"><i></i> WEB PANEL</span><button class="icon-button" title="Уведомления">♧</button><div class="top-avatar">A</div></div>
+        <div class="top-actions"><span class="environment"><i></i> WEB PANEL</span><span id="authBadge" class="auth-badge">НЕ АВТОРИЗОВАН</span><a class="login-button" id="loginButton" href="/auth/login">Войти через Discord</a><button class="icon-button" id="logoutButton" title="Выйти" hidden>↪</button><div class="top-avatar" id="topAvatar">?</div></div>
       </header>
 
       <section class="page-content" id="pageContent">
