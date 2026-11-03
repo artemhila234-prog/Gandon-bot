@@ -29,3 +29,54 @@ document.querySelectorAll("[data-go]").forEach(button=>button.addEventListener("
 document.getElementById("menuButton").addEventListener("click",()=>{sidebar.classList.toggle("open");overlay.classList.toggle("show")});
 overlay.addEventListener("click",closeMenu);
 // The dashboard is a static first-stage shell. No fake metrics or live bot actions are exposed.
+
+
+// Discord session and access display. Authorization decisions are made by the backend.
+const loginButton=document.getElementById("loginButton");
+const logoutButton=document.getElementById("logoutButton");
+const authBadge=document.getElementById("authBadge");
+const sideUserName=document.getElementById("sideUserName");
+const sideUserAccess=document.getElementById("sideUserAccess");
+const topAvatar=document.getElementById("topAvatar");
+const sideAvatar=document.getElementById("sideAvatar");
+const accessLabels={none:"Нет класса доступа",viewer:"Наблюдатель",media:"Media",manager:"Менеджер",admin:"Администратор",owner:"Владелец"};
+function avatarLetter(name){return (name||"?").trim().slice(0,1).toUpperCase()}
+async function loadSession(){
+  try{
+    const response=await fetch("/api/me",{credentials:"same-origin"});
+    const data=await response.json();
+    if(!data.authenticated){
+      authBadge.textContent="НЕ АВТОРИЗОВАН";
+      sideUserName.textContent="Гость";
+      sideUserAccess.textContent="Вход не выполнен";
+      return;
+    }
+    const user=data.user;
+    const letter=avatarLetter(user.username);
+    authBadge.textContent="DISCORD ПОДКЛЮЧЁН";
+    authBadge.classList.add("authenticated");
+    loginButton.hidden=true;
+    logoutButton.hidden=false;
+    sideUserName.textContent=user.username;
+    sideUserAccess.textContent=accessLabels[user.access_level]||"Нет доступа";
+    topAvatar.textContent=letter;
+    sideAvatar.textContent=letter;
+    const mediaText=user.is_media===null?"роль Media не настроена":(user.is_media?"роль Media подтверждена":"роль Media отсутствует");
+    const setupTag=document.getElementById("setupTag");
+    if(setupTag)setupTag.textContent=user.access_level==="none"?"NO ACCESS":(user.is_media===true?"MEDIA VERIFIED":"AUTH OK");
+    const notice=document.querySelector(".notice p");
+    if(notice){
+      const roleText=(user.role_names||[]).length?(user.role_names.join(", ")):"Ролей не найдено";
+      notice.textContent="Discord: "+user.discord_username+" · "+mediaText+". Ваш класс доступа: "+(accessLabels[user.access_level]||"не назначен")+". Роли: "+roleText+".";
+    }
+  }catch(error){
+    authBadge.textContent="API НЕДОСТУПЕН";
+  }
+}
+if(logoutButton){
+  logoutButton.addEventListener("click",async()=>{
+    await fetch("/auth/logout",{method:"POST",credentials:"same-origin"});
+    window.location.href="/";
+  });
+}
+loadSession();
