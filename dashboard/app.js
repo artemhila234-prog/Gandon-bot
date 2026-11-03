@@ -61,9 +61,9 @@ async function loadSession(){
     sideUserAccess.textContent=accessLabels[user.access_level]||"Нет доступа";
     topAvatar.textContent=letter;
     sideAvatar.textContent=letter;
-    const mediaText=user.is_media===null?"роль Media не настроена":(user.is_media?"роль Media подтверждена":"роль Media отсутствует");
+    const mediaText=user.access_level==="none"?"доступ не выдан":"доступ подтверждён";
     const setupTag=document.getElementById("setupTag");
-    if(setupTag)setupTag.textContent=user.access_level==="none"?"NO ACCESS":(user.is_media===true?"MEDIA VERIFIED":"AUTH OK");
+    if(setupTag)setupTag.textContent=user.access_level==="none"?"NO ACCESS":"ACCESS VERIFIED";
     const notice=document.querySelector(".notice p");
     if(notice){
       const roleText=(user.role_names||[]).length?(user.role_names.join(", ")):"Ролей не найдено";
