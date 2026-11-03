@@ -191,7 +191,8 @@ def is_moderator(member):
     return any(role.id in MOD_ROLE_IDS for role in member.roles)
 
 def has_verification_role(member):
-    return any(role.id == APPROVER_ROLE_ID for role in member.roles)
+    # Роль 1546125576136560660 также может принимать заявки на вступление.
+    return any(role.id == APPROVER_ROLE_ID or role.id in MOD_ROLE_IDS for role in member.roles)
 
 def has_points_role(member):
     if not APPROVER_POINTS_ROLE_IDS: return False
@@ -643,7 +644,9 @@ async def accept(ctx):
         await ctx.message.delete(delay=10)
         return
 
-    if original_msg.author.bot or original_msg.author == author:
+    # Разрешаем подтверждать собственную заявку только участникам с ролью MOD_ROLE_IDS.
+    can_approve_own_application = any(role.id in MOD_ROLE_IDS for role in author.roles)
+    if original_msg.author.bot or (original_msg.author == author and not can_approve_own_application):
         await ctx.send("❌ Нельзя принять сообщение от бота или самого себя.", delete_after=10)
         await ctx.message.delete(delay=10)
         return
