@@ -17,8 +17,14 @@ function showPage(page){
     const old=document.getElementById("dashboardBody");
     if(old) old.hidden=true;
     if(page==="players"){
-      section.innerHTML='<div class="panel-heading"><div><h2>Игроки</h2><p>Данные из базы бота · просмотр</p></div><button class="text-button" id="refreshPlayers">Обновить</button></div><div id="playersResult" class="empty-state">Загрузка игроков…</div>';
+      section.innerHTML='<div class="panel-heading"><div><h2>Игроки</h2><p>Баланс и варны из базы бота</p></div><button class="text-button" id="refreshPlayers">Обновить</button></div><input id="playerSearch" class="panel-search" placeholder="Поиск по Discord ID"><div id="playersResult" class="empty-state">Загрузка игроков…</div>';
       loadPlayers(section);
+    } else if(page==="requests"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Заявки</h2><p>Очередь заявок из базы бота · только просмотр</p></div><button class="text-button" id="refreshRequests">Обновить</button></div><div id="requestsResult" class="empty-state">Загрузка заявок…</div>';
+      loadRequests(section);
+    } else if(page==="shop"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Магазин</h2><p>Каталог, доступный в API · только просмотр</p></div><button class="text-button" id="refreshShop">Обновить</button></div><div id="shopResult" class="empty-state">Загрузка каталога…</div>';
+      loadShop(section);
     }
     content.appendChild(section);
   }else{
@@ -86,41 +92,81 @@ if(logoutButton){
 loadSession();
 
 
+function makeCell(value){
+  const cell=document.createElement("td");
+  cell.textContent=String(value??"—");
+  return cell;
+}
+async function apiGet(url){
+  const response=await fetch(url,{credentials:"same-origin"});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.detail||"Ошибка запроса.");
+  return data;
+}
 async function loadPlayers(section){
   const result=section.querySelector("#playersResult");
   const refresh=section.querySelector("#refreshPlayers");
+  const search=section.querySelector("#playerSearch");
   if(!result)return;
-  const load=async()=>{
-    result.textContent="Загрузка игроков…";
-    try{
-      const response=await fetch("/api/players",{credentials:"same-origin"});
-      const data=await response.json();
-      if(!response.ok)throw new Error(data.detail||"Не удалось загрузить игроков.");
-      if(!Array.isArray(data.players)||data.players.length===0){
-        result.textContent="В базе пока нет записей об игроках.";
-        return;
-      }
-      const table=document.createElement("table");
-      table.className="players-table";
-      const head=document.createElement("thead");
-      head.innerHTML="<tr><th>Discord ID</th><th>Баланс</th><th>Варны</th></tr>";
-      table.appendChild(head);
-      const body=document.createElement("tbody");
-      for(const player of data.players){
-        const row=document.createElement("tr");
-        for(const value of [player.user_id,player.balance,player.warns]){
-          const cell=document.createElement("td");
-          cell.textContent=String(value??"—");
-          row.appendChild(cell);
-        }
-        body.appendChild(row);
-      }
-      table.appendChild(body);
-      result.replaceChildren(table);
-    }catch(error){
-      result.textContent=error.message||"Ошибка загрузки.";
+  let players=[];
+  const render=()=>{
+    const term=(search?.value||"").trim();
+    const filtered=players.filter(p=>String(p.user_id).includes(term));
+    if(!filtered.length){result.textContent=players.length?"Ничего не найдено.":"В базе пока нет записей об игроках.";return;}
+    const table=document.createElement("table");table.className="players-table";
+    const head=document.createElement("thead");head.innerHTML="<tr><th>Discord ID</th><th>Баланс</th><th>Варны</th><th>Действия</th></tr>";table.appendChild(head);
+    const body=document.createElement("tbody");
+    for(const p of filtered){
+      const row=document.createElement("tr");row.append(makeCell(p.user_id),makeCell(p.balance),makeCell(p.warns));
+      const actions=document.createElement("td");
+      const add=document.createElement("button");add.className="text-button";add.textContent="+ Варн";
+      add.addEventListener("click",()=>changePlayerWarn(p.user_id,"warn"));
+      const remove=document.createElement("button");remove.className="text-button";remove.textContent="− Варн";
+      remove.addEventListener("click",()=>changePlayerWarn(p.user_id,"remove-warn"));
+      actions.append(add,document.createTextNode(" "),remove);row.append(actions);body.append(row);
     }
+    table.append(body);result.replaceChildren(table);
   };
-  if(refresh)refresh.addEventListener("click",load);
-  await load();
+  const load=async()=>{result.textContent="Загрузка игроков…";try{const data=await apiGet("/api/players");players=data.players||[];render();}catch(e){result.textContent=e.message;}};
+  search?.addEventListener("input",render);refresh?.addEventListener("click",load);await load();
+}
+async function changePlayerWarn(userId,action){
+  const reason=window.prompt("Укажи причину действия:");
+  if(!reason||!reason.trim())return;
+  try{
+    const response=await fetch("/api/players/"+encodeURIComponent(userId)+"/"+action,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason})});
+    const data=await response.json();if(!response.ok)throw new Error(data.detail||"Не удалось изменить варн.");
+    const page=document.getElementById("comingPage");if(page)await loadPlayers(page);
+    window.alert("Готово. Теперь варнов: "+data.warns);
+  }catch(e){window.alert(e.message);}
+}
+async function loadRequests(section){
+  const result=section.querySelector("#requestsResult"),refresh=section.querySelector("#refreshRequests");
+  const load=async()=>{result.textContent="Загрузка заявок…";try{
+    const data=await apiGet("/api/requests"),items=data.requests||[];
+    if(!items.length){result.textContent="Ожидающих заявок нет.";return;}
+    const list=document.createElement("div");list.className="request-list";
+    for(const item of items){
+      const card=document.createElement("article");card.className="request-card";
+      const title=document.createElement("strong");title.textContent=item.type==="join"?"Заявка на вступление":item.type==="points"?"Заявка на баллы":"Заявка: "+item.type;
+      const details=document.createElement("p");details.textContent="Discord ID: "+item.user_id+" · Сообщение: "+item.message_id;
+      const dataLine=document.createElement("p");dataLine.textContent=JSON.stringify(item.data||{});
+      const date=document.createElement("small");date.textContent="Создана: "+(item.created_at||"—");
+      card.append(title,details,dataLine,date);list.append(card);
+    }result.replaceChildren(list);
+  }catch(e){result.textContent=e.message;}};
+  refresh?.addEventListener("click",load);await load();
+}
+async function loadShop(section){
+  const result=section.querySelector("#shopResult"),refresh=section.querySelector("#refreshShop");
+  const load=async()=>{result.textContent="Загрузка каталога…";try{
+    const data=await apiGet("/api/shop"),items=data.items||[];
+    if(!items.length){result.textContent="Каталог пуст.";return;}
+    const table=document.createElement("table");table.className="players-table";
+    const head=document.createElement("thead");head.innerHTML="<tr><th>Товар</th><th>Категория</th><th>Цена</th></tr>";table.append(head);
+    const body=document.createElement("tbody");
+    for(const item of items){const row=document.createElement("tr");row.append(makeCell(item.name),makeCell(item.type),makeCell(item.price+" баллов"));body.append(row);}
+    table.append(body);result.replaceChildren(table);
+  }catch(e){result.textContent=e.message;}};
+  refresh?.addEventListener("click",load);await load();
 }
