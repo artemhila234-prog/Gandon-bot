@@ -291,7 +291,7 @@ async def change_warns(request: Request, user_id: str, delta: int, reason: str) 
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("SELECT warns FROM users WHERE user_id = ?", (int(user_id),)).fetchone()
             current = int(row[0]) if row else 0
-            updated = max(0, min(3, current + delta))
+            updated = max(0, min(2, current + delta))
             if updated == current:
                 raise HTTPException(status_code=409, detail="Количество варнов уже на этом уровне.")
             new_roles = role_ids - set(WARN_ROLE_IDS.values())
