@@ -87,10 +87,44 @@ async def current_user(request: Request) -> dict[str, Any] | None:
     return user if isinstance(user, dict) else None
 
 
-async def require_user(request: Request) -> dict[str, Any]:
+async def refresh_session_user(request: Request) -> dict[str, Any] | None:
+    """Повторно проверяет членство и роли в Discord, чтобы снятая роль сразу закрывала доступ."""
     user = await current_user(request)
     if not user:
-        raise HTTPException(status_code=401, detail="Требуется вход через Discord")
+        return None
+    if not BOT_TOKEN:
+        raise HTTPException(status_code=503, detail="Не настроен DISCORD_BOT_TOKEN для проверки доступа.")
+
+    try:
+        member = await discord_get(f"/guilds/{GUILD_ID}/members/{user['id']}", BOT_TOKEN, bot=True)
+        guild_roles = await discord_get(f"/guilds/{GUILD_ID}/roles", BOT_TOKEN, bot=True)
+    except HTTPException as exc:
+        if "404" in str(exc.detail):
+            request.session.clear()
+            return None
+        raise
+
+    role_ids = [str(role_id) for role_id in member.get("roles", [])]
+    access = calculate_access(role_ids)
+    if access == "none":
+        request.session.clear()
+        return None
+
+    role_names = {str(role["id"]): role["name"] for role in guild_roles}
+    user.update({
+        "role_ids": role_ids,
+        "role_names": [role_names.get(role_id, "Неизвестная роль") for role_id in role_ids],
+        "is_media": access != "none",
+        "access_level": access,
+    })
+    request.session["user"] = user
+    return user
+
+
+async def require_user(request: Request) -> dict[str, Any]:
+    user = await refresh_session_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Нет доступа. Войди через Discord и проверь роль WhiteGrief.")
     return user
 
 
@@ -199,7 +233,7 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
 
 @app.get("/api/me")
 async def api_me(request: Request):
-    user = await current_user(request)
+    user = await refresh_session_user(request)
     return {
         "authenticated": bool(user),
         "user": user,
