@@ -59,6 +59,7 @@ PROTECTED_ROLE_IDS = [
 
 PLAYER_ROLE_ID = 1539269779267915827
 APPROVER_ROLE_ID = 1535261711450378330
+PENDING_APPLICATION_ROLE_ID = 1567152429093363782  # Роль ожидания одобрения заявки
 APPROVER_POINTS_ROLE_IDS = [
     1546125455633944598, 1546125498340614195
 ]
@@ -738,6 +739,16 @@ async def accept(ctx):
             await ctx.send("❌ Недостаточно прав для выдачи ролей (проверьте иерархию).")
             return
 
+    # После одобрения снимаем временную роль ожидания.
+    pending_role = ctx.guild.get_role(PENDING_APPLICATION_ROLE_ID)
+    if pending_role and pending_role in member.roles:
+        try:
+            await member.remove_roles(pending_role, reason=f"Заявка одобрена пользователем {author}")
+        except discord.Forbidden:
+            await ctx.send("⚠️ Заявка одобряется, но не удалось снять роль ожидания. Проверь права и иерархию ролей.")
+        except discord.HTTPException as error:
+            await ctx.send(f"⚠️ Не удалось снять роль ожидания: {error}")
+
     category = ctx.guild.get_channel(CATEGORY_ID) if CATEGORY_ID else None
     channel_name = nick.lower()
 
@@ -888,20 +899,30 @@ async def accept_points(ctx):
 # ================== ON_MESSAGE ==================
 @bot.event
 async def on_message(message):
-    # Потоковый просмотр сообщений сервера в консоли Bot-Hosting.
+    # Красивый потоковый просмотр сообщений в консоли Bot-Hosting.
     if message.guild is not None and message.guild.id in ALLOWED_GUILDS:
+        reset = "\033[0m"
+        cyan = "\033[96m"
+        purple = "\033[95m"
+        green = "\033[92m"
+        gray = "\033[90m"
         channel_name = getattr(message.channel, "name", "unknown-channel")
         author_name = getattr(message.author, "display_name", message.author.name)
         timestamp = message.created_at.astimezone(MSK).strftime("%H:%M:%S")
         content = message.content.strip() or "[сообщение без текста]"
-        print(
-            f"\n[{timestamp}] #{channel_name} (канал ID: {message.channel.id})\n"
-            f"Автор: {author_name} (ID: {message.author.id})\n"
-            f"Сообщение: {content}",
-            flush=True
-        )
+        border = "╔" + "═" * 68 + "╗"
+        bottom = "╚" + "═" * 68 + "╝"
+        print(f"\n{cyan}{border}{reset}", flush=True)
+        print(f"{cyan}║{reset} {purple}WHITEGRIEF • LIVE CHAT{reset} {gray}{timestamp}{reset}", flush=True)
+        print(f"{cyan}╠" + "═" * 68 + f"╣{reset}", flush=True)
+        print(f"{cyan}║{reset} Канал: {green}#{channel_name}{reset}  {gray}(ID: {message.channel.id}){reset}", flush=True)
+        print(f"{cyan}║{reset} Игрок: {purple}{author_name}{reset}  {gray}(ID: {message.author.id}){reset}", flush=True)
+        print(f"{cyan}╟" + "─" * 68 + f"╢{reset}", flush=True)
+        for line in content.splitlines() or ["[сообщение без текста]"]:
+            print(f"{cyan}║{reset} {line}", flush=True)
         for attachment in message.attachments:
-            print(f"Вложение: {attachment.filename} — {attachment.url}", flush=True)
+            print(f"{cyan}║{reset} 📎 {attachment.filename}: {attachment.url}", flush=True)
+        print(f"{cyan}{bottom}{reset}", flush=True)
 
     if message.author.bot:
         return
@@ -1027,6 +1048,19 @@ async def on_message(message):
             app_data = {'nick': nick, 'position': position, 'age': age}
             pending_apps[message.author.id] = app_data
             save_pending_request("join", message.author.id, message.id, app_data)
+
+            # Выдаём роль ожидания, пока заявка не одобрена.
+            pending_role = message.guild.get_role(PENDING_APPLICATION_ROLE_ID)
+            if pending_role and pending_role not in message.author.roles:
+                try:
+                    await message.author.add_roles(pending_role, reason="Заявка на вступление ожидает одобрения")
+                except discord.Forbidden:
+                    print(f"[WARN] Не удалось выдать роль ожидания {PENDING_APPLICATION_ROLE_ID}: проверь права и иерархию ролей.", flush=True)
+                except discord.HTTPException as error:
+                    print(f"[WARN] Ошибка выдачи роли ожидания: {error}", flush=True)
+            elif pending_role is None:
+                print(f"[WARN] Роль ожидания {PENDING_APPLICATION_ROLE_ID} не найдена на сервере.", flush=True)
+
             await message.add_reaction('🕐')
             approver_role = message.guild.get_role(APPROVER_ROLE_ID)
             if approver_role:
