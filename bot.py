@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import sys
 import threading
+import uvicorn
 from discord import app_commands
 from discord.ext import commands
 import sqlite3
@@ -1332,7 +1333,7 @@ CONTROL_PANEL_SYNC_SECRET = os.getenv("CONTROL_PANEL_SYNC_SECRET", "").strip()
 
 ACCESS_ROLE_DEFINITIONS = [
     # От минимального доступа к максимальному: фиолетовый -> красный.
-    ("media", "Media", 0x8B5CF6),
+    ("media", "Media » уровень доступа", 0x8B5CF6),
     ("co_adm", "Co.Adm » уровень доступа", 0xC026D3),
     ("adm", "Adm » уровень доступа", 0xF97316),
     ("full", "Full » уровень доступа", 0xEF4444),
@@ -1343,14 +1344,18 @@ async def ensure_control_panel_roles(guild: discord.Guild) -> None:
     role_payload = {}
     for access_level, role_name, color in ACCESS_ROLE_DEFINITIONS:
         role = discord.utils.get(guild.roles, name=role_name)
-        # Миграция ранее созданной роли Media со старым длинным названием.
+        # Миграция: сохраняем существующую роль Media и возвращаем ей полное название.
         if role is None and access_level == "media":
-            role = discord.utils.get(guild.roles, name="Media » уровень доступа")
-            if role is not None:
+            old_role = discord.utils.get(guild.roles, name="Media")
+            if old_role is not None:
                 try:
-                    await role.edit(name="Media", reason="Переименование роли доступа WhiteGrief")
+                    role = await old_role.edit(
+                        name=role_name,
+                        reason="Приведение названия роли доступа WhiteGrief к стандарту",
+                    )
+                    print(f"✅ Переименована роль доступа: {role.name} (ID: {role.id})")
                 except discord.Forbidden:
-                    print("⚠️ Не удалось переименовать старую роль Media; проверь иерархию ролей.")
+                    print("⚠️ Не удалось переименовать роль Media; проверь права Manage Roles и иерархию.")
         if role is None:
             try:
                 role = await guild.create_role(
@@ -1747,5 +1752,40 @@ def setup_session_logs():
 if not TOKEN:
     raise RuntimeError("Не задан DISCORD_TOKEN. Добавь токен в переменные окружения Bot-Hosting.")
 
+async def run_services():
+    """Запускает Discord-бота и FastAPI в одном процессе Bot-Hosting."""
+    from dashboard.backend.main import app as panel_app
+
+    port = int(os.getenv("PORT", "8000"))
+    config = uvicorn.Config(
+        panel_app,
+        host="0.0.0.0",
+        port=port,
+        log_level="info",
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+    )
+    web_server = uvicorn.Server(config)
+
+    print(f"🌐 Запускаю WhiteGrief Control Panel на порту {port}...", flush=True)
+    bot_task = asyncio.create_task(bot.start(TOKEN), name="discord-bot")
+    web_task = asyncio.create_task(web_server.serve(), name="control-panel")
+
+    done, pending = await asyncio.wait(
+        {bot_task, web_task},
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+
+    for task in pending:
+        task.cancel()
+    web_server.should_exit = True
+    await asyncio.gather(*pending, return_exceptions=True)
+
+    for task in done:
+        error = task.exception()
+        if error:
+            raise error
+
+
 setup_session_logs()
-bot.run(TOKEN)
+asyncio.run(run_services())
