@@ -15,6 +15,8 @@ REPORT_CHANNEL_ID = 1231958902474678364
 JOIN_CHANNEL_ID = 1551952140929601576
 CATEGORY_ID = 1551950227865608292
 SHOP_CHANNEL_ID = 1564188124844662814  # ID канала для логов покупок
+AUDIT_LOG_CHANNEL_ID = 1567159721398370457  # Канал полного журнала действий
+AUDIT_LOG_FILE = os.path.join("logs", "audit.log")  # Локальный архив на хостинге
 POVIXA_CHANNEL_ID = 1564557395907186798  # ID канала, где должна работать команда /povixa
 
 # Настройка московского времени (UTC+3)
@@ -919,6 +921,7 @@ async def on_message(message):
     if (
         message.guild is not None
         and message.guild.id in ALLOWED_GUILDS
+        and not message.author.bot
         and not message.embeds
         and (message.content.strip() or message.attachments)
     ):
@@ -1284,6 +1287,240 @@ async def on_ready():
         print(f'❌ Ошибка удаления глобальных команд: {e}')
 
     await bot.change_presence(activity=discord.Game(name='/shop | модерация'))
+
+
+
+# ================== ПОЛНЫЙ АУДИТ СЕРВЕРА ==================
+def write_audit_log(title, details, guild_id=None):
+    """Сохраняет событие в локальный файл и выводит его в консоль."""
+    timestamp = datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S")
+    safe_details = str(details)
+    record = f"[{timestamp}] [{title}] {safe_details}"
+    try:
+        os.makedirs(os.path.dirname(AUDIT_LOG_FILE), exist_ok=True)
+        with open(AUDIT_LOG_FILE, "a", encoding="utf-8") as log_file:
+            log_file.write(record + "\n")
+            log_file.flush()
+    except Exception as error:
+        print(f"[AUDIT FILE ERROR] {error}", flush=True)
+    print(f"\033[93m[AUDIT {timestamp}] {title}\033[0m {safe_details}", flush=True)
+
+    # Не даём сообщениям самого WhiteGrief создавать бесконечный цикл логирования.
+    if bot.user is None:
+        return
+    channel = bot.get_channel(AUDIT_LOG_CHANNEL_ID)
+    if channel is None:
+        return
+    async def send_audit():
+        try:
+            embed = discord.Embed(
+                title=f"📋 {title}",
+                description=safe_details[:4000] or "—",
+                color=discord.Color.from_rgb(255, 190, 40),
+                timestamp=datetime.now(timezone.utc)
+            )
+            embed.set_footer(text=f"WHITEGRIEF AUDIT • Guild ID: {guild_id or 'N/A'}")
+            await channel.send(embed=embed)
+        except Exception as error:
+            print(f"[AUDIT DISCORD ERROR] {error}", flush=True)
+    asyncio.create_task(send_audit())
+
+
+def audit_member_label(member):
+    return f"{member} (ID: {member.id})"
+
+
+@bot.listen("on_message")
+async def audit_message_create(message):
+    if message.guild is None or message.guild.id not in ALLOWED_GUILDS:
+        return
+    # Сообщения самого WhiteGrief и остальных ботов не засоряют аудит и live-консоль.
+    if message.author.bot:
+        return
+    if not message.content.strip() and not message.attachments and not message.embeds:
+        return
+    channel_name = getattr(message.channel, "name", "unknown")
+    details = (
+        f"Канал: #{channel_name} (ID: {message.channel.id})\n"
+        f"Автор: {message.author} (ID: {message.author.id})\n"
+        f"Сообщение ID: {message.id}\n"
+        f"Текст:\n{message.content[:2500] or '[нет текстового содержимого]'}"
+    )
+    for attachment in message.attachments:
+        details += f"\nВложение: {attachment.filename} — {attachment.url}"
+    for embed in message.embeds[:3]:
+        details += f"\nEmbed: {(embed.title or '')} {(embed.description or '')[:500]}"
+    write_audit_log("НОВОЕ СООБЩЕНИЕ", details, message.guild.id)
+
+
+@bot.listen("on_message_edit")
+async def audit_message_edit(before, after):
+    if after.guild is None or after.guild.id not in ALLOWED_GUILDS:
+        return
+    if after.author.bot:
+        return
+    if before.content == after.content and before.attachments == after.attachments:
+        return
+    details = (
+        f"Канал: #{getattr(after.channel, 'name', 'unknown')} (ID: {after.channel.id})\n"
+        f"Автор: {after.author} (ID: {after.author.id})\n"
+        f"Сообщение ID: {after.id}\n"
+        f"Было:\n{before.content[:1500] or '[пусто]'}\n"
+        f"Стало:\n{after.content[:1500] or '[пусто]'}"
+    )
+    write_audit_log("ИЗМЕНЕНО СООБЩЕНИЕ", details, after.guild.id)
+
+
+@bot.listen("on_raw_message_delete")
+async def audit_message_delete(payload):
+    guild = bot.get_guild(payload.guild_id) if payload.guild_id else None
+    if guild is None or guild.id not in ALLOWED_GUILDS:
+        return
+    cached = payload.cached_message
+    if cached and cached.author.bot:
+        return
+    channel = guild.get_channel(payload.channel_id)
+    channel_name = getattr(channel, "name", "unknown")
+    if cached:
+        details = (
+            f"Канал: #{channel_name} (ID: {payload.channel_id})\n"
+            f"Автор удалённого сообщения: {cached.author} (ID: {cached.author.id})\n"
+            f"Сообщение ID: {payload.message_id}\n"
+            f"Содержимое:\n{cached.content[:2500] or '[нет текста]'}"
+        )
+        for attachment in cached.attachments:
+            details += f"\nВложение: {attachment.filename} — {attachment.url}"
+    else:
+        details = (
+            f"Канал: #{channel_name} (ID: {payload.channel_id})\n"
+            f"Сообщение ID: {payload.message_id}\n"
+            "Содержимое недоступно: сообщения не было в кэше бота."
+        )
+    details += "\nКто именно удалил сообщение: Discord не передаёт это событие боту напрямую."
+    write_audit_log("УДАЛЕНО СООБЩЕНИЕ", details, guild.id)
+
+
+@bot.listen("on_raw_bulk_message_delete")
+async def audit_bulk_message_delete(payload):
+    guild = bot.get_guild(payload.guild_id) if payload.guild_id else None
+    if guild is None or guild.id not in ALLOWED_GUILDS:
+        return
+    channel = guild.get_channel(payload.channel_id)
+    details = (
+        f"Канал: #{getattr(channel, 'name', 'unknown')} (ID: {payload.channel_id})\n"
+        f"Количество удалённых сообщений: {len(payload.message_ids)}\n"
+        f"ID сообщений: {', '.join(map(str, list(payload.message_ids)[:100]))}\n"
+        "Кто именно выполнил массовое удаление: событие Discord не указывает исполнителя."
+    )
+    write_audit_log("МАССОВОЕ УДАЛЕНИЕ СООБЩЕНИЙ", details, guild.id)
+
+
+@bot.listen("on_member_join")
+async def audit_member_join(member):
+    if member.guild.id in ALLOWED_GUILDS:
+        write_audit_log("ИГРОК ЗАШЁЛ НА СЕРВЕР", audit_member_label(member), member.guild.id)
+
+
+@bot.listen("on_member_remove")
+async def audit_member_remove(member):
+    if member.guild.id in ALLOWED_GUILDS:
+        write_audit_log("ИГРОК ПОКИНУЛ СЕРВЕР", audit_member_label(member), member.guild.id)
+
+
+@bot.listen("on_member_update")
+async def audit_member_update(before, after):
+    if after.guild.id not in ALLOWED_GUILDS:
+        return
+    changes = []
+    if before.nick != after.nick:
+        changes.append(f"Ник: {before.nick or before.name} → {after.nick or after.name}")
+    before_roles = {r.id: r for r in before.roles}
+    after_roles = {r.id: r for r in after.roles}
+    added = [r for rid, r in after_roles.items() if rid not in before_roles]
+    removed = [r for rid, r in before_roles.items() if rid not in after_roles]
+    if added:
+        changes.append("Выданы роли: " + ", ".join(f"{r.name} ({r.id})" for r in added))
+    if removed:
+        changes.append("Сняты роли: " + ", ".join(f"{r.name} ({r.id})" for r in removed))
+    if changes:
+        write_audit_log("ИЗМЕНЕНИЕ УЧАСТНИКА", audit_member_label(after) + "\n" + "\n".join(changes), after.guild.id)
+
+
+@bot.listen("on_guild_channel_create")
+async def audit_channel_create(channel):
+    if channel.guild.id in ALLOWED_GUILDS:
+        write_audit_log("СОЗДАН КАНАЛ", f"#{channel.name} (ID: {channel.id}, тип: {channel.type})", channel.guild.id)
+
+
+@bot.listen("on_guild_channel_delete")
+async def audit_channel_delete(channel):
+    if channel.guild.id in ALLOWED_GUILDS:
+        write_audit_log("УДАЛЁН КАНАЛ", f"#{channel.name} (ID: {channel.id}, тип: {channel.type})", channel.guild.id)
+
+
+@bot.listen("on_guild_channel_update")
+async def audit_channel_update(before, after):
+    if after.guild.id not in ALLOWED_GUILDS:
+        return
+    changes = []
+    if before.name != after.name:
+        changes.append(f"Название: {before.name} → {after.name}")
+    if getattr(before, "topic", None) != getattr(after, "topic", None):
+        changes.append(f"Описание: {getattr(before, 'topic', None)} → {getattr(after, 'topic', None)}")
+    if changes:
+        write_audit_log("ИЗМЕНЁН КАНАЛ", f"Канал ID: {after.id}\n" + "\n".join(changes), after.guild.id)
+
+
+@bot.listen("on_guild_role_create")
+async def audit_role_create(role):
+    if role.guild.id in ALLOWED_GUILDS:
+        write_audit_log("СОЗДАНА РОЛЬ", f"{role.name} (ID: {role.id})", role.guild.id)
+
+
+@bot.listen("on_guild_role_delete")
+async def audit_role_delete(role):
+    if role.guild.id in ALLOWED_GUILDS:
+        write_audit_log("УДАЛЕНА РОЛЬ", f"{role.name} (ID: {role.id})", role.guild.id)
+
+
+@bot.listen("on_guild_role_update")
+async def audit_role_update(before, after):
+    if after.guild.id not in ALLOWED_GUILDS:
+        return
+    changes = []
+    if before.name != after.name:
+        changes.append(f"Название: {before.name} → {after.name}")
+    if before.permissions != after.permissions:
+        changes.append("Изменены разрешения роли")
+    if before.color != after.color:
+        changes.append(f"Изменён цвет: {before.color} → {after.color}")
+    if before.hoist != after.hoist:
+        changes.append(f"Отображение отдельно: {before.hoist} → {after.hoist}")
+    if changes:
+        write_audit_log("ИЗМЕНЕНА РОЛЬ", f"{after.name} (ID: {after.id})\n" + "\n".join(changes), after.guild.id)
+
+
+@bot.listen("on_member_ban")
+async def audit_member_ban(guild, user):
+    if guild.id in ALLOWED_GUILDS:
+        write_audit_log("БАН УЧАСТНИКА", f"{user} (ID: {user.id})", guild.id)
+
+
+@bot.listen("on_member_unban")
+async def audit_member_unban(guild, user):
+    if guild.id in ALLOWED_GUILDS:
+        write_audit_log("РАЗБАН УЧАСТНИКА", f"{user} (ID: {user.id})", guild.id)
+
+
+@bot.listen("on_voice_state_update")
+async def audit_voice_state(member, before, after):
+    if member.guild.id not in ALLOWED_GUILDS:
+        return
+    if before.channel != after.channel:
+        old_name = before.channel.name if before.channel else "не в голосовом"
+        new_name = after.channel.name if after.channel else "не в голосовом"
+        write_audit_log("ИЗМЕНЕНИЕ ГОЛОСОВОГО КАНАЛА", f"{audit_member_label(member)}\n{old_name} → {new_name}", member.guild.id)
+
 
 if not TOKEN:
     raise RuntimeError("Не задан DISCORD_TOKEN. Добавь токен в переменные окружения Bot-Hosting.")
