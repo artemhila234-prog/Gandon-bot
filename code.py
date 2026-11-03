@@ -738,9 +738,35 @@ async def accept(ctx):
         await ctx.send(f"⚠️ Не удалось изменить никнейм: {e}", delete_after=10)
 
     roles_to_add = [ctx.guild.get_role(rid) for rid in ROLES_TO_GIVE if ctx.guild.get_role(rid)]
+    # После одобрения заявки автоматически выдаём базовый класс доступа Media.
+    media_role = discord.utils.get(ctx.guild.roles, name="Media")
+    if media_role is None:
+        legacy_media_role = discord.utils.get(ctx.guild.roles, name="Media » уровень доступа")
+        if legacy_media_role is not None:
+            media_role = legacy_media_role
+            try:
+                await media_role.edit(name="Media", reason="Миграция роли доступа WhiteGrief")
+            except discord.Forbidden:
+                pass
+    if media_role is None:
+        try:
+            media_role = await ctx.guild.create_role(
+                name="Media",
+                colour=discord.Colour(0x8B5CF6),
+                permissions=discord.Permissions.none(),
+                hoist=True,
+                reason="Базовая роль доступа WhiteGrief Control Panel",
+            )
+            print(f"✅ Создана роль Media (ID: {media_role.id})")
+        except discord.Forbidden:
+            await ctx.send("❌ Не удалось создать роль Media. Проверь право Manage Roles и положение роли бота.")
+            return
+    if media_role not in member.roles and media_role not in roles_to_add:
+        roles_to_add.append(media_role)
+
     if roles_to_add:
         try:
-            await member.add_roles(*roles_to_add, reason=f"Принят от {author.display_name}")
+            await member.add_roles(*roles_to_add, reason=f"Заявка одобрена: {author.display_name}")
         except discord.Forbidden:
             await ctx.send("❌ Недостаточно прав для выдачи ролей (проверьте иерархию).")
             return
@@ -1306,7 +1332,7 @@ CONTROL_PANEL_SYNC_SECRET = os.getenv("CONTROL_PANEL_SYNC_SECRET", "").strip()
 
 ACCESS_ROLE_DEFINITIONS = [
     # От минимального доступа к максимальному: фиолетовый -> красный.
-    ("media", "Media » уровень доступа", 0x8B5CF6),
+    ("media", "Media", 0x8B5CF6),
     ("co_adm", "Co.Adm » уровень доступа", 0xC026D3),
     ("adm", "Adm » уровень доступа", 0xF97316),
     ("full", "Full » уровень доступа", 0xEF4444),
@@ -1317,6 +1343,14 @@ async def ensure_control_panel_roles(guild: discord.Guild) -> None:
     role_payload = {}
     for access_level, role_name, color in ACCESS_ROLE_DEFINITIONS:
         role = discord.utils.get(guild.roles, name=role_name)
+        # Миграция ранее созданной роли Media со старым длинным названием.
+        if role is None and access_level == "media":
+            role = discord.utils.get(guild.roles, name="Media » уровень доступа")
+            if role is not None:
+                try:
+                    await role.edit(name="Media", reason="Переименование роли доступа WhiteGrief")
+                except discord.Forbidden:
+                    print("⚠️ Не удалось переименовать старую роль Media; проверь иерархию ролей.")
         if role is None:
             try:
                 role = await guild.create_role(
