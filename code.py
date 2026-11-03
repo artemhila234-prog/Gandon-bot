@@ -817,7 +817,22 @@ async def accept(ctx):
         await original_msg.add_reaction('✅')
         pending_apps.pop(member.id, None)
         delete_pending_request("join", member.id)
-        await ctx.send(f"✅ {member.mention} принят! Создан личный канал {channel.mention}.")
+        accepted_embed = discord.Embed(
+            title="✅ ЗАЯВКА ОДОБРЕНА",
+            description=f"{member.mention} успешно принят в команду **WhiteGrief Media**!",
+            color=discord.Color.from_rgb(87, 196, 125),
+            timestamp=discord.utils.utcnow()
+        )
+        accepted_embed.add_field(name="🎮 Игровой ник", value=nick, inline=True)
+        accepted_embed.add_field(name="🛡️ Должность", value=position, inline=True)
+        accepted_embed.add_field(name="📁 Личный канал", value=channel.mention, inline=False)
+        accepted_embed.add_field(
+            name="🚀 Следующий шаг",
+            value="Загляни в личный канал, ознакомься с инструкциями и приступай к работе!",
+            inline=False
+        )
+        accepted_embed.set_footer(text=f"WHITEGRIEF MEDIA • Принял: {author.display_name}")
+        await ctx.send(embed=accepted_embed)
     except discord.Forbidden:
         await ctx.send("❌ У меня недостаточно прав для создания каналов.")
         return
@@ -1063,15 +1078,26 @@ async def on_message(message):
 
             await message.add_reaction('🕐')
             approver_role = message.guild.get_role(APPROVER_ROLE_ID)
-            if approver_role:
-                await message.channel.send(
-                    f"{approver_role.mention}, игрок {message.author.mention} ждёт твоего одобрения.\n"
-                    f"Напиши **!принят** ответом на его сообщение."
-                )
-            else:
-                await message.channel.send(
-                    f"⚠️ Роль для верификации не найдена.\nИгрок {message.author.mention} ждёт одобрения. Напиши **!принят**."
-                )
+            application_embed = discord.Embed(
+                title="📩 НОВАЯ ЗАЯВКА В WHITEGRIEF MEDIA",
+                description=(
+                    f"Игрок {message.author.mention} отправил заявку и ожидает рассмотрения.\\n"
+                    "Пожалуйста, проверьте данные и примите решение."
+                ),
+                color=discord.Color.from_rgb(151, 112, 210),
+                timestamp=discord.utils.utcnow()
+            )
+            application_embed.add_field(name="🎮 Игровой ник", value=nick, inline=True)
+            application_embed.add_field(name="🛡️ Должность", value=position, inline=True)
+            application_embed.add_field(name="🎂 Возраст", value=age, inline=True)
+            application_embed.add_field(
+                name="📝 Как одобрить",
+                value="Ответьте на исходное сообщение игрока командой **!принят**.",
+                inline=False
+            )
+            application_embed.set_footer(text="WHITEGRIEF MEDIA • Заявки на вступление")
+            content = approver_role.mention if approver_role else None
+            await message.channel.send(content=content, embed=application_embed)
         else:
             await message.channel.send(
                 "❌ Неверный формат заявки. Используйте:\n"
