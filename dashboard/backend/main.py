@@ -350,6 +350,21 @@ SHOP_ITEMS_PANEL = [
     {"name": "Кейс с Супер Риллами", "price": 3000, "type": "кейс"},
     {"name": "Снятие 1 выговора", "price": 400, "type": "услуга"}
 ]
+@app.get("/api/me/balance")
+async def api_my_balance(request: Request):
+    user = await require_access(request, "media")
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
+    try:
+        with sqlite3.connect(path, timeout=10) as db:
+            row = db.execute("SELECT balance FROM users WHERE user_id = ?", (int(user["id"]),)).fetchone()
+    except sqlite3.Error:
+        raise HTTPException(status_code=503, detail="Не удалось прочитать баланс.")
+    return {"user_id": user["id"], "balance": int(row[0]) if row else 0}
+
+
 @app.get("/api/players")
 async def api_players(request: Request):
     await require_access(request, "media")
