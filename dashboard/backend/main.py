@@ -19,14 +19,33 @@ BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN", "")
 REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8000/auth/callback")
 GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1546125037545988207")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "")
-MEDIA_ROLE_ID = os.getenv("MEDIA_ROLE_ID", "").strip()
-OWNER_USER_IDS = {x.strip() for x in os.getenv("OWNER_USER_IDS", "").split(",") if x.strip()}
-try:
-    ROLE_ACCESS_MAP: dict[str, str] = json.loads(os.getenv("ROLE_ACCESS_MAP", "{}"))
-except json.JSONDecodeError:
-    ROLE_ACCESS_MAP = {}
+BOT_SYNC_SECRET = os.getenv("BOT_SYNC_SECRET", "")
+PANEL_DB_PATH = os.getenv("PANEL_DB_PATH", os.path.join(os.path.dirname(__file__), "panel.db"))
+ACCESS_RANK = {"none": 0, "media": 1, "co_adm": 2, "adm": 3, "full": 4}
 
-ACCESS_RANK = {"none": 0, "viewer": 1, "media": 2, "manager": 3, "admin": 4, "owner": 5}
+def init_panel_db() -> None:
+    import sqlite3
+    with sqlite3.connect(PANEL_DB_PATH) as db:
+        db.execute("""CREATE TABLE IF NOT EXISTS access_roles (
+            guild_id TEXT NOT NULL,
+            role_id TEXT NOT NULL,
+            access_level TEXT NOT NULL,
+            role_name TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (guild_id, role_id)
+        )""")
+        db.commit()
+
+init_panel_db()
+
+def get_role_access_map() -> dict[str, str]:
+    import sqlite3
+    with sqlite3.connect(PANEL_DB_PATH) as db:
+        rows = db.execute(
+            "SELECT role_id, access_level FROM access_roles WHERE guild_id = ?",
+            (GUILD_ID,)
+        ).fetchall()
+    return {str(role_id): level for role_id, level in rows}
 
 app = FastAPI(title="WhiteGrief Control Panel API")
 if not SESSION_SECRET:
@@ -49,8 +68,8 @@ def configuration_status() -> dict[str, bool]:
         "bot": bool(BOT_TOKEN),
         "session_secret": bool(os.getenv("SESSION_SECRET")),
         "redirect_uri": bool(REDIRECT_URI),
-        "media_role": bool(MEDIA_ROLE_ID),
-        "access_roles": bool(ROLE_ACCESS_MAP or OWNER_USER_IDS),
+        "bot_sync": bool(BOT_SYNC_SECRET),
+        "access_roles": bool(get_role_access_map()),
     }
 
 
@@ -75,10 +94,9 @@ async def require_user(request: Request) -> dict[str, Any]:
     return user
 
 
-def calculate_access(user_id: str, role_ids: list[str]) -> str:
-    if user_id in OWNER_USER_IDS:
-        return "owner"
-    levels = [ROLE_ACCESS_MAP.get(role_id, "none") for role_id in role_ids]
+def calculate_access(role_ids: list[str]) -> str:
+    role_map = get_role_access_map()
+    levels = [role_map.get(role_id, "none") for role_id in role_ids]
     valid = [level for level in levels if level in ACCESS_RANK]
     return max(valid, key=lambda level: ACCESS_RANK[level], default="none")
 
@@ -160,8 +178,7 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
 
     member_role_ids = [str(role_id) for role_id in member.get("roles", [])]
     role_names = {str(role["id"]): role["name"] for role in guild_roles}
-    media_status: bool | None = (MEDIA_ROLE_ID in member_role_ids) if MEDIA_ROLE_ID else None
-    access = calculate_access(str(profile["id"]), member_role_ids)
+    access = calculate_access(member_role_ids)
 
     request.session.clear()
     request.session["user"] = {
@@ -172,7 +189,7 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
         "guild_id": GUILD_ID,
         "role_ids": member_role_ids,
         "role_names": [role_names.get(role_id, "Неизвестная роль") for role_id in member_role_ids],
-        "is_media": media_status,
+        "is_media": access != "none",
         "access_level": access,
     }
     return RedirectResponse("/", status_code=303)
@@ -198,3 +215,37 @@ async def auth_logout(request: Request):
 @app.get("/health")
 async def health():
     return {"ok": True, "service": "whitegrief-control-panel"}
+
+
+@app.post("/api/internal/sync-roles")
+async def sync_access_roles(request: Request):
+    supplied_secret = request.headers.get("X-Bot-Sync-Secret", "")
+    if not BOT_SYNC_SECRET or not secrets.compare_digest(supplied_secret, BOT_SYNC_SECRET):
+        raise HTTPException(status_code=403, detail="Недействительный ключ синхронизации")
+    payload = await request.json()
+    guild_id = str(payload.get("guild_id", ""))
+    roles = payload.get("roles", {})
+    if guild_id != GUILD_ID or not isinstance(roles, dict):
+        raise HTTPException(status_code=400, detail="Некорректный сервер или список ролей")
+    allowed = {"full", "adm", "co_adm", "media"}
+    normalized = []
+    for role_id, info in roles.items():
+        if not isinstance(info, dict):
+            continue
+        level = str(info.get("access_level", ""))
+        role_name = str(info.get("name", ""))[:100]
+        if level not in allowed or not str(role_id).isdigit() or not role_name:
+            continue
+        normalized.append((guild_id, str(role_id), level, role_name))
+    if len(normalized) != 4:
+        raise HTTPException(status_code=400, detail="Ожидались все четыре роли доступа")
+    import sqlite3
+    with sqlite3.connect(PANEL_DB_PATH) as db:
+        db.execute("BEGIN IMMEDIATE")
+        db.execute("DELETE FROM access_roles WHERE guild_id = ?", (guild_id,))
+        db.executemany(
+            "INSERT INTO access_roles (guild_id, role_id, access_level, role_name) VALUES (?, ?, ?, ?)",
+            normalized,
+        )
+        db.commit()
+    return {"ok": True, "synced": len(normalized)}
