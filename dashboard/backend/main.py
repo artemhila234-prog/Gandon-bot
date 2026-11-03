@@ -179,6 +179,8 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
     member_role_ids = [str(role_id) for role_id in member.get("roles", [])]
     role_names = {str(role["id"]): role["name"] for role in guild_roles}
     access = calculate_access(member_role_ids)
+    if access == "none":
+        raise HTTPException(status_code=403, detail="У тебя нет роли доступа WhiteGrief Control Panel. Обратись к администрации Media.")
 
     request.session.clear()
     request.session["user"] = {
