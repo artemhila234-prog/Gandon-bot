@@ -255,6 +255,90 @@ async def auth_logout(request: Request):
     return {"ok": True}
 
 
+WARN_ROLE_IDS = {1: "1546125538198823033", 2: "1546125541571043398", 3: "1546125544888729761"}
+PROTECTED_ROLE_IDS = {"1546125455633944598", "1546125498340614195", "1546125488496451686", "1546125469093732372", "1546125465482174484", "1547654044263252038", "1546125472897961984", "1546125480321749053", "1550200782177968178"}
+
+def bot_database_path() -> str:
+    return os.getenv("BOT_DB_PATH", os.path.join(os.path.dirname(BASE_DIR), "bot_data.db"))
+
+async def discord_request(method: str, path: str, *, payload: dict[str, Any] | None = None) -> Any:
+    if not BOT_TOKEN:
+        raise HTTPException(status_code=503, detail="Не настроен DISCORD_BOT_TOKEN.")
+    async with httpx.AsyncClient(timeout=15) as client:
+        response = await client.request(method, f"{DISCORD_API}{path}", headers={"Authorization": f"Bot {BOT_TOKEN}"}, json=payload)
+    if response.status_code == 404:
+        raise HTTPException(status_code=404, detail="Участник не найден на Discord-сервере.")
+    if response.status_code == 403:
+        raise HTTPException(status_code=502, detail="Боту не хватает прав или его роль ниже роли участника.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail=f"Ошибка Discord API ({response.status_code}).")
+    return response.json() if response.content else None
+
+async def change_warns(request: Request, user_id: str, delta: int, reason: str) -> dict[str, Any]:
+    await require_access(request, "co_adm")
+    if not user_id.isdigit() or not reason.strip():
+        raise HTTPException(status_code=400, detail="Укажи корректный Discord ID и причину.")
+    member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{user_id}")
+    role_ids = {str(x) for x in member.get("roles", [])}
+    if role_ids & PROTECTED_ROLE_IDS:
+        raise HTTPException(status_code=403, detail="Нельзя менять варны участнику с защищённой ролью администрации.")
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
+    try:
+        with sqlite3.connect(path, timeout=10) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT warns FROM users WHERE user_id = ?", (int(user_id),)).fetchone()
+            current = int(row[0]) if row else 0
+            updated = max(0, min(3, current + delta))
+            if updated == current:
+                raise HTTPException(status_code=409, detail="Количество варнов уже на этом уровне.")
+            new_roles = role_ids - set(WARN_ROLE_IDS.values())
+            if updated:
+                new_roles.add(WARN_ROLE_IDS[updated])
+            await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(new_roles)})
+            db.execute("INSERT INTO users (user_id, balance, warns, personal_channel_id) VALUES (?, 0, ?, NULL) ON CONFLICT(user_id) DO UPDATE SET warns = excluded.warns", (int(user_id), updated))
+            db.commit()
+    except HTTPException:
+        raise
+    except sqlite3.Error:
+        raise HTTPException(status_code=503, detail="Ошибка базы данных бота.")
+    return {"ok": True, "user_id": user_id, "warns": updated, "reason": reason.strip()}
+
+@app.post("/api/players/{user_id}/warn")
+async def api_add_warn(user_id: str, request: Request):
+    payload = await request.json()
+    return await change_warns(request, user_id, 1, str(payload.get("reason", "")))
+
+@app.post("/api/players/{user_id}/remove-warn")
+async def api_remove_warn(user_id: str, request: Request):
+    payload = await request.json()
+    return await change_warns(request, user_id, -1, str(payload.get("reason", "")))
+
+@app.get("/api/requests")
+async def api_requests(request: Request):
+    await require_access(request, "co_adm")
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
+    try:
+        with sqlite3.connect(path, timeout=10) as db:
+            rows = db.execute("SELECT request_type, user_id, message_id, data, created_at FROM pending_requests ORDER BY created_at").fetchall()
+    except sqlite3.Error:
+        raise HTTPException(status_code=503, detail="Не удалось прочитать заявки.")
+    return {"requests": [{"type": row[0], "user_id": row[1], "message_id": row[2], "data": json.loads(row[3]), "created_at": row[4]} for row in rows]}
+
+@app.get("/api/shop")
+async def api_shop(request: Request):
+    await require_access(request, "media")
+    return {"items": [{"name": name, **item} for name, item in SHOP_ITEMS_PANEL.items()]}
+
+SHOP_ITEMS_PANEL = [
+    {"name": "PVP", "price": 1000, "type": "kit"}, {"name": "CYBER", "price": 1500, "type": "kit"},
+    {"name": "RICH", "price": 2000, "type": "kit"}, {"name": "TOPER", "price": 2500, "type": "kit"},
+]
 @app.get("/api/players")
 async def api_players(request: Request):
     await require_access(request, "media")
