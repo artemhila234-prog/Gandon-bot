@@ -1,6 +1,7 @@
 import discord
 import asyncio
 import sys
+import threading
 from discord import app_commands
 from discord.ext import commands
 import sqlite3
@@ -1571,8 +1572,8 @@ def setup_session_logs():
         os.replace(LATEST_LOG_FILE, archive_path)
 
     log_file = open(LATEST_LOG_FILE, "w", encoding="utf-8", buffering=1)
-    lock = asyncio.Lock()
-    # Оба потока пишут в один файл; asyncio.Lock защищает записи внутри event loop.
+    lock = threading.Lock()
+    # Один потокобезопасный замок защищает общий файл stdout и stderr.
     sys.stdout = TimestampedTee(sys.__stdout__, log_file, lock)
     sys.stderr = TimestampedTee(sys.__stderr__, log_file, lock)
     print("========== WHITEGRIEF BOT SESSION STARTED ==========", flush=True)
