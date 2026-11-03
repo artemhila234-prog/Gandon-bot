@@ -895,8 +895,8 @@ async def on_message(message):
         timestamp = message.created_at.astimezone(MSK).strftime("%H:%M:%S")
         content = message.content.strip() or "[сообщение без текста]"
         print(
-            f"\\n[{timestamp}] #{channel_name} (канал ID: {message.channel.id})\\n"
-            f"Автор: {author_name} (ID: {message.author.id})\\n"
+            f"\n[{timestamp}] #{channel_name} (канал ID: {message.channel.id})\n"
+            f"Автор: {author_name} (ID: {message.author.id})\n"
             f"Сообщение: {content}",
             flush=True
         )
@@ -1121,9 +1121,9 @@ async def console_input_loop():
 
             if command == "/help":
                 print(
-                    "Команды консоли:\\n"
-                    "/text <ID канала> <сообщение> — отправить сообщение\\n"
-                    "/channels — список текстовых каналов и их ID\\n"
+                    "Команды консоли:\n"
+                    "/text <ID канала> <сообщение> — отправить сообщение\n"
+                    "/channels — список текстовых каналов и их ID\n"
                     "/help — показать эту подсказку",
                     flush=True
                 )
