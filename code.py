@@ -1294,33 +1294,71 @@ async def on_ready():
 
 # ================== ПОЛНЫЙ АУДИТ СЕРВЕРА ==================
 def write_audit_log(title, details, guild_id=None):
-    """Сохраняет событие в локальный файл и выводит его в консоль."""
-    timestamp = datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S")
+    """Отправляет аккуратный Embed в Discord; подробности уже сохраняются в latest.log."""
     safe_details = str(details)
-    record = f"[{timestamp}] [{title}] {safe_details}"
-    # Запись попадёт в logs/latest.log через перенаправленный stdout.
-    print(f"\033[93m[AUDIT {timestamp}] {title}\033[0m {safe_details}", flush=True)
 
-    # Не даём сообщениям самого WhiteGrief создавать бесконечный цикл логирования.
     if bot.user is None:
         return
     channel = bot.get_channel(AUDIT_LOG_CHANNEL_ID)
     if channel is None:
         return
+
     async def send_audit():
         try:
+            normalized_title = title.upper()
+            if "УДАЛ" in normalized_title or "БАН" in normalized_title:
+                color = discord.Color.from_rgb(237, 66, 69)
+            elif "ИЗМЕН" in normalized_title or "ОБНОВ" in normalized_title:
+                color = discord.Color.from_rgb(250, 166, 26)
+            elif "ЗАШЁЛ" in normalized_title or "СОЗДАН" in normalized_title:
+                color = discord.Color.from_rgb(46, 204, 113)
+            else:
+                color = discord.Color.from_rgb(88, 166, 255)
+
             embed = discord.Embed(
-                title=f"📋 {title}",
-                description=safe_details[:4000] or "—",
-                color=discord.Color.from_rgb(255, 190, 40),
+                title=f"📋  {title}",
+                color=color,
                 timestamp=datetime.now(timezone.utc)
             )
-            embed.set_footer(text=f"WHITEGRIEF AUDIT • Guild ID: {guild_id or 'N/A'}")
+
+            if title == "НОВОЕ СООБЩЕНИЕ":
+                channel_match = re.search(r"Канал: <#(\d+)> • #(.+?) \(ID: \d+\)", safe_details)
+                author_match = re.search(r"Автор: <@(\d+)> • (.+?) \(ID: \d+\)", safe_details)
+                message_match = re.search(r"Сообщение ID: (\d+)", safe_details)
+                text_match = re.search(r"Текст:\n([\s\S]*?)(?=\nВложение:|\nEmbed:|$)", safe_details)
+
+                if channel_match:
+                    channel_id, channel_name = channel_match.groups()
+                    embed.add_field(name="📍 Канал", value=f"<#{channel_id}>\n#{channel_name}", inline=True)
+                if author_match:
+                    author_id, author_name = author_match.groups()
+                    embed.add_field(name="👤 Автор", value=f"<@{author_id}>\n{author_name}", inline=True)
+                if message_match:
+                    embed.add_field(name="🆔 ID сообщения", value=message_match.group(1), inline=False)
+
+                message_text = text_match.group(1).strip() if text_match else ""
+                if message_text:
+                    if len(message_text) > 1000:
+                        message_text = message_text[:997] + "..."
+                    embed.add_field(name="💬 Содержание", value=message_text[:1024], inline=False)
+
+                extras = re.findall(r"(Вложение: .+|Embed: .+)", safe_details)
+                if extras:
+                    embed.add_field(name="📎 Дополнительно", value="\n".join(extras)[:1024], inline=False)
+            else:
+                embed.description = safe_details[:4000] or "—"
+
+            guild = bot.get_guild(guild_id) if guild_id else None
+            if guild and guild.icon:
+                embed.set_author(name=guild.name, icon_url=guild.icon.url)
+            else:
+                embed.set_author(name="WHITEGRIEF • SERVER AUDIT")
+            embed.set_footer(text="WHITEGRIEF AUDIT")
             await channel.send(embed=embed)
         except Exception as error:
             print(f"[AUDIT DISCORD ERROR] {error}", flush=True)
-    asyncio.create_task(send_audit())
 
+    asyncio.create_task(send_audit())
 
 def audit_member_label(member):
     return f"{member} (ID: {member.id})"
