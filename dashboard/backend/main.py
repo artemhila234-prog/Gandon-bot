@@ -7,7 +7,6 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 load_dotenv()
@@ -42,7 +41,6 @@ app.add_middleware(
     max_age=60 * 60 * 8,
 )
 
-app.mount("/static", StaticFiles(directory=BASE_DIR), name="static")
 
 
 def configuration_status() -> dict[str, bool]:
@@ -88,6 +86,16 @@ def calculate_access(user_id: str, role_ids: list[str]) -> str:
 @app.get("/")
 async def index():
     return FileResponse(os.path.join(BASE_DIR, "index.html"))
+
+
+@app.get("/style.css")
+async def stylesheet():
+    return FileResponse(os.path.join(BASE_DIR, "style.css"), media_type="text/css")
+
+
+@app.get("/app.js")
+async def frontend_script():
+    return FileResponse(os.path.join(BASE_DIR, "app.js"), media_type="application/javascript")
 
 
 @app.get("/auth/login")
