@@ -128,6 +128,13 @@ async def require_user(request: Request) -> dict[str, Any]:
     return user
 
 
+async def require_access(request: Request, minimum: str) -> dict[str, Any]:
+    user = await require_user(request)
+    if ACCESS_RANK.get(user.get("access_level", "none"), 0) < ACCESS_RANK[minimum]:
+        raise HTTPException(status_code=403, detail="Недостаточно прав для этого действия.")
+    return user
+
+
 def calculate_access(role_ids: list[str]) -> str:
     role_map = get_role_access_map()
     levels = [role_map.get(role_id, "none") for role_id in role_ids]
@@ -246,6 +253,24 @@ async def api_me(request: Request):
 async def auth_logout(request: Request):
     request.session.clear()
     return {"ok": True}
+
+
+@app.get("/api/players")
+async def api_players(request: Request):
+    await require_access(request, "media")
+    import sqlite3
+    bot_db_path = os.getenv("BOT_DB_PATH", os.path.join(os.path.dirname(BASE_DIR), "bot_data.db"))
+    if not os.path.isfile(bot_db_path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена. Проверь BOT_DB_PATH.")
+    try:
+        with sqlite3.connect(bot_db_path, timeout=10) as db:
+            db.row_factory = sqlite3.Row
+            rows = db.execute(
+                "SELECT user_id, balance, warns FROM users ORDER BY user_id"
+            ).fetchall()
+    except sqlite3.Error:
+        raise HTTPException(status_code=503, detail="Не удалось прочитать базу данных игроков.")
+    return {"players": [dict(row) for row in rows], "count": len(rows)}
 
 
 @app.get("/health")
