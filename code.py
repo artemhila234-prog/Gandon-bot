@@ -820,7 +820,7 @@ async def accept(ctx):
         accepted_embed = discord.Embed(
             title="✅ ЗАЯВКА ОДОБРЕНА",
             description=f"{member.mention} успешно принят в команду **WhiteGrief Media**!",
-            color=discord.Color.from_rgb(87, 196, 125),
+            color=discord.Color.from_rgb(0, 255, 0),
             timestamp=discord.utils.utcnow()
         )
         accepted_embed.add_field(name="🎮 Игровой ник", value=nick, inline=True)
@@ -1090,10 +1090,10 @@ async def on_message(message):
             application_embed = discord.Embed(
                 title="📩 НОВАЯ ЗАЯВКА В WHITEGRIEF MEDIA",
                 description=(
-                    f"Игрок {message.author.mention} отправил заявку и ожидает рассмотрения.\\n"
+                    f"Игрок {message.author.mention} отправил заявку и ожидает рассмотрения.\n"
                     "Пожалуйста, проверьте данные и примите решение."
                 ),
-                color=discord.Color.from_rgb(151, 112, 210),
+                color=discord.Color.from_rgb(255, 210, 0),
                 timestamp=discord.utils.utcnow()
             )
             application_embed.add_field(name="🎮 Игровой ник", value=nick, inline=True)
