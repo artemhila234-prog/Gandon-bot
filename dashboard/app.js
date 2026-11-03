@@ -16,6 +16,10 @@ function showPage(page){
     section.innerHTML='<div class="empty-state"><div class="empty-icon">✦</div><strong>'+pageNames[page]+'</strong><p>'+descriptions[page]+'</p><span class="pill pending">Будет реализовано на следующем этапе</span></div>';
     const old=document.getElementById("dashboardBody");
     if(old) old.hidden=true;
+    if(page==="players"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Игроки</h2><p>Данные из базы бота · просмотр</p></div><button class="text-button" id="refreshPlayers">Обновить</button></div><div id="playersResult" class="empty-state">Загрузка игроков…</div>';
+      loadPlayers(section);
+    }
     content.appendChild(section);
   }else{
     const old=document.getElementById("comingPage");if(old)old.remove();
@@ -80,3 +84,43 @@ if(logoutButton){
   });
 }
 loadSession();
+
+
+async function loadPlayers(section){
+  const result=section.querySelector("#playersResult");
+  const refresh=section.querySelector("#refreshPlayers");
+  if(!result)return;
+  const load=async()=>{
+    result.textContent="Загрузка игроков…";
+    try{
+      const response=await fetch("/api/players",{credentials:"same-origin"});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.detail||"Не удалось загрузить игроков.");
+      if(!Array.isArray(data.players)||data.players.length===0){
+        result.textContent="В базе пока нет записей об игроках.";
+        return;
+      }
+      const table=document.createElement("table");
+      table.className="players-table";
+      const head=document.createElement("thead");
+      head.innerHTML="<tr><th>Discord ID</th><th>Баланс</th><th>Варны</th></tr>";
+      table.appendChild(head);
+      const body=document.createElement("tbody");
+      for(const player of data.players){
+        const row=document.createElement("tr");
+        for(const value of [player.user_id,player.balance,player.warns]){
+          const cell=document.createElement("td");
+          cell.textContent=String(value??"—");
+          row.appendChild(cell);
+        }
+        body.appendChild(row);
+      }
+      table.appendChild(body);
+      result.replaceChildren(table);
+    }catch(error){
+      result.textContent=error.message||"Ошибка загрузки.";
+    }
+  };
+  if(refresh)refresh.addEventListener("click",load);
+  await load();
+}
