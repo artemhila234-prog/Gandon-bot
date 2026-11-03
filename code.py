@@ -1,6 +1,7 @@
 import re
 import discord
 import asyncio
+import aiohttp
 import sys
 import threading
 from discord import app_commands
@@ -1265,6 +1266,12 @@ async def on_ready():
         _console_reader_started = True
         asyncio.create_task(console_input_loop())
 
+    # Автоматически создаём роли доступа и синхронизируем их ID с сайтом.
+    for access_guild_id in ALLOWED_GUILDS:
+        access_guild = bot.get_guild(access_guild_id)
+        if access_guild:
+            await ensure_control_panel_roles(access_guild)
+
     # Регистрируем команды только как серверные (guild commands).
     # Старые глобальные команды удаляем ниже, чтобы Discord не показывал
     # две версии каждой slash-команды одновременно.
@@ -1291,6 +1298,75 @@ async def on_ready():
 
     await bot.change_presence(activity=discord.Game(name='/shop | модерация'))
 
+
+
+# ================== РОЛИ ДОСТУПА WHITEGRIEF CONTROL PANEL ==================
+CONTROL_PANEL_SYNC_URL = os.getenv("CONTROL_PANEL_SYNC_URL", "").strip()
+CONTROL_PANEL_SYNC_SECRET = os.getenv("CONTROL_PANEL_SYNC_SECRET", "").strip()
+
+ACCESS_ROLE_DEFINITIONS = [
+    # От минимального доступа к максимальному: фиолетовый -> красный.
+    ("media", "Media » уровень доступа", 0x8B5CF6),
+    ("co_adm", "Co.Adm » уровень доступа", 0xC026D3),
+    ("adm", "Adm » уровень доступа", 0xF97316),
+    ("full", "Full » уровень доступа", 0xEF4444),
+]
+
+async def ensure_control_panel_roles(guild: discord.Guild) -> None:
+    """Создаёт недостающие роли доступа и передаёт их ID веб-панели."""
+    role_payload = {}
+    for access_level, role_name, color in ACCESS_ROLE_DEFINITIONS:
+        role = discord.utils.get(guild.roles, name=role_name)
+        if role is None:
+            try:
+                role = await guild.create_role(
+                    name=role_name,
+                    colour=discord.Colour(color),
+                    permissions=discord.Permissions.none(),
+                    hoist=True,
+                    mentionable=False,
+                    reason="Настройка уровней доступа WhiteGrief Control Panel",
+                )
+                print(f"✅ Создана роль доступа: {role.name} (ID: {role.id})")
+            except discord.Forbidden:
+                print(f"❌ Не удалось создать роль {role_name}: у бота нет права Manage Roles или роль бота стоит ниже.")
+                continue
+            except Exception as error:
+                print(f"❌ Ошибка создания роли {role_name}: {error}")
+                continue
+        role_payload[str(role.id)] = {
+            "access_level": access_level,
+            "name": role.name,
+        }
+
+    if len(role_payload) != len(ACCESS_ROLE_DEFINITIONS):
+        print("⚠️ Не все роли доступа найдены/созданы; синхронизация с сайтом пропущена.")
+        return
+
+    print("🔐 Роли доступа WhiteGrief:")
+    for role_id, info in role_payload.items():
+        print(f"   {info['name']} — {role_id} [{info['access_level']}]")
+
+    if not CONTROL_PANEL_SYNC_URL or not CONTROL_PANEL_SYNC_SECRET:
+        print("⚠️ CONTROL_PANEL_SYNC_URL/CONTROL_PANEL_SYNC_SECRET не настроены. Роли созданы, но сайт пока не получил их ID.")
+        return
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(
+                CONTROL_PANEL_SYNC_URL,
+                json={"guild_id": str(guild.id), "roles": role_payload},
+                headers={"X-Bot-Sync-Secret": CONTROL_PANEL_SYNC_SECRET},
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    print(f"✅ ID ролей переданы WhiteGrief Control Panel ({result.get('synced', 0)} ролей).")
+                else:
+                    detail = (await response.text())[:300]
+                    print(f"❌ Сайт не принял ID ролей: HTTP {response.status}: {detail}")
+    except Exception as error:
+        print(f"❌ Не удалось связаться с Control Panel: {error}")
 
 
 # ================== ПОЛНЫЙ АУДИТ СЕРВЕРА ==================
