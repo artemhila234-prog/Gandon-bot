@@ -943,8 +943,8 @@ async def on_message(message):
         print(f"\\n{cyan}{border}{reset}", flush=True)
         print(f"{cyan}║{reset} {purple}WHITEGRIEF • LIVE CHAT{reset} {gray}{timestamp}{reset}", flush=True)
         print(f"{cyan}╠" + "═" * 68 + f"╣{reset}", flush=True)
-        print(f"{cyan}║{reset} Канал: {green}#{channel_name}{reset}  {gray}(ID: {message.channel.id}){reset}", flush=True)
-        print(f"{cyan}║{reset} {author_type}: {author_color}{author_name}{reset}  {gray}(ID: {message.author.id}){reset}", flush=True)
+        print(f"{cyan}║{reset} Канал: {green}#{channel_name}{reset} <#{message.channel.id}>  {gray}(ID: {message.channel.id}){reset}", flush=True)
+        print(f"{cyan}║{reset} {author_type}: {author_color}{author_name}{reset} <@{message.author.id}>  {gray}(ID: {message.author.id}){reset}", flush=True)
         print(f"{cyan}╟" + "─" * 68 + f"╢{reset}", flush=True)
         if content:
             for line in content.splitlines():
@@ -1337,8 +1337,8 @@ async def audit_message_create(message):
         return
     channel_name = getattr(message.channel, "name", "unknown")
     details = (
-        f"Канал: #{channel_name} (ID: {message.channel.id})\n"
-        f"Автор: {message.author} (ID: {message.author.id})\n"
+        f"Канал: <#{message.channel.id}> • #{channel_name} (ID: {message.channel.id})\n"
+        f"Автор: <@{message.author.id}> • {message.author} (ID: {message.author.id})\n"
         f"Сообщение ID: {message.id}\n"
         f"Текст:\n{message.content[:2500] or '[нет текстового содержимого]'}"
     )
