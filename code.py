@@ -16,7 +16,8 @@ JOIN_CHANNEL_ID = 1551952140929601576
 CATEGORY_ID = 1551950227865608292
 SHOP_CHANNEL_ID = 1564188124844662814  # ID канала для логов покупок
 AUDIT_LOG_CHANNEL_ID = 1567159721398370457  # Канал полного журнала действий
-AUDIT_LOG_FILE = os.path.join("logs", "audit.log")  # Локальный архив на хостинге
+LOGS_DIR = "logs"
+LATEST_LOG_FILE = os.path.join(LOGS_DIR, "latest.log")
 POVIXA_CHANNEL_ID = 1564557395907186798  # ID канала, где должна работать команда /povixa
 
 # Настройка московского времени (UTC+3)
@@ -1296,13 +1297,7 @@ def write_audit_log(title, details, guild_id=None):
     timestamp = datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S")
     safe_details = str(details)
     record = f"[{timestamp}] [{title}] {safe_details}"
-    try:
-        os.makedirs(os.path.dirname(AUDIT_LOG_FILE), exist_ok=True)
-        with open(AUDIT_LOG_FILE, "a", encoding="utf-8") as log_file:
-            log_file.write(record + "\n")
-            log_file.flush()
-    except Exception as error:
-        print(f"[AUDIT FILE ERROR] {error}", flush=True)
+    # Запись попадёт в logs/latest.log через перенаправленный stdout.
     print(f"\033[93m[AUDIT {timestamp}] {title}\033[0m {safe_details}", flush=True)
 
     # Не даём сообщениям самого WhiteGrief создавать бесконечный цикл логирования.
@@ -1522,7 +1517,69 @@ async def audit_voice_state(member, before, after):
         write_audit_log("ИЗМЕНЕНИЕ ГОЛОСОВОГО КАНАЛА", f"{audit_member_label(member)}\n{old_name} → {new_name}", member.guild.id)
 
 
+class TimestampedTee:
+    """Пишет одновременно в консоль Bot-Hosting и в logs/latest.log, добавляя дату и время."""
+    def __init__(self, console_stream, log_file, lock):
+        self.console_stream = console_stream
+        self.log_file = log_file
+        self.lock = lock
+        self.buffer = ""
+
+    def write(self, text):
+        if not isinstance(text, str):
+            text = str(text)
+        self.console_stream.write(text)
+        with self.lock:
+            self.buffer += text
+            while "\n" in self.buffer:
+                line, self.buffer = self.buffer.split("\n", 1)
+                stamp = datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S")
+                self.log_file.write(f"[{stamp}] {line}\n")
+            self.log_file.flush()
+        return len(text)
+
+    def flush(self):
+        self.console_stream.flush()
+        with self.lock:
+            if self.buffer:
+                stamp = datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S")
+                self.log_file.write(f"[{stamp}] {self.buffer}\n")
+                self.buffer = ""
+            self.log_file.flush()
+
+    def isatty(self):
+        return self.console_stream.isatty() if hasattr(self.console_stream, "isatty") else False
+
+    def fileno(self):
+        return self.console_stream.fileno()
+
+    @property
+    def encoding(self):
+        return getattr(self.console_stream, "encoding", "utf-8")
+
+
+def setup_session_logs():
+    """Архивирует прошлый latest.log и начинает новый лог текущего запуска."""
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    if os.path.exists(LATEST_LOG_FILE) and os.path.getsize(LATEST_LOG_FILE) > 0:
+        stamp = datetime.now(MSK).strftime("%Y-%m-%d-%H-%M-%S")
+        archive_path = os.path.join(LOGS_DIR, f"{stamp}.log")
+        suffix = 1
+        while os.path.exists(archive_path):
+            archive_path = os.path.join(LOGS_DIR, f"{stamp}-{suffix}.log")
+            suffix += 1
+        os.replace(LATEST_LOG_FILE, archive_path)
+
+    log_file = open(LATEST_LOG_FILE, "w", encoding="utf-8", buffering=1)
+    lock = asyncio.Lock()
+    # Оба потока пишут в один файл; asyncio.Lock защищает записи внутри event loop.
+    sys.stdout = TimestampedTee(sys.__stdout__, log_file, lock)
+    sys.stderr = TimestampedTee(sys.__stderr__, log_file, lock)
+    print("========== WHITEGRIEF BOT SESSION STARTED ==========", flush=True)
+
+
 if not TOKEN:
     raise RuntimeError("Не задан DISCORD_TOKEN. Добавь токен в переменные окружения Bot-Hosting.")
 
+setup_session_logs()
 bot.run(TOKEN)
