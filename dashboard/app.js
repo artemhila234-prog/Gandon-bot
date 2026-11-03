@@ -49,6 +49,7 @@ const sideUserName=document.getElementById("sideUserName");
 const sideUserAccess=document.getElementById("sideUserAccess");
 const topAvatar=document.getElementById("topAvatar");
 const sideAvatar=document.getElementById("sideAvatar");
+let currentAccessLevel="none";
 const accessLabels={none:"Нет доступа",media:"Media",co_adm:"Co.Adm — управление персоналом",adm:"Adm — управление ботом",full:"Full — полный доступ"};
 function avatarLetter(name){return (name||"?").trim().slice(0,1).toUpperCase()}
 async function loadSession(){
@@ -62,6 +63,7 @@ async function loadSession(){
       return;
     }
     const user=data.user;
+    currentAccessLevel=user.access_level||"none";
     const letter=avatarLetter(user.username);
     authBadge.textContent="DISCORD ПОДКЛЮЧЁН";
     authBadge.classList.add("authenticated");
@@ -119,11 +121,14 @@ async function loadPlayers(section){
     for(const p of filtered){
       const row=document.createElement("tr");row.append(makeCell(p.user_id),makeCell(p.balance),makeCell(p.warns));
       const actions=document.createElement("td");
+      if(["co_adm","adm","full"].includes(currentAccessLevel)){
       const add=document.createElement("button");add.className="text-button";add.textContent="+ Варн";
       add.addEventListener("click",()=>changePlayerWarn(p.user_id,"warn"));
       const remove=document.createElement("button");remove.className="text-button";remove.textContent="− Варн";
       remove.addEventListener("click",()=>changePlayerWarn(p.user_id,"remove-warn"));
-      actions.append(add,document.createTextNode(" "),remove);row.append(actions);body.append(row);
+      actions.append(add,document.createTextNode(" "),remove);
+      } else { actions.textContent="Недостаточно прав"; }
+      row.append(actions);body.append(row);
     }
     table.append(body);result.replaceChildren(table);
   };
