@@ -1,4 +1,6 @@
 import discord
+import asyncio
+import sys
 from discord import app_commands
 from discord.ext import commands
 import sqlite3
@@ -886,6 +888,21 @@ async def accept_points(ctx):
 # ================== ON_MESSAGE ==================
 @bot.event
 async def on_message(message):
+    # Потоковый просмотр сообщений сервера в консоли Bot-Hosting.
+    if message.guild is not None and message.guild.id in ALLOWED_GUILDS:
+        channel_name = getattr(message.channel, "name", "unknown-channel")
+        author_name = getattr(message.author, "display_name", message.author.name)
+        timestamp = message.created_at.astimezone(MSK).strftime("%H:%M:%S")
+        content = message.content.strip() or "[сообщение без текста]"
+        print(
+            f"\\n[{timestamp}] #{channel_name} (канал ID: {message.channel.id})\\n"
+            f"Автор: {author_name} (ID: {message.author.id})\\n"
+            f"Сообщение: {content}",
+            flush=True
+        )
+        for attachment in message.attachments:
+            print(f"Вложение: {attachment.filename} — {attachment.url}", flush=True)
+
     if message.author.bot:
         return
     if message.guild is None or message.guild.id not in ALLOWED_GUILDS:
@@ -1081,10 +1098,97 @@ async def on_raw_reaction_add(payload):
     await msg.edit(embed=embed)
     await msg.clear_reactions()
 
+# ================== КОНСОЛЬ BOT-HOSTING ==================
+_console_reader_started = False
+
+async def console_input_loop():
+    """Читает команды из stdin панели Bot-Hosting, не регистрируя их в Discord."""
+    print("🖥️ Консольное управление включено. Введите /help для списка команд.", flush=True)
+
+    while not bot.is_closed():
+        try:
+            raw = await asyncio.to_thread(sys.stdin.readline)
+            if not raw:
+                await asyncio.sleep(1)
+                continue
+
+            line = raw.strip()
+            if not line:
+                continue
+
+            parts = line.split(maxsplit=2)
+            command = parts[0].lower()
+
+            if command == "/help":
+                print(
+                    "Команды консоли:\\n"
+                    "/text <ID канала> <сообщение> — отправить сообщение\\n"
+                    "/channels — список текстовых каналов и их ID\\n"
+                    "/help — показать эту подсказку",
+                    flush=True
+                )
+
+            elif command == "/text":
+                if len(parts) < 3:
+                    print("❌ Формат: /text <ID канала> <сообщение>", flush=True)
+                    continue
+                try:
+                    channel_id = int(parts[1])
+                except ValueError:
+                    print("❌ ID канала должен состоять из цифр.", flush=True)
+                    continue
+
+                channel = bot.get_channel(channel_id)
+                if channel is None:
+                    try:
+                        channel = await bot.fetch_channel(channel_id)
+                    except discord.NotFound:
+                        print("❌ Канал с таким ID не найден.", flush=True)
+                        continue
+                    except discord.Forbidden:
+                        print("❌ У бота нет доступа к этому каналу.", flush=True)
+                        continue
+
+                if not hasattr(channel, "send"):
+                    print("❌ В этот тип канала нельзя отправить обычное сообщение.", flush=True)
+                    continue
+
+                try:
+                    await channel.send(parts[2])
+                    print(f"✅ Сообщение отправлено в #{getattr(channel, 'name', 'канал')} ({channel_id}).", flush=True)
+                except discord.Forbidden:
+                    print("❌ Нет прав на отправку сообщений в этот канал.", flush=True)
+                except discord.HTTPException as error:
+                    print(f"❌ Discord не принял сообщение: {error}", flush=True)
+
+            elif command == "/channels":
+                print("📚 Текстовые каналы доступных серверов:", flush=True)
+                found = False
+                for guild_id in ALLOWED_GUILDS:
+                    guild = bot.get_guild(guild_id)
+                    if guild is None:
+                        continue
+                    for channel in guild.text_channels:
+                        print(f"#{channel.name} — ID: {channel.id}", flush=True)
+                        found = True
+                if not found:
+                    print("Каналы пока не найдены. Проверь подключение бота и права.", flush=True)
+
+            else:
+                print("❓ Неизвестная команда. Введите /help.", flush=True)
+
+        except Exception as error:
+            print(f"❌ Ошибка консольного обработчика: {error}", flush=True)
+
+
 # ================== ЗАПУСК ==================
 @bot.event
 async def on_ready():
+    global _console_reader_started
     print(f'Бот {bot.user} запущен!')
+    if not _console_reader_started:
+        _console_reader_started = True
+        asyncio.create_task(console_input_loop())
 
     # Регистрируем команды только как серверные (guild commands).
     # Старые глобальные команды удаляем ниже, чтобы Discord не показывал
