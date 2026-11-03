@@ -333,11 +333,22 @@ async def api_requests(request: Request):
 @app.get("/api/shop")
 async def api_shop(request: Request):
     await require_access(request, "media")
-    return {"items": [{"name": name, **item} for name, item in SHOP_ITEMS_PANEL.items()]}
+    return {"items": SHOP_ITEMS_PANEL}
 
 SHOP_ITEMS_PANEL = [
     {"name": "PVP", "price": 1000, "type": "kit"}, {"name": "CYBER", "price": 1500, "type": "kit"},
     {"name": "RICH", "price": 2000, "type": "kit"}, {"name": "TOPER", "price": 2500, "type": "kit"},
+    {"name": "D.OWNER", "price": 2300, "type": "kit"}, {"name": "DADMIN", "price": 1000, "type": "kit"},
+    {"name": "D.GLMODER", "price": 900, "type": "kit"}, {"name": "D.STMODER", "price": 750, "type": "kit"},
+    {"name": "D.MODER", "price": 500, "type": "kit"}, {"name": "WHITE", "price": 5000, "type": "donat"},
+    {"name": "RABBIT", "price": 4500, "type": "donat"}, {"name": "DHELPER", "price": 4500, "type": "donat"},
+    {"name": "GOD", "price": 4000, "type": "donat"}, {"name": "ENDER", "price": 4000, "type": "donat"},
+    {"name": "DRACULA", "price": 3500, "type": "donat"}, {"name": "BERSERK", "price": 3500, "type": "donat"},
+    {"name": "COBRA", "price": 3000, "type": "donat"},
+    {"name": "Кейс «Всё или ничего»", "price": 6000, "type": "кейс"},
+    {"name": "Кейс с Супер Донатом", "price": 4500, "type": "кейс"},
+    {"name": "Кейс с Супер Риллами", "price": 3000, "type": "кейс"},
+    {"name": "Снятие 1 выговора", "price": 400, "type": "услуга"}
 ]
 @app.get("/api/players")
 async def api_players(request: Request):
