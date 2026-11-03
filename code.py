@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import sqlite3
+import json
 import os
 from datetime import datetime, timezone, timedelta
 
@@ -105,6 +106,16 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS purchases (
     price INTEGER,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 )''')
+
+# Заявки сохраняются отдельно, чтобы не терялись после перезапуска бота.
+cursor.execute('''CREATE TABLE IF NOT EXISTS pending_requests (
+    request_type TEXT NOT NULL,
+    user_id INTEGER NOT NULL,
+    message_id INTEGER,
+    data TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (request_type, user_id)
+)''')
 conn.commit()
 
 # ================== БОТ ==================
@@ -207,6 +218,43 @@ def get_msk_time_str():
 
 pending_apps = {}
 pending_points = {}
+
+def save_pending_request(request_type, user_id, message_id, data):
+    """Сохраняет или обновляет заявку пользователя в SQLite."""
+    conn.execute(
+        '''INSERT INTO pending_requests (request_type, user_id, message_id, data)
+           VALUES (?, ?, ?, ?)
+           ON CONFLICT(request_type, user_id) DO UPDATE SET
+               message_id = excluded.message_id,
+               data = excluded.data,
+               created_at = CURRENT_TIMESTAMP''',
+        (request_type, user_id, message_id, json.dumps(data, ensure_ascii=False))
+    )
+    conn.commit()
+
+def delete_pending_request(request_type, user_id):
+    conn.execute(
+        "DELETE FROM pending_requests WHERE request_type = ? AND user_id = ?",
+        (request_type, user_id)
+    )
+    conn.commit()
+
+def load_pending_requests():
+    """Восстанавливает ожидающие заявки после запуска."""
+    rows = conn.execute(
+        "SELECT request_type, user_id, data FROM pending_requests"
+    ).fetchall()
+    for request_type, user_id, raw_data in rows:
+        try:
+            data = json.loads(raw_data)
+        except (TypeError, json.JSONDecodeError):
+            continue
+        if request_type == "join":
+            pending_apps[user_id] = data
+        elif request_type == "points":
+            pending_points[user_id] = data
+
+load_pending_requests()
 
 # ================== ВЫДАЧА PLAYER ПРИ ВХОДЕ ==================
 @bot.event
@@ -665,10 +713,6 @@ async def accept(ctx):
 
     nick = app_data['nick']
     position = app_data['position']
-    del pending_apps[member.id]
-
-    await original_msg.clear_reaction('🕐')
-    await original_msg.add_reaction('✅')
 
     new_nick = f"{nick} | {position}"
     if len(new_nick) > 32: new_nick = new_nick[:32]
@@ -749,6 +793,10 @@ async def accept(ctx):
         )
         welcome_embed.set_footer(text="WHITEGRIEF MEDIA • Удачной работы!")
         await channel.send(content=f"Привет, {member.mention}! Ты попал в команду Медиа.", embed=welcome_embed)
+        await original_msg.clear_reaction('🕐')
+        await original_msg.add_reaction('✅')
+        pending_apps.pop(member.id, None)
+        delete_pending_request("join", member.id)
         await ctx.send(f"✅ {member.mention} принят! Создан личный канал {channel.mention}.")
     except discord.Forbidden:
         await ctx.send("❌ У меня недостаточно прав для создания каналов.")
@@ -804,15 +852,15 @@ async def accept_points(ctx):
         return
 
     points = app_data['points']
-    del pending_points[member.id]
 
+    update_balance(member.id, points)
+    pending_points.pop(member.id, None)
+    delete_pending_request("points", member.id)
     try:
         await original_msg.clear_reaction('🕐')
     except:
         pass
     await original_msg.add_reaction('✅')
-
-    update_balance(member.id, points)
     new_balance = get_user_data(member.id)['balance']
     time_str = get_msk_time_str()
 
@@ -903,7 +951,9 @@ async def on_message(message):
 
         # ---- ЗАЯВКА НА БАЛЛЫ ----
         if nick and points is not None and link:
-            pending_points[message.author.id] = {'nick': nick, 'points': points, 'link': link}
+            app_data = {'nick': nick, 'points': points, 'link': link}
+            pending_points[message.author.id] = app_data
+            save_pending_request("points", message.author.id, message.id, app_data)
             await message.add_reaction('🕐')
 
             mentions = []
@@ -950,7 +1000,9 @@ async def on_message(message):
                 age = line.split(':', 1)[1].strip()
 
         if nick and position and age:
-            pending_apps[message.author.id] = {'nick': nick, 'position': position, 'age': age}
+            app_data = {'nick': nick, 'position': position, 'age': age}
+            pending_apps[message.author.id] = app_data
+            save_pending_request("join", message.author.id, message.id, app_data)
             await message.add_reaction('🕐')
             approver_role = message.guild.get_role(APPROVER_ROLE_ID)
             if approver_role:
