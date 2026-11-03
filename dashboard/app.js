@@ -39,7 +39,7 @@ const sideUserName=document.getElementById("sideUserName");
 const sideUserAccess=document.getElementById("sideUserAccess");
 const topAvatar=document.getElementById("topAvatar");
 const sideAvatar=document.getElementById("sideAvatar");
-const accessLabels={none:"Нет класса доступа",viewer:"Наблюдатель",media:"Media",manager:"Менеджер",admin:"Администратор",owner:"Владелец"};
+const accessLabels={none:"Нет доступа",media:"Media",co_adm:"Co.Adm — управление персоналом",adm:"Adm — управление ботом",full:"Full — полный доступ"};
 function avatarLetter(name){return (name||"?").trim().slice(0,1).toUpperCase()}
 async function loadSession(){
   try{
