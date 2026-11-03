@@ -116,6 +116,13 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS pending_requests (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (request_type, user_id)
 )''')
+
+# Автоматическая миграция существующей базы: CREATE TABLE IF NOT EXISTS
+# не добавляет столбцы в уже созданную таблицу.
+cursor.execute("PRAGMA table_info(pending_requests)")
+pending_request_columns = {row[1] for row in cursor.fetchall()}
+if "message_id" not in pending_request_columns:
+    cursor.execute("ALTER TABLE pending_requests ADD COLUMN message_id INTEGER")
 conn.commit()
 
 # ================== БОТ ==================
