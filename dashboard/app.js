@@ -214,7 +214,12 @@ async function loadRequests(section){
           const meta=document.createElement("div");meta.className="request-meta";
           const date=document.createElement("span");date.textContent="◷  "+String(item.created_at||"Дата не указана");
           const msg=document.createElement("span");msg.textContent="Сообщение · "+String(item.message_id??"—");meta.append(date,msg);
-          card.append(top,user,payload,meta);list.append(card);
+          const actions=document.createElement("div");actions.className="request-card-actions";
+          if(item.type==="join"){
+            const approve=document.createElement("button");approve.type="button";approve.className="request-approve-button";approve.textContent="✓  Одобрить заявку";
+            approve.addEventListener("click",()=>approveJoinRequest(item.user_id,approve));actions.append(approve);
+          }
+          card.append(top,user,payload,meta,actions);list.append(card);
         });
       };
       search.addEventListener("input",render);render();wrap.append(hero,stats,toolbar,list);result.className="requests-view";result.replaceChildren(wrap);
@@ -224,6 +229,22 @@ async function loadRequests(section){
   if(refresh)refresh.textContent="↻  Обновить";
   refresh?.addEventListener("click",load);await load();
 }
+async function approveJoinRequest(userId,button){
+  if(!window.confirm("Одобрить заявку на вступление пользователя "+userId+"? Будут выданы роли и создан личный канал."))return;
+  button.disabled=true;button.textContent="Обрабатываем…";
+  try{
+    const response=await fetch("/api/requests/"+encodeURIComponent(userId)+"/approve",{method:"POST",credentials:"same-origin"});
+    const raw=await response.text();let data={};
+    try{data=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул не JSON (HTTP "+response.status+"). Проверь логи второго хостинга.");}
+    if(!response.ok)throw new Error(data.detail||"Не удалось одобрить заявку.");
+    showToast("Заявка одобрена. Сообщение отправлено в Discord.");
+    const section=document.getElementById("comingPage");if(section)await loadRequests(section);
+  }catch(error){
+    showToast(error.message||"Ошибка одобрения заявки.");
+    button.disabled=false;button.textContent="✓  Одобрить заявку";
+  }
+}
+
 async function loadShop(section){
   const result=section.querySelector("#shopResult"),refresh=section.querySelector("#refreshShop");
   const load=async()=>{
