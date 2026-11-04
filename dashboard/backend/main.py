@@ -463,7 +463,9 @@ async def internal_data_change_warns(user_id: str, request: Request):
     payload = await request.json()
     delta = int(payload.get("delta", 0))
     reason = str(payload.get("reason", "")).strip()
-    if not user_id.isdigit() or delta not in (-1, 1) or not reason:
+    actor_id = str(payload.get("actor_id", "")).strip()
+    actor_name = str(payload.get("actor_name", "Модератор сайта")).strip()[:80]
+    if not user_id.isdigit() or delta not in (-1, 1) or not reason or not actor_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректные данные изменения варна.")
     member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{user_id}")
     role_ids = {str(x) for x in member.get("roles", [])}
@@ -495,7 +497,29 @@ async def internal_data_change_warns(user_id: str, request: Request):
         raise
     except sqlite3.Error:
         raise HTTPException(status_code=503, detail="Ошибка базы данных бота.")
-    return {"ok": True, "user_id": user_id, "warns": updated, "reason": reason}
+
+    target_user = member.get("user", {})
+    target_name = member.get("nick") or target_user.get("global_name") or target_user.get("username") or user_id
+    action_text = "ВЫДАН" if delta == 1 else "СНЯТ"
+    color = 0xE05265 if delta == 1 else 0x55C995
+    embed = {
+        "title": f"⚠️ Варн {action_text}" if delta == 1 else "✅ Варн снят",
+        "color": color,
+        "fields": [
+            {"name": "Игрок", "value": f"{target_name} (<@{user_id}>)", "inline": False},
+            {"name": "Действие выполнил", "value": f"{actor_name} (<@{actor_id}>)", "inline": False},
+            {"name": "Количество варнов", "value": f"{current} → {updated}", "inline": True},
+            {"name": "Причина", "value": reason[:1000], "inline": False},
+            {"name": "Источник", "value": "WhiteGrief Control Panel", "inline": True},
+        ],
+        "footer": {"text": "WhiteGrief • Журнал модерации"},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        await discord_request("POST", f"/channels/{AUDIT_LOG_CHANNEL_ID}/messages", payload={"embeds": [embed], "allowed_mentions": {"parse": [], "users": []}})
+    except HTTPException:
+        print("Не удалось отправить лог изменения варна в Discord.", flush=True)
+    return {"ok": True, "user_id": user_id, "warns": updated, "reason": reason, "actor_name": actor_name}
 
 @app.post("/api/internal/sync-roles")
 async def sync_access_roles(request: Request):
