@@ -52,37 +52,33 @@
       <section class="page-content" id="pageContent">
         <div id="dashboardBody">
         <div class="page-heading">
-          <div><div class="eyebrow">CONTROL CENTER <span>•</span> OVERVIEW</div><h1>Панель управления</h1><p>Добро пожаловать в центр управления WhiteGrief.</p></div>
-          <div class="heading-date"><span class="live-dot"></span> Панель создана · API не подключён</div>
+          <div><div class="eyebrow">WHITEGRIEF <span>•</span> CONTROL CENTER</div><h1>Добро пожаловать!</h1><p>Рады видеть тебя в панели управления WhiteGrief. Здесь собраны инструменты для работы команды и контроля сервера.</p></div>
+          <div class="heading-date"><span class="live-dot"></span> WHITEGRIEF CONTROL PANEL</div>
         </div>
-
-        <div class="notice">
+        <div class="notice welcome-notice">
           <div class="notice-icon">✦</div>
-          <div><strong>Первый запуск панели</strong><p>Интерфейс готовится к подключению. Сейчас показатели не загружаются из бота и не являются реальными данными.</p></div>
-          <span class="notice-tag">SETUP</span>
+          <div><strong>Твоя рабочая область</strong><p>Используй меню слева, чтобы перейти к доступным разделам. Возможности панели зависят от твоего уровня доступа в Discord. Действия с игроками и заявками проверяются сервером.</p></div>
+          <span class="notice-tag">WELCOME</span>
         </div>
-
-        <div class="section-title"><div><h2>Обзор сервера</h2><p>Основные показатели WhiteGrief</p></div><span class="muted-label">НЕТ ДАННЫХ</span></div>
-        <div class="stats-grid">
-          <article class="stat-card"><div class="stat-top"><span>Состояние бота</span><span class="stat-icon purple">⌁</span></div><div class="stat-value">—</div><div class="stat-foot"><span class="status-wait">● Не подключён</span><span>Discord Gateway</span></div></article>
-          <article class="stat-card"><div class="stat-top"><span>Участники</span><span class="stat-icon blue">♙</span></div><div class="stat-value">—</div><div class="stat-foot"><span>Ожидание API</span><span>Сервер</span></div></article>
-          <article class="stat-card"><div class="stat-top"><span>Ожидают заявки</span><span class="stat-icon orange">▤</span></div><div class="stat-value">—</div><div class="stat-foot"><span>Ожидание API</span><span>Медиа</span></div></article>
-          <article class="stat-card"><div class="stat-top"><span>Выдано баллов</span><span class="stat-icon green">✧</span></div><div class="stat-value">—</div><div class="stat-foot"><span>Ожидание API</span><span>Экономика</span></div></article>
+        <div class="section-title"><div><h2>Уровни доступа</h2><p>Кому и какие возможности доступны в панели</p></div><span class="muted-label">WHITEGRIEF TEAM</span></div>
+        <div class="access-info-grid">
+          <article class="access-info-card access-media"><span class="access-level">MEDIA</span><h3>Медиа</h3><p>Просмотр списка игроков, своего баланса и каталога магазина.</p><small>Создатели системы доступа: <b>Its_Morterlyn_7</b> и <b>namederr</b></small></article>
+          <article class="access-info-card access-coadm"><span class="access-level">CO.ADM</span><h3>Младшая администрация</h3><p>Возможности Media, обработка заявок, выдача и снятие варнов.</p><small>Создатели системы доступа: <b>Its_Morterlyn_7</b> и <b>namederr</b></small></article>
+          <article class="access-info-card access-adm"><span class="access-level">ADM</span><h3>Администрация</h3><p>Управление данными игроков, балансом и варнами, обработка заявок.</p><small>Создатели системы доступа: <b>Its_Morterlyn_7</b> и <b>namederr</b></small></article>
+          <article class="access-info-card access-full"><span class="access-level">FULL</span><h3>Полный доступ</h3><p>Полный набор разрешений панели управления.</p><small>Создатели системы доступа: <b>Its_Morterlyn_7</b> и <b>namederr</b></small></article>
         </div>
-
-        <div class="content-grid">
-          <section class="panel activity-panel"><div class="panel-heading"><div><h2>Последние события</h2><p>Активность бота в реальном времени</p></div><button class="text-button" data-go="logs">Все логи ↗</button></div><div class="empty-state"><div class="empty-icon">≋</div><strong>Пока нет событий</strong><p>Здесь появятся действия игроков и события Discord после подключения API.</p></div></section>
-          <section class="panel status-panel"><div class="panel-heading"><div><h2>Система</h2><p>Состояние компонентов</p></div></div><div class="system-row"><span class="system-symbol">◈</span><div><strong>Discord Bot</strong><small>Связь ещё не настроена</small></div><span class="pill pending">Ожидание</span></div><div class="system-row"><span class="system-symbol">▣</span><div><strong>База данных</strong><small>Подключим SQLite бота</small></div><span class="pill pending">Ожидание</span></div><div class="system-row"><span class="system-symbol">⌁</span><div><strong>Audit Logger</strong><small>latest.log · audit.log</small></div><span class="pill pending">Ожидание</span></div><div class="system-row"><span class="system-symbol">⌘</span><div><strong>Hosting Console</strong><small>Нужна интеграция хостинга</small></div><span class="pill pending">Ожидание</span></div></section>
+        <div class="content-grid welcome-bottom-grid">
+          <section class="panel"><div class="panel-heading"><div><h2>Создатели WhiteGrief Control Panel</h2><p>Благодарность тем, кто создал систему доступа</p></div></div><div class="creator-list"><div class="creator-entry"><span class="creator-avatar">I</span><div><strong>Its_Morterlyn_7</strong><small>Создатель системы доступа</small></div></div><div class="creator-entry"><span class="creator-avatar">N</span><div><strong>namederr</strong><small>Создатель системы доступа</small></div></div></div></section>
+          <section class="panel"><div class="panel-heading"><div><h2>Небольшая подсказка</h2><p>Как пользоваться панелью</p></div></div><div class="welcome-tip"><span>✧</span><p>Работай внимательно: проверяй Discord ID перед изменением данных, а при достижении лимита в два варна помни — следующее нарушение приводит к кiku участника с Discord-сервера.</p></div></section>
         </div>
-
-        <div class="section-title quick-title"><div><h2>Быстрый доступ</h2><p>Основные разделы панели</p></div></div>
+        <div class="quick-title section-title"><div><h2>Быстрый доступ</h2><p>Переходи к нужному инструменту в один клик</p></div></div>
         <div class="quick-grid">
-          <button class="quick-card" data-go="players"><span class="quick-icon blue">♙</span><span><strong>Игроки</strong><small>Баллы, варны и роли</small></span><b>↗</b></button>
-          <button class="quick-card" data-go="requests"><span class="quick-icon orange">▤</span><span><strong>Заявки</strong><small>Проверка и одобрение</small></span><b>↗</b></button>
-          <button class="quick-card" data-go="shop"><span class="quick-icon green">◇</span><span><strong>Магазин</strong><small>Товары и стоимость</small></span><b>↗</b></button>
-          <button class="quick-card" data-go="console"><span class="quick-icon purple">⌘</span><span><strong>Консоль</strong><small>Команды и вывод</small></span><b>↗</b></button>
+          <button class="quick-card" data-go="players"><span class="quick-icon blue">♙</span><span><strong>Игроки</strong><small>Баланс и варны</small></span><b>↗</b></button>
+          <button class="quick-card" data-go="requests"><span class="quick-icon orange">▤</span><span><strong>Заявки</strong><small>Очередь заявок</small></span><b>↗</b></button>
+          <button class="quick-card" data-go="shop"><span class="quick-icon green">◇</span><span><strong>Магазин</strong><small>Каталог товаров</small></span><b>↗</b></button>
+          <button class="quick-card" data-go="settings"><span class="quick-icon purple">⚙</span><span><strong>Настройки</strong><small>Параметры панели</small></span><b>↗</b></button>
         </div>
-        <footer>WHITEGRIEF CONTROL PANEL <span>•</span> DEVELOPMENT BUILD</footer>
+        <footer>WHITEGRIEF CONTROL PANEL <span>•</span> MADE FOR THE TEAM</footer>
         </div>
       </section>
     </main>
