@@ -17,7 +17,7 @@ function showPage(page){
     const old=document.getElementById("dashboardBody");
     if(old) old.hidden=true;
     if(page==="players"){
-      section.innerHTML='<div class="panel-heading"><div><h2>Игроки</h2><p>Баланс и варны из базы бота</p></div><button class="text-button" id="refreshPlayers">Обновить</button></div><input id="playerSearch" class="panel-search" placeholder="Поиск по Discord ID"><div id="playersResult" class="empty-state">Загрузка игроков…</div>';
+      section.innerHTML='<div class="panel-heading"><div><h2>Игроки</h2><p>Баланс и варны из базы бота</p></div><button class="text-button" id="refreshPlayers">Обновить</button></div><input id="playerSearch" class="panel-search" placeholder="⌕  Поиск по Discord ID"><div id="playersResult" class="empty-state">Загрузка игроков…</div>';
       loadPlayers(section);
     } else if(page==="requests"){
       section.innerHTML='<div class="panel-heading"><div><h2>Заявки</h2><p>Очередь заявок из базы бота · только просмотр</p></div><button class="text-button" id="refreshRequests">Обновить</button></div><div id="requestsResult" class="empty-state">Загрузка заявок…</div>';
@@ -106,45 +106,84 @@ async function apiGet(url){
   return data;
 }
 async function loadPlayers(section){
-  const result=section.querySelector("#playersResult");
-  const refresh=section.querySelector("#refreshPlayers");
-  const search=section.querySelector("#playerSearch");
+  const result=section.querySelector("#playersResult"),refresh=section.querySelector("#refreshPlayers"),search=section.querySelector("#playerSearch");
   if(!result)return;
   let players=[];
   const render=()=>{
-    const term=(search?.value||"").trim();
-    const filtered=players.filter(p=>String(p.user_id).includes(term));
-    if(!filtered.length){result.textContent=players.length?"Ничего не найдено.":"В базе пока нет записей об игроках.";return;}
-    const table=document.createElement("table");table.className="players-table";
-    const head=document.createElement("thead");head.innerHTML="<tr><th>Discord ID</th><th>Баланс</th><th>Варны</th><th>Действия</th></tr>";table.appendChild(head);
-    const body=document.createElement("tbody");
+    const term=(search?.value||"").trim().toLowerCase();
+    const filtered=players.filter(p=>String(p.user_id).toLowerCase().includes(term));
+    if(!filtered.length){result.className="empty-state";result.textContent=players.length?"Ничего не найдено.":"В базе пока нет записей об игроках.";return;}
+    const grid=document.createElement("div");grid.className="player-grid";
     for(const p of filtered){
-      const row=document.createElement("tr");row.append(makeCell(p.user_id),makeCell(p.balance),makeCell(p.warns));
-      const actions=document.createElement("td");
+      const warns=Math.max(0,Math.min(2,Number(p.warns)||0));
+      const card=document.createElement("article");card.className="player-card";
+      const top=document.createElement("div");top.className="player-card-top";
+      const avatar=document.createElement("div");avatar.className="player-avatar";avatar.textContent="✦";
+      const identity=document.createElement("div");identity.className="player-identity";
+      const name=document.createElement("strong");name.textContent="Участник WhiteGrief";
+      const id=document.createElement("span");id.textContent="ID: "+p.user_id;
+      identity.append(name,id);
+      const state=document.createElement("span");state.className="player-state";state.textContent="В базе";
+      top.append(avatar,identity,state);
+      const metrics=document.createElement("div");metrics.className="player-metrics";
+      const balance=document.createElement("div");balance.className="player-metric balance-metric";
+      balance.innerHTML='<span>✧ Баланс</span>';
+      const balanceValue=document.createElement("strong");balanceValue.textContent=Number(p.balance||0).toLocaleString("ru-RU")+" баллов";balance.append(balanceValue);
+      const warn=document.createElement("div");warn.className="player-metric warn-metric";
+      warn.innerHTML='<span>⚑ Варны</span>';
+      const warnValue=document.createElement("strong");warnValue.textContent=warns+"/3";warn.append(warnValue);
+      const progress=document.createElement("div");progress.className="warn-progress";
+      for(let i=0;i<3;i++){const segment=document.createElement("i");if(i<warns)segment.classList.add("filled");progress.append(segment);}
+      warn.append(progress);metrics.append(balance,warn);
+      const actions=document.createElement("div");actions.className="player-actions";
       if(["co_adm","adm","full"].includes(currentAccessLevel)){
-      const add=document.createElement("button");add.className="text-button";add.textContent="+ Варн";
-      add.addEventListener("click",()=>changePlayerWarn(p.user_id,"warn"));
-      const remove=document.createElement("button");remove.className="text-button";remove.textContent="− Варн";
-      remove.addEventListener("click",()=>changePlayerWarn(p.user_id,"remove-warn"));
-      actions.append(add,document.createTextNode(" "),remove);
-      } else { actions.textContent="Недостаточно прав"; }
-      row.append(actions);body.append(row);
+        const add=document.createElement("button");add.className="action-button primary-action";add.textContent=warns>=2?"Лимит 2/3":"+ Выдать варн";add.disabled=warns>=2;add.title=warns>=2?"Третий варн не выдаётся: за следующее нарушение участника кикают с Discord-сервера.":"Выдать варн";
+        add.addEventListener("click",()=>changePlayerWarn(p.user_id,"warn"));
+        const remove=document.createElement("button");remove.className="action-button secondary-action";remove.textContent="− Снять варн";remove.disabled=warns===0;remove.addEventListener("click",()=>changePlayerWarn(p.user_id,"remove-warn"));
+        actions.append(add,remove);
+      }else{const access=document.createElement("span");access.className="permission-note";access.textContent="Просмотр без управления";actions.append(access);}
+      card.append(top,metrics,actions);grid.append(card);
     }
-    table.append(body);result.replaceChildren(table);
+    result.className="players-result";result.replaceChildren(grid);
   };
-  const load=async()=>{result.textContent="Загрузка игроков…";try{const data=await apiGet("/api/players");players=data.players||[];render();}catch(e){result.textContent=e.message;}};
+  const load=async()=>{result.className="empty-state";result.textContent="Загружаем игроков…";try{const data=await apiGet("/api/players");players=data.players||[];render();}catch(e){result.className="empty-state";result.textContent=e.message;}};
   search?.addEventListener("input",render);refresh?.addEventListener("click",load);await load();
 }
 async function changePlayerWarn(userId,action){
-  const reason=window.prompt("Укажи причину действия:");
-  if(!reason||!reason.trim())return;
-  try{
-    const response=await fetch("/api/players/"+encodeURIComponent(userId)+"/"+action,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason})});
-    const data=await response.json();if(!response.ok)throw new Error(data.detail||"Не удалось изменить варн.");
-    const page=document.getElementById("comingPage");if(page)await loadPlayers(page);
-    window.alert("Готово. Теперь варнов: "+data.warns);
-  }catch(e){window.alert(e.message);}
+  async function loadShop(section){
+  const result=section.querySelector("#shopResult"),refresh=section.querySelector("#refreshShop");
+  const load=async()=>{result.className="empty-state";result.textContent="Загружаем каталог…";try{
+    const data=await apiGet("/api/shop"),items=data.items||[];
+    if(!items.length){result.textContent="Каталог пуст.";return;}
+    const labels={kit:"Привилегии", "донат":"Донат", "кейс":"Кейсы", "услуга":"Услуги"};
+    const icons={kit:"♛","донат":"✦","кейс":"▣","услуга":"⚒"};
+    const filters=document.createElement("div");filters.className="shop-filters";
+    const grid=document.createElement("div");grid.className="shop-grid";
+    const categories=["Все товары",...new Set(items.map(x=>x.type))];
+    let active="Все товары";
+    const render=()=>{
+      filters.replaceChildren();
+      for(const category of categories){
+        const button=document.createElement("button");button.className="shop-filter"+(active===category?" active":"");button.textContent=category==="Все товары"?category:labels[category]||category;
+        button.addEventListener("click",()=>{active=category;render();});filters.append(button);
+      }
+      const shown=active==="Все товары"?items:items.filter(x=>x.type===active);
+      grid.replaceChildren();
+      for(const item of shown){
+        const card=document.createElement("article");card.className="shop-card";
+        const icon=document.createElement("div");icon.className="shop-item-icon "+(item.type==="кейс"?"case-icon":item.type==="донат"?"donate-icon":item.type==="услуга"?"service-icon":"kit-icon");icon.textContent=icons[item.type]||"✦";
+        const category=document.createElement("span");category.className="shop-category";category.textContent=labels[item.type]||item.type;
+        const title=document.createElement("h3");title.textContent=item.name;
+        const price=document.createElement("div");price.className="shop-price";price.innerHTML='<span>✧</span> '+Number(item.price).toLocaleString("ru-RU")+' <small>баллов</small>';
+        const note=document.createElement("p");note.className="shop-description";note.textContent=item.type==="кейс"?"Открой и испытай удачу":item.type==="услуга"?"Дополнительная услуга сервера":item.type==="донат"?"Донат-привилегия WhiteGrief":"Игровой набор";
+        card.append(icon,category,title,note,price);grid.append(card);
+      }
+    };
+    const wrap=document.createElement("div");wrap.className="shop-content";wrap.append(filters,grid);result.className="shop-result";result.replaceChildren(wrap);render();
+  }catch(e){result.className="empty-state";result.textContent=e.message;}};
+  refresh?.addEventListener("click",load);await load();
 }
+
 async function loadRequests(section){
   const result=section.querySelector("#requestsResult"),refresh=section.querySelector("#refreshRequests");
   const load=async()=>{result.textContent="Загрузка заявок…";try{
