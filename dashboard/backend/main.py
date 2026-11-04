@@ -376,11 +376,37 @@ async def api_players(request: Request):
         with sqlite3.connect(bot_db_path, timeout=10) as db:
             db.row_factory = sqlite3.Row
             rows = db.execute(
-                "SELECT user_id, balance, warns FROM users ORDER BY user_id"
+                "SELECT user_id, balance, warns FROM users WHERE warns < 3 ORDER BY user_id"
             ).fetchall()
     except sqlite3.Error:
         raise HTTPException(status_code=503, detail="Не удалось прочитать базу данных игроков.")
-    return {"players": [dict(row) for row in rows], "count": len(rows)}
+    players = [dict(row) for row in rows]
+    # /snyat writes warns=3 before kicking the member. Such rows are historical,
+    # not active server members, so they are excluded from the active roster.
+    try:
+        members = await discord_request("GET", f"/guilds/{GUILD_ID}/members?limit=1000")
+        member_map = {str(m.get("user", {}).get("id")): m.get("user", {}) for m in members}
+        active_players = []
+        for player in players:
+            member_user = member_map.get(str(player["user_id"]))
+            if not member_user:
+                continue
+            player["username"] = member_user.get("global_name") or member_user.get("username") or "Участник"
+            player["discord_username"] = member_user.get("username") or ""
+            avatar_hash = member_user.get("avatar")
+            player["avatar_url"] = (
+                f"https://cdn.discordapp.com/avatars/{player['user_id']}/{avatar_hash}.png?size=64"
+                if avatar_hash else None
+            )
+            active_players.append(player)
+        players = active_players
+    except (HTTPException, TypeError, AttributeError):
+        # Keep the database view available if Discord member-list access is unavailable.
+        for player in players:
+            player["username"] = "Участник WhiteGrief"
+            player["discord_username"] = ""
+            player["avatar_url"] = None
+    return {"players": players, "count": len(players)}
 
 
 @app.get("/health")
