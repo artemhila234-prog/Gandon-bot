@@ -162,7 +162,7 @@ function openWarnDialog(userId,action){
     submit.disabled=true;submit.textContent="Обработка…";error.hidden=true;
     try{
       const response=await fetch("/api/players/"+encodeURIComponent(userId)+"/"+action,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason})});
-      const data=await response.json();if(!response.ok)throw new Error(data.detail||"Не удалось изменить варны.");
+      const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ (HTTP "+response.status+"). Проверь логи первого хостинга.");}if(!response.ok)throw new Error(data.detail||"Не удалось изменить варны.");
       dismiss();const section=document.getElementById("comingPage");if(section)await loadPlayers(section);
       showToast(isAdd?"Варн успешно выдан.":"Варн успешно снят.");
     }catch(err){error.textContent=err.message||"Произошла ошибка.";error.hidden=false;submit.disabled=false;submit.textContent=isAdd?"Выдать варн":"Снять варн";}
@@ -229,20 +229,36 @@ async function loadRequests(section){
   if(refresh)refresh.textContent="↻  Обновить";
   refresh?.addEventListener("click",load);await load();
 }
+function openApproveDialog(userId,onApprove){
+  const old=document.getElementById("approveActionModal");if(old)old.remove();
+  const modal=document.createElement("div");modal.id="approveActionModal";modal.className="action-modal";
+  const card=document.createElement("section");card.className="action-modal-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");card.setAttribute("aria-labelledby","approveDialogTitle");
+  const close=document.createElement("button");close.type="button";close.className="action-modal-close";close.textContent="×";close.setAttribute("aria-label","Закрыть");
+  const icon=document.createElement("div");icon.className="action-modal-icon";icon.textContent="✦";
+  const eyebrow=document.createElement("span");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="WHITEGRIEF • APPLICATION CENTER";
+  const title=document.createElement("h2");title.id="approveDialogTitle";title.textContent="Одобрить заявку?";
+  const description=document.createElement("p");description.className="action-modal-description";description.textContent="Пользователь Discord ID: "+userId;
+  const note=document.createElement("div");note.className="action-modal-note";note.textContent="Будут выданы роли, изменён ник и создан личный канал. Это действие изменит данные на Discord-сервере.";
+  const footer=document.createElement("div");footer.className="action-modal-footer";
+  const cancel=document.createElement("button");cancel.type="button";cancel.className="action-modal-cancel";cancel.textContent="Отмена";
+  const approve=document.createElement("button");approve.type="button";approve.className="action-modal-confirm";approve.textContent="✓  Одобрить";
+  const dismiss=()=>modal.remove();close.addEventListener("click",dismiss);cancel.addEventListener("click",dismiss);
+  modal.addEventListener("click",e=>{if(e.target===modal)dismiss();});
+  approve.addEventListener("click",async()=>{approve.disabled=true;approve.textContent="Обрабатываем…";cancel.disabled=true;try{await onApprove();dismiss();}catch(error){note.textContent=error.message||"Не удалось одобрить заявку.";note.classList.add("error");approve.disabled=false;approve.textContent="Повторить";cancel.disabled=false;}});
+  footer.append(cancel,approve);card.append(close,icon,eyebrow,title,description,note,footer);modal.append(card);document.body.append(modal);approve.focus();
+}
 async function approveJoinRequest(userId,button){
-  if(!window.confirm("Одобрить заявку на вступление пользователя "+userId+"? Будут выданы роли и создан личный канал."))return;
-  button.disabled=true;button.textContent="Обрабатываем…";
-  try{
-    const response=await fetch("/api/requests/"+encodeURIComponent(userId)+"/approve",{method:"POST",credentials:"same-origin"});
-    const raw=await response.text();let data={};
-    try{data=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул не JSON (HTTP "+response.status+"). Проверь логи второго хостинга.");}
-    if(!response.ok)throw new Error(data.detail||"Не удалось одобрить заявку.");
-    showToast("Заявка одобрена. Сообщение отправлено в Discord.");
-    const section=document.getElementById("comingPage");if(section)await loadRequests(section);
-  }catch(error){
-    showToast(error.message||"Ошибка одобрения заявки.");
-    button.disabled=false;button.textContent="✓  Одобрить заявку";
-  }
+  openApproveDialog(userId,async()=>{
+    button.disabled=true;button.textContent="Обрабатываем…";
+    try{
+      const response=await fetch("/api/requests/"+encodeURIComponent(userId)+"/approve",{method:"POST",credentials:"same-origin"});
+      const raw=await response.text();let data={};
+      try{data=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ (HTTP "+response.status+"). Проверь логи обоих хостингов.");}
+      if(!response.ok)throw new Error(data.detail||("Ошибка одобрения (HTTP "+response.status+")."));
+      showToast("Заявка одобрена. Сообщение отправлено в Discord.");
+      const section=document.getElementById("comingPage");if(section)await loadRequests(section);
+    }catch(error){button.disabled=false;button.textContent="✓  Одобрить заявку";throw error;}
+  });
 }
 
 async function loadShop(section){
