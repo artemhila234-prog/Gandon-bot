@@ -107,76 +107,62 @@ async function apiGet(url){
 }
 async function loadPlayers(section){
   const result=section.querySelector("#playersResult"),refresh=section.querySelector("#refreshPlayers"),search=section.querySelector("#playerSearch");
-  if(!result)return;
-  let players=[];
+  if(!result)return;let players=[];
   const render=()=>{
     const term=(search?.value||"").trim().toLowerCase();
-    const filtered=players.filter(p=>String(p.user_id).toLowerCase().includes(term));
-    if(!filtered.length){result.className="empty-state";result.textContent=players.length?"Ничего не найдено.":"В базе пока нет записей об игроках.";return;}
-    const grid=document.createElement("div");grid.className="player-grid";
+    const filtered=players.filter(p=>(String(p.user_id)+" "+(p.username||"")+" "+(p.discord_username||"")).toLowerCase().includes(term));
+    if(!filtered.length){result.className="empty-state";result.textContent=players.length?"Ничего не найдено.":"Активных участников в базе не найдено.";return;}
+    const list=document.createElement("div");list.className="discord-member-list";
     for(const p of filtered){
       const warns=Math.max(0,Math.min(2,Number(p.warns)||0));
-      const card=document.createElement("article");card.className="player-card";
-      const top=document.createElement("div");top.className="player-card-top";
-      const avatar=document.createElement("div");avatar.className="player-avatar";avatar.textContent="✦";
-      const identity=document.createElement("div");identity.className="player-identity";
-      const name=document.createElement("strong");name.textContent="Участник WhiteGrief";
-      const id=document.createElement("span");id.textContent="ID: "+p.user_id;
-      identity.append(name,id);
-      const state=document.createElement("span");state.className="player-state";state.textContent="В базе";
-      top.append(avatar,identity,state);
-      const metrics=document.createElement("div");metrics.className="player-metrics";
-      const balance=document.createElement("div");balance.className="player-metric balance-metric";
-      balance.innerHTML='<span>✧ Баланс</span>';
-      const balanceValue=document.createElement("strong");balanceValue.textContent=Number(p.balance||0).toLocaleString("ru-RU")+" баллов";balance.append(balanceValue);
-      const warn=document.createElement("div");warn.className="player-metric warn-metric";
-      warn.innerHTML='<span>⚑ Варны</span>';
-      const warnValue=document.createElement("strong");warnValue.textContent=warns+"/3";warn.append(warnValue);
-      const progress=document.createElement("div");progress.className="warn-progress";
-      for(let i=0;i<3;i++){const segment=document.createElement("i");if(i<warns)segment.classList.add("filled");progress.append(segment);}
-      warn.append(progress);metrics.append(balance,warn);
-      const actions=document.createElement("div");actions.className="player-actions";
+      const row=document.createElement("article");row.className="discord-member-row";
+      const avatar=document.createElement("div");avatar.className="discord-member-avatar";
+      if(p.avatar_url){const img=document.createElement("img");img.src=p.avatar_url;img.alt="";img.loading="lazy";img.onerror=()=>{avatar.textContent=(p.username||"?").slice(0,1).toUpperCase();};avatar.append(img);}else avatar.textContent=(p.username||"?").slice(0,1).toUpperCase();
+      const identity=document.createElement("div");identity.className="discord-member-identity";
+      const name=document.createElement("strong");name.textContent=p.username||"Участник WhiteGrief";
+      const sub=document.createElement("span");sub.textContent=(p.discord_username?"@"+p.discord_username+" · ":"")+"ID: "+p.user_id;identity.append(name,sub);
+      const balance=document.createElement("div");balance.className="discord-member-balance";balance.innerHTML="<small>БАЛАНС</small>";
+      const balanceValue=document.createElement("strong");balanceValue.textContent=Number(p.balance||0).toLocaleString("ru-RU")+" ✧";balance.append(balanceValue);
+      const warn=document.createElement("div");warn.className="discord-member-warns";
+      const warnLabel=document.createElement("small");warnLabel.textContent="ВАРНЫ";
+      const warnText=document.createElement("strong");warnText.textContent=warns+"/3";
+      const bars=document.createElement("span");bars.className="discord-warn-bars";
+      for(let i=0;i<3;i++){const bar=document.createElement("i");if(i<warns)bar.classList.add("on");bars.append(bar);}warn.append(warnLabel,warnText,bars);
+      const actions=document.createElement("div");actions.className="discord-member-actions";
       if(["co_adm","adm","full"].includes(currentAccessLevel)){
-        const add=document.createElement("button");add.className="action-button primary-action";add.textContent=warns>=2?"Лимит 2/3":"+ Выдать варн";add.disabled=warns>=2;add.title=warns>=2?"Третий варн не выдаётся: за следующее нарушение участника кикают с Discord-сервера.":"Выдать варн";
-        add.addEventListener("click",()=>changePlayerWarn(p.user_id,"warn"));
-        const remove=document.createElement("button");remove.className="action-button secondary-action";remove.textContent="− Снять варн";remove.disabled=warns===0;remove.addEventListener("click",()=>changePlayerWarn(p.user_id,"remove-warn"));
-        actions.append(add,remove);
-      }else{const access=document.createElement("span");access.className="permission-note";access.textContent="Просмотр без управления";actions.append(access);}
-      card.append(top,metrics,actions);grid.append(card);
+        const add=document.createElement("button");add.className="member-action give-warn";add.textContent="+ Варн";add.disabled=warns>=2;add.title=warns>=2?"Лимит достигнут: при следующем нарушении участника кикают с Discord-сервера.":"Выдать варн";add.addEventListener("click",()=>changePlayerWarn(p.user_id,"warn"));
+        const remove=document.createElement("button");remove.className="member-action remove-warn";remove.textContent="−";remove.disabled=warns===0;remove.title="Снять варн";remove.addEventListener("click",()=>changePlayerWarn(p.user_id,"remove-warn"));actions.append(add,remove);
+      }
+      row.append(avatar,identity,balance,warn,actions);list.append(row);
     }
-    result.className="players-result";result.replaceChildren(grid);
+    result.className="players-result";result.replaceChildren(list);
   };
-  const load=async()=>{result.className="empty-state";result.textContent="Загружаем игроков…";try{const data=await apiGet("/api/players");players=data.players||[];render();}catch(e){result.className="empty-state";result.textContent=e.message;}};
+  const load=async()=>{result.className="empty-state";result.textContent="Загружаем участников…";try{const data=await apiGet("/api/players");players=data.players||[];render();}catch(e){result.className="empty-state";result.textContent=e.message;}};
   search?.addEventListener("input",render);refresh?.addEventListener("click",load);await load();
 }
 async function changePlayerWarn(userId,action){
   async function loadShop(section){
   const result=section.querySelector("#shopResult"),refresh=section.querySelector("#refreshShop");
   const load=async()=>{result.className="empty-state";result.textContent="Загружаем каталог…";try{
-    const data=await apiGet("/api/shop"),items=data.items||[];
-    if(!items.length){result.textContent="Каталог пуст.";return;}
-    const labels={kit:"Привилегии", "донат":"Донат", "кейс":"Кейсы", "услуга":"Услуги"};
-    const icons={kit:"♛","донат":"✦","кейс":"▣","услуга":"⚒"};
+    const data=await apiGet("/api/shop"),items=data.items||[];if(!items.length){result.textContent="Каталог пуст.";return;}
+    const labels={kit:"Привилегии","донат":"Донат","кейс":"Кейсы","услуга":"Услуги"};
+    const art={kit:"🧰","донат":"👑","кейс":"🎁","услуга":"🛠️"};
     const filters=document.createElement("div");filters.className="shop-filters";
     const grid=document.createElement("div");grid.className="shop-grid";
-    const categories=["Все товары",...new Set(items.map(x=>x.type))];
-    let active="Все товары";
+    const categories=["Все товары",...new Set(items.map(x=>x.type))];let active="Все товары";
     const render=()=>{
       filters.replaceChildren();
-      for(const category of categories){
-        const button=document.createElement("button");button.className="shop-filter"+(active===category?" active":"");button.textContent=category==="Все товары"?category:labels[category]||category;
-        button.addEventListener("click",()=>{active=category;render();});filters.append(button);
-      }
-      const shown=active==="Все товары"?items:items.filter(x=>x.type===active);
+      for(const category of categories){const button=document.createElement("button");button.className="shop-filter"+(active===category?" active":"");button.textContent=category==="Все товары"?category:labels[category]||category;button.addEventListener("click",()=>{active=category;render();});filters.append(button);}
       grid.replaceChildren();
-      for(const item of shown){
+      for(const item of (active==="Все товары"?items:items.filter(x=>x.type===active))){
         const card=document.createElement("article");card.className="shop-card";
-        const icon=document.createElement("div");icon.className="shop-item-icon "+(item.type==="кейс"?"case-icon":item.type==="донат"?"donate-icon":item.type==="услуга"?"service-icon":"kit-icon");icon.textContent=icons[item.type]||"✦";
+        const stage=document.createElement("div");stage.className="shop-art "+(item.type==="кейс"?"art-case":item.type==="донат"?"art-donate":item.type==="услуга"?"art-service":"art-kit");
+        const glow=document.createElement("span");glow.className="shop-art-glow";const illustration=document.createElement("span");illustration.className="shop-art-emoji";illustration.textContent=art[item.type]||"✨";stage.append(glow,illustration);
         const category=document.createElement("span");category.className="shop-category";category.textContent=labels[item.type]||item.type;
         const title=document.createElement("h3");title.textContent=item.name;
-        const price=document.createElement("div");price.className="shop-price";price.innerHTML='<span>✧</span> '+Number(item.price).toLocaleString("ru-RU")+' <small>баллов</small>';
-        const note=document.createElement("p");note.className="shop-description";note.textContent=item.type==="кейс"?"Открой и испытай удачу":item.type==="услуга"?"Дополнительная услуга сервера":item.type==="донат"?"Донат-привилегия WhiteGrief":"Игровой набор";
-        card.append(icon,category,title,note,price);grid.append(card);
+        const note=document.createElement("p");note.className="shop-description";note.textContent=item.type==="кейс"?"Сюрприз внутри — испытай удачу":item.type==="услуга"?"Полезная услуга сервера":item.type==="донат"?"Особая привилегия сервера":"Игровой набор для приключений";
+        const footer=document.createElement("div");footer.className="shop-card-footer";const price=document.createElement("div");price.className="shop-price";price.innerHTML="<span>✧</span> "+Number(item.price).toLocaleString("ru-RU")+" <small>баллов</small>";footer.append(price);
+        card.append(stage,category,title,note,footer);grid.append(card);
       }
     };
     const wrap=document.createElement("div");wrap.className="shop-content";wrap.append(filters,grid);result.className="shop-result";result.replaceChildren(wrap);render();
