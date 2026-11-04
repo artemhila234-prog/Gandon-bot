@@ -254,3 +254,19 @@ html,body,button,input,textarea,select{font-family:'Inter',Arial,sans-serif}
 .request-approve-button{border:1px solid #4d9878;border-radius:9px;padding:10px 14px;background:linear-gradient(110deg,#286b53,#1d4d3e);color:#d5ffea;font:700 10px Inter;cursor:pointer;transition:.18s}
 .request-approve-button:hover{transform:translateY(-1px);filter:brightness(1.15);box-shadow:0 6px 18px #2b9b6b33}
 .request-approve-button:disabled{opacity:.55;cursor:wait;transform:none}
+
+/* Branded confirmation dialog for application approval */
+.action-modal{position:fixed;inset:0;z-index:230;display:grid;place-items:center;padding:18px;background:#070610df;backdrop-filter:blur(10px);animation:pageEnter .18s ease-out}
+.action-modal-card{position:relative;width:min(100%,430px);box-sizing:border-box;padding:30px;border:1px solid #70549d;border-radius:20px;background:radial-gradient(ellipse at 50% 0%,#7045a52b,transparent 55%),linear-gradient(145deg,#211a35,#11121d 78%);box-shadow:0 25px 90px #000c;text-align:center}
+.action-modal-close{position:absolute;right:14px;top:10px;border:0;background:transparent;color:#aaa;font-size:25px;cursor:pointer}
+.action-modal-icon{display:grid;place-items:center;width:54px;height:54px;margin:0 auto 14px;border:1px solid #936bc966;border-radius:17px;background:#6845a833;color:#ddc9ff;font-size:27px;box-shadow:0 0 35px #9258ff22}
+.action-modal-eyebrow{font-size:9px;font-weight:800;letter-spacing:1.8px;color:#c2a4ff}
+.action-modal-card h2{margin:11px 0 7px;color:#f5f0ff;font-size:22px}
+.action-modal-description{margin:0;color:#aaa2bb;font-size:11px;overflow-wrap:anywhere}
+.action-modal-note{margin:18px 0 0;padding:13px;border:1px solid #3d354e;border-radius:11px;background:#11111b;color:#c7bfd5;font-size:11px;line-height:1.65;text-align:left}
+.action-modal-note.error{border-color:#8e4659;color:#ffb0bd;background:#291720}
+.action-modal-footer{display:flex;justify-content:center;gap:10px;margin-top:20px}
+.action-modal-cancel,.action-modal-confirm{min-width:115px;padding:11px 16px;border:1px solid #403750;border-radius:10px;background:#211d2b;color:#d2cadd;font:700 11px Inter;cursor:pointer}
+.action-modal-confirm{border-color:#4d9878;background:linear-gradient(110deg,#286b53,#1d4d3e);color:#e0fff0}
+.action-modal-confirm:disabled,.action-modal-cancel:disabled{opacity:.55;cursor:wait}
+@media(max-width:420px){.action-modal-card{padding:24px 18px}}
