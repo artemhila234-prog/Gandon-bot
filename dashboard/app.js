@@ -141,33 +141,27 @@ async function loadPlayers(section){
   search?.addEventListener("input",render);refresh?.addEventListener("click",load);await load();
 }
 async function changePlayerWarn(userId,action){
-  async function loadShop(section){
-  const result=section.querySelector("#shopResult"),refresh=section.querySelector("#refreshShop");
-  const load=async()=>{result.className="empty-state";result.textContent="Загружаем каталог…";try{
-    const data=await apiGet("/api/shop"),items=data.items||[];if(!items.length){result.textContent="Каталог пуст.";return;}
-    const labels={kit:"Привилегии","донат":"Донат","кейс":"Кейсы","услуга":"Услуги"};
-    const art={kit:"🧰","донат":"👑","кейс":"🎁","услуга":"🛠️"};
-    const filters=document.createElement("div");filters.className="shop-filters";
-    const grid=document.createElement("div");grid.className="shop-grid";
-    const categories=["Все товары",...new Set(items.map(x=>x.type))];let active="Все товары";
-    const render=()=>{
-      filters.replaceChildren();
-      for(const category of categories){const button=document.createElement("button");button.className="shop-filter"+(active===category?" active":"");button.textContent=category==="Все товары"?category:labels[category]||category;button.addEventListener("click",()=>{active=category;render();});filters.append(button);}
-      grid.replaceChildren();
-      for(const item of (active==="Все товары"?items:items.filter(x=>x.type===active))){
-        const card=document.createElement("article");card.className="shop-card";
-        const stage=document.createElement("div");stage.className="shop-art "+(item.type==="кейс"?"art-case":item.type==="донат"?"art-donate":item.type==="услуга"?"art-service":"art-kit");
-        const glow=document.createElement("span");glow.className="shop-art-glow";const illustration=document.createElement("span");illustration.className="shop-art-emoji";illustration.textContent=art[item.type]||"✨";stage.append(glow,illustration);
-        const category=document.createElement("span");category.className="shop-category";category.textContent=labels[item.type]||item.type;
-        const title=document.createElement("h3");title.textContent=item.name;
-        const note=document.createElement("p");note.className="shop-description";note.textContent=item.type==="кейс"?"Сюрприз внутри — испытай удачу":item.type==="услуга"?"Полезная услуга сервера":item.type==="донат"?"Особая привилегия сервера":"Игровой набор для приключений";
-        const footer=document.createElement("div");footer.className="shop-card-footer";const price=document.createElement("div");price.className="shop-price";price.innerHTML="<span>✧</span> "+Number(item.price).toLocaleString("ru-RU")+" <small>баллов</small>";footer.append(price);
-        card.append(stage,category,title,note,footer);grid.append(card);
-      }
-    };
-    const wrap=document.createElement("div");wrap.className="shop-content";wrap.append(filters,grid);result.className="shop-result";result.replaceChildren(wrap);render();
-  }catch(e){result.className="empty-state";result.textContent=e.message;}};
-  refresh?.addEventListener("click",load);await load();
+  const reason=window.prompt(action==="warn"?"Укажи причину выдачи варна:":"Укажи причину снятия варна:");
+  if(reason===null)return;
+  if(!reason.trim()){
+    window.alert("Нужно указать причину.");
+    return;
+  }
+  try{
+    const response=await fetch("/api/players/"+encodeURIComponent(userId)+"/"+action,{
+      method:"POST",
+      credentials:"same-origin",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({reason:reason.trim()})
+    });
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.detail||"Не удалось изменить варны.");
+    window.alert(action==="warn"?"Варн выдан.":"Варн снят.");
+    const section=document.getElementById("comingPage");
+    if(section)await loadPlayers(section);
+  }catch(error){
+    window.alert(error.message||"Произошла ошибка.");
+  }
 }
 
 async function loadRequests(section){
