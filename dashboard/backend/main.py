@@ -20,6 +20,8 @@ REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8000/auth/cal
 GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1546125037545988207")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "")
 BOT_SYNC_SECRET = os.getenv("BOT_SYNC_SECRET", "")
+BOT_API_URL = os.getenv("BOT_API_URL", "").rstrip("/")
+BOT_DATA_API_SECRET = os.getenv("BOT_DATA_API_SECRET", "")
 PANEL_DB_PATH = os.getenv("PANEL_DB_PATH", os.path.join(os.path.dirname(__file__), "panel.db"))
 ACCESS_RANK = {"none": 0, "media": 1, "co_adm": 2, "adm": 3, "full": 4}
 
@@ -274,37 +276,35 @@ async def discord_request(method: str, path: str, *, payload: dict[str, Any] | N
         raise HTTPException(status_code=502, detail=f"Ошибка Discord API ({response.status_code}).")
     return response.json() if response.content else None
 
+async def bot_api_request(method: str, path: str, *, payload: dict[str, Any] | None = None) -> Any:
+    if not BOT_API_URL or not BOT_DATA_API_SECRET:
+        raise HTTPException(status_code=503, detail="Связь с сервером бота не настроена.")
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.request(
+                method, f"{BOT_API_URL}{path}",
+                headers={"X-Bot-Data-Secret": BOT_DATA_API_SECRET},
+                json=payload,
+            )
+        if response.status_code >= 400:
+            try:
+                detail = response.json().get("detail", "Ошибка API сервера бота.")
+            except Exception:
+                detail = "Ошибка API сервера бота."
+            raise HTTPException(status_code=response.status_code, detail=detail)
+        return response.json() if response.content else None
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Не удалось связаться с сервером Discord-бота.")
+
+
 async def change_warns(request: Request, user_id: str, delta: int, reason: str) -> dict[str, Any]:
     await require_access(request, "co_adm")
     if not user_id.isdigit() or not reason.strip():
         raise HTTPException(status_code=400, detail="Укажи корректный Discord ID и причину.")
-    member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{user_id}")
-    role_ids = {str(x) for x in member.get("roles", [])}
-    if role_ids & PROTECTED_ROLE_IDS:
-        raise HTTPException(status_code=403, detail="Нельзя менять варны участнику с защищённой ролью администрации.")
-    import sqlite3
-    path = bot_database_path()
-    if not os.path.isfile(path):
-        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
-    try:
-        with sqlite3.connect(path, timeout=10) as db:
-            db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT warns FROM users WHERE user_id = ?", (int(user_id),)).fetchone()
-            current = int(row[0]) if row else 0
-            updated = max(0, min(2, current + delta))
-            if updated == current:
-                raise HTTPException(status_code=409, detail="Количество варнов уже на этом уровне.")
-            new_roles = role_ids - set(WARN_ROLE_IDS.values())
-            if updated:
-                new_roles.add(WARN_ROLE_IDS[updated])
-            await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(new_roles)})
-            db.execute("INSERT INTO users (user_id, balance, warns, personal_channel_id) VALUES (?, 0, ?, NULL) ON CONFLICT(user_id) DO UPDATE SET warns = excluded.warns", (int(user_id), updated))
-            db.commit()
-    except HTTPException:
-        raise
-    except sqlite3.Error:
-        raise HTTPException(status_code=503, detail="Ошибка базы данных бота.")
-    return {"ok": True, "user_id": user_id, "warns": updated, "reason": reason.strip()}
+    return await bot_api_request(
+        "POST", f"/api/internal/data/players/{user_id}/warn",
+        payload={"delta": delta, "reason": reason.strip()},
+    )
 
 @app.post("/api/players/{user_id}/warn")
 async def api_add_warn(user_id: str, request: Request):
@@ -319,16 +319,8 @@ async def api_remove_warn(user_id: str, request: Request):
 @app.get("/api/requests")
 async def api_requests(request: Request):
     await require_access(request, "co_adm")
-    import sqlite3
-    path = bot_database_path()
-    if not os.path.isfile(path):
-        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
-    try:
-        with sqlite3.connect(path, timeout=10) as db:
-            rows = db.execute("SELECT request_type, user_id, message_id, data, created_at FROM pending_requests ORDER BY created_at").fetchall()
-    except sqlite3.Error:
-        raise HTTPException(status_code=503, detail="Не удалось прочитать заявки.")
-    return {"requests": [{"type": row[0], "user_id": row[1], "message_id": row[2], "data": json.loads(row[3]), "created_at": row[4]} for row in rows]}
+    result = await bot_api_request("GET", "/api/internal/data/requests")
+    return result
 
 @app.get("/api/shop")
 async def api_shop(request: Request):
@@ -353,36 +345,14 @@ SHOP_ITEMS_PANEL = [
 @app.get("/api/me/balance")
 async def api_my_balance(request: Request):
     user = await require_access(request, "media")
-    import sqlite3
-    path = bot_database_path()
-    if not os.path.isfile(path):
-        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
-    try:
-        with sqlite3.connect(path, timeout=10) as db:
-            row = db.execute("SELECT balance FROM users WHERE user_id = ?", (int(user["id"]),)).fetchone()
-    except sqlite3.Error:
-        raise HTTPException(status_code=503, detail="Не удалось прочитать баланс.")
-    return {"user_id": user["id"], "balance": int(row[0]) if row else 0}
+    return await bot_api_request("GET", f"/api/internal/data/balance/{user['id']}")
 
 
 @app.get("/api/players")
 async def api_players(request: Request):
     await require_access(request, "media")
-    import sqlite3
-    bot_db_path = os.getenv("BOT_DB_PATH", os.path.join(os.path.dirname(BASE_DIR), "bot_data.db"))
-    if not os.path.isfile(bot_db_path):
-        raise HTTPException(status_code=503, detail="База данных бота не найдена. Проверь BOT_DB_PATH.")
-    try:
-        with sqlite3.connect(bot_db_path, timeout=10) as db:
-            db.row_factory = sqlite3.Row
-            rows = db.execute(
-                "SELECT user_id, balance, warns FROM users WHERE warns < 3 ORDER BY user_id"
-            ).fetchall()
-    except sqlite3.Error:
-        raise HTTPException(status_code=503, detail="Не удалось прочитать базу данных игроков.")
-    players = [dict(row) for row in rows]
-    # /snyat writes warns=3 before kicking the member. Such rows are historical,
-    # not active server members, so they are excluded from the active roster.
+    result = await bot_api_request("GET", "/api/internal/data/players")
+    players = result.get("players", [])
     try:
         members = await discord_request("GET", f"/guilds/{GUILD_ID}/members?limit=1000")
         member_map = {str(m.get("user", {}).get("id")): m.get("user", {}) for m in members}
@@ -401,7 +371,6 @@ async def api_players(request: Request):
             active_players.append(player)
         players = active_players
     except (HTTPException, TypeError, AttributeError):
-        # Keep the database view available if Discord member-list access is unavailable.
         for player in players:
             player["username"] = "Участник WhiteGrief"
             player["discord_username"] = ""
@@ -413,6 +382,108 @@ async def api_players(request: Request):
 async def health():
     return {"ok": True, "service": "whitegrief-control-panel"}
 
+
+
+# ================== ЗАЩИЩЁННЫЙ API ДЛЯ ПАНЕЛИ ==================
+def require_bot_data_secret(request: Request) -> None:
+    supplied = request.headers.get("X-Bot-Data-Secret", "")
+    expected = os.getenv("BOT_DATA_API_SECRET", "")
+    if not expected or not secrets.compare_digest(supplied, expected):
+        raise HTTPException(status_code=403, detail="Недействительный ключ доступа к данным бота.")
+
+
+@app.get("/api/internal/data/players")
+async def internal_data_players(request: Request):
+    require_bot_data_secret(request)
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена на сервере бота.")
+    try:
+        with sqlite3.connect(path, timeout=10) as db:
+            db.row_factory = sqlite3.Row
+            rows = db.execute(
+                "SELECT user_id, balance, warns FROM users WHERE warns < 3 ORDER BY user_id"
+            ).fetchall()
+        return {"players": [dict(row) for row in rows], "count": len(rows)}
+    except sqlite3.Error:
+        raise HTTPException(status_code=503, detail="Не удалось прочитать базу данных игроков.")
+
+
+@app.get("/api/internal/data/requests")
+async def internal_data_requests(request: Request):
+    require_bot_data_secret(request)
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена на сервере бота.")
+    try:
+        with sqlite3.connect(path, timeout=10) as db:
+            rows = db.execute(
+                "SELECT request_type, user_id, message_id, data, created_at FROM pending_requests ORDER BY created_at"
+            ).fetchall()
+        return {"requests": [
+            {"type": row[0], "user_id": row[1], "message_id": row[2],
+             "data": json.loads(row[3]), "created_at": row[4]}
+            for row in rows
+        ]}
+    except (sqlite3.Error, json.JSONDecodeError):
+        raise HTTPException(status_code=503, detail="Не удалось прочитать заявки из базы бота.")
+
+
+@app.get("/api/internal/data/balance/{user_id}")
+async def internal_data_balance(user_id: str, request: Request):
+    require_bot_data_secret(request)
+    if not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный Discord ID.")
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена на сервере бота.")
+    with sqlite3.connect(path, timeout=10) as db:
+        row = db.execute("SELECT balance FROM users WHERE user_id = ?", (int(user_id),)).fetchone()
+    return {"user_id": user_id, "balance": int(row[0]) if row else 0}
+
+
+@app.post("/api/internal/data/players/{user_id}/warn")
+async def internal_data_change_warns(user_id: str, request: Request):
+    require_bot_data_secret(request)
+    payload = await request.json()
+    delta = int(payload.get("delta", 0))
+    reason = str(payload.get("reason", "")).strip()
+    if not user_id.isdigit() or delta not in (-1, 1) or not reason:
+        raise HTTPException(status_code=400, detail="Некорректные данные изменения варна.")
+    member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{user_id}")
+    role_ids = {str(x) for x in member.get("roles", [])}
+    if role_ids & PROTECTED_ROLE_IDS:
+        raise HTTPException(status_code=403, detail="Нельзя менять варны участнику с защищённой ролью администрации.")
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена на сервере бота.")
+    try:
+        with sqlite3.connect(path, timeout=10) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT warns FROM users WHERE user_id = ?", (int(user_id),)).fetchone()
+            current = int(row[0]) if row else 0
+            updated = max(0, min(2, current + delta))
+            if updated == current:
+                raise HTTPException(status_code=409, detail="Количество варнов уже на этом уровне.")
+            new_roles = role_ids - set(WARN_ROLE_IDS.values())
+            if updated:
+                new_roles.add(WARN_ROLE_IDS[updated])
+            await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(new_roles)})
+            db.execute(
+                "INSERT INTO users (user_id, balance, warns, personal_channel_id) VALUES (?, 0, ?, NULL) "
+                "ON CONFLICT(user_id) DO UPDATE SET warns = excluded.warns",
+                (int(user_id), updated),
+            )
+            db.commit()
+    except HTTPException:
+        raise
+    except sqlite3.Error:
+        raise HTTPException(status_code=503, detail="Ошибка базы данных бота.")
+    return {"ok": True, "user_id": user_id, "warns": updated, "reason": reason}
 
 @app.post("/api/internal/sync-roles")
 async def sync_access_roles(request: Request):
