@@ -178,19 +178,50 @@ async function changePlayerWarn(userId,action){openWarnDialog(userId,action);}
 
 async function loadRequests(section){
   const result=section.querySelector("#requestsResult"),refresh=section.querySelector("#refreshRequests");
-  const load=async()=>{result.textContent="Загрузка заявок…";try{
-    const data=await apiGet("/api/requests"),items=data.requests||[];
-    if(!items.length){result.textContent="Ожидающих заявок нет.";return;}
-    const list=document.createElement("div");list.className="request-list";
-    for(const item of items){
-      const card=document.createElement("article");card.className="request-card";
-      const title=document.createElement("strong");title.textContent=item.type==="join"?"Заявка на вступление":item.type==="points"?"Заявка на баллы":"Заявка: "+item.type;
-      const details=document.createElement("p");details.textContent="Discord ID: "+item.user_id+" · Сообщение: "+item.message_id;
-      const dataLine=document.createElement("p");dataLine.textContent=JSON.stringify(item.data||{});
-      const date=document.createElement("small");date.textContent="Создана: "+(item.created_at||"—");
-      card.append(title,details,dataLine,date);list.append(card);
-    }result.replaceChildren(list);
-  }catch(e){result.textContent=e.message;}};
+  let requests=[];
+  const load=async()=>{
+    result.className="requests-loading";result.textContent="Загружаем очередь заявок…";
+    if(refresh){refresh.disabled=true;refresh.textContent="Загрузка…";}
+    try{
+      const data=await apiGet("/api/requests");requests=data.requests||[];
+      const wrap=document.createElement("div");wrap.className="requests-workspace";
+      const hero=document.createElement("div");hero.className="requests-hero";
+      hero.innerHTML='<div class="requests-hero-copy"><span class="requests-kicker">WHITEGRIEF • APPLICATION CENTER</span><h2>Центр заявок</h2><p>Все обращения сообщества собраны в одном месте.</p></div><div class="requests-hero-symbol" aria-hidden="true">▤</div>';
+      const stats=document.createElement("div");stats.className="requests-stats";
+      const stat=document.createElement("div");stat.className="requests-stat";stat.innerHTML='<span>ВСЕГО В ОЧЕРЕДИ</span><strong>'+requests.length+'</strong><small>заявок загружено</small>';stats.append(stat);
+      const toolbar=document.createElement("div");toolbar.className="requests-toolbar";
+      const heading=document.createElement("div");heading.innerHTML="<strong>Последние обращения</strong><span>Просмотр заявок из базы бота</span>";
+      const search=document.createElement("input");search.className="requests-search";search.placeholder="⌕  Поиск по ID или типу…";search.setAttribute("aria-label","Поиск заявок");
+      toolbar.append(heading,search);
+      const list=document.createElement("div");list.className="request-list";
+      const typeInfo={join:{name:"Заявка на вступление",icon:"♙",tone:"join"},points:{name:"Заявка на баллы",icon:"✧",tone:"points"}};
+      const render=()=>{
+        const term=search.value.trim().toLowerCase();
+        const visible=requests.filter(item=>(String(item.user_id)+" "+String(item.message_id)+" "+String(item.type)+" "+JSON.stringify(item.data||{})).toLowerCase().includes(term));
+        list.replaceChildren();
+        if(!visible.length){const empty=document.createElement("div");empty.className="requests-empty";empty.innerHTML='<span>✦</span><strong>'+(requests.length?"Ничего не найдено":"Пока нет заявок")+'</strong><p>'+(requests.length?"Попробуй изменить поисковый запрос.":"Когда появятся новые обращения, они отобразятся здесь.")+'</p>';list.append(empty);return;}
+        visible.forEach((item,index)=>{
+          const info=typeInfo[item.type]||{name:"Заявка: "+item.type,icon:"✦",tone:"other"};
+          const card=document.createElement("article");card.className="request-card request-card-"+info.tone;card.style.animationDelay=Math.min(index,10)*35+"ms";
+          const top=document.createElement("div");top.className="request-card-top";
+          const type=document.createElement("span");type.className="request-type "+info.tone;type.textContent=info.icon+"  "+info.name;
+          const number=document.createElement("span");number.className="request-number";number.textContent="#"+String(index+1).padStart(2,"0");top.append(type,number);
+          const user=document.createElement("div");user.className="request-user";user.innerHTML='<span class="request-user-avatar">♙</span><div><strong>Участник Discord</strong><small>ID: '+String(item.user_id??"—")+'</small></div>';
+          const payload=document.createElement("div");payload.className="request-payload";
+          const values=item.data&&typeof item.data==="object"?Object.entries(item.data):[];
+          if(values.length){values.forEach(([key,value])=>{const field=document.createElement("div");field.className="request-field";const label=document.createElement("small");label.textContent=key.replace(/[_-]/g," ");const val=document.createElement("strong");val.textContent=typeof value==="object"?JSON.stringify(value):String(value??"—");field.append(label,val);payload.append(field);});}
+          else {const message=document.createElement("p");message.className="request-message";message.textContent=typeof item.data==="string"?item.data:"Дополнительные сведения не указаны.";payload.append(message);}
+          const meta=document.createElement("div");meta.className="request-meta";
+          const date=document.createElement("span");date.textContent="◷  "+String(item.created_at||"Дата не указана");
+          const msg=document.createElement("span");msg.textContent="Сообщение · "+String(item.message_id??"—");meta.append(date,msg);
+          card.append(top,user,payload,meta);list.append(card);
+        });
+      };
+      search.addEventListener("input",render);render();wrap.append(hero,stats,toolbar,list);result.className="requests-view";result.replaceChildren(wrap);
+    }catch(e){result.className="empty-state";result.textContent=e.message;}
+    finally{if(refresh){refresh.disabled=false;refresh.textContent="↻  Обновить";}}
+  };
+  if(refresh)refresh.textContent="↻  Обновить";
   refresh?.addEventListener("click",load);await load();
 }
 async function loadShop(section){
