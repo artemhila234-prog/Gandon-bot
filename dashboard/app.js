@@ -183,14 +183,59 @@ async function loadRequests(section){
 }
 async function loadShop(section){
   const result=section.querySelector("#shopResult"),refresh=section.querySelector("#refreshShop");
-  const load=async()=>{result.textContent="Загрузка каталога…";try{
-    const data=await apiGet("/api/shop"),items=data.items||[];
-    if(!items.length){result.textContent="Каталог пуст.";return;}
-    const table=document.createElement("table");table.className="players-table";
-    const head=document.createElement("thead");head.innerHTML="<tr><th>Товар</th><th>Категория</th><th>Цена</th></tr>";table.append(head);
-    const body=document.createElement("tbody");
-    for(const item of items){const row=document.createElement("tr");row.append(makeCell(item.name),makeCell(item.type),makeCell(item.price+" баллов"));body.append(row);}
-    table.append(body);result.replaceChildren(table);
-  }catch(e){result.textContent=e.message;}};
+  const load=async()=>{
+    result.className="shop-loading";
+    result.textContent="Загружаем товары…";
+    try{
+      const data=await apiGet("/api/shop"),items=data.items||[];
+      if(!items.length){result.className="empty-state";result.textContent="Каталог пуст.";return;}
+      const icons={kit:"⚔️",донат:"👑",кейс:"🎁",услуга:"📜"};
+      const categoryNames={kit:"Наборы",донат:"Привилегии",кейс:"Кейсы",услуга:"Услуги"};
+      const hero=document.createElement("div");hero.className="shop-hero";
+      hero.innerHTML='<div class="shop-hero-copy"><span class="shop-kicker">WHITEGRIEF • REWARDS</span><h2>Магазин</h2><p>Выбирай награды, наборы и привилегии за баллы.</p><span class="shop-hero-note">✦ Твой прогресс — твои преимущества</span></div><div class="shop-hero-art" aria-hidden="true"><span class="hero-orbit orbit-one">✦</span><span class="hero-crown">👑</span><span class="hero-orbit orbit-two">✧</span></div>';
+      const tools=document.createElement("div");tools.className="shop-toolbar";
+      const filters=document.createElement("div");filters.className="shop-filters";
+      const search=document.createElement("input");search.className="shop-search";search.placeholder="⌕  Найти товар…";search.setAttribute("aria-label","Поиск товара");
+      const grid=document.createElement("div");grid.className="shop-grid";
+      const cats=["Все","kit","донат","кейс","услуга"];let active="Все";
+      for(const cat of cats){const b=document.createElement("button");b.className="shop-filter"+(cat==="Все"?" active":"");b.textContent=cat==="Все"?"Все товары":categoryNames[cat];b.addEventListener("click",()=>{active=cat;filters.querySelectorAll("button").forEach(x=>x.classList.toggle("active",x===b));render();});filters.append(b);}
+      tools.append(filters,search);
+      const render=()=>{
+        const term=search.value.trim().toLowerCase();
+        const visible=items.filter(item=>(active==="Все"||item.type===active)&&String(item.name).toLowerCase().includes(term));
+        grid.replaceChildren();
+        if(!visible.length){const empty=document.createElement("div");empty.className="shop-empty";empty.textContent="Ничего не найдено. Попробуй изменить поиск.";grid.append(empty);return;}
+        visible.forEach((item,index)=>{
+          const card=document.createElement("article");card.className="shop-product-card";card.style.animationDelay=Math.min(index,12)*35+"ms";
+          const visual=document.createElement("div");visual.className="shop-product-visual type-"+item.type;
+          const glow=document.createElement("span");glow.className="shop-product-glow";
+          const icon=document.createElement("span");icon.className="shop-product-icon";icon.textContent=icons[item.type]||"✦";
+          visual.append(glow,icon);
+          const category=document.createElement("span");category.className="shop-category";category.textContent=categoryNames[item.type]||item.type;
+          const name=document.createElement("h3");name.textContent=item.name;
+          const price=document.createElement("div");price.className="shop-price";price.innerHTML='<span aria-hidden="true">◈</span> '+Number(item.price).toLocaleString("ru-RU")+' <small>баллов</small>';
+          const button=document.createElement("button");button.className="shop-buy-button";button.type="button";button.textContent="Подробнее";
+          button.addEventListener("click",()=>showShopDetails(item,icons[item.type]||"✦",categoryNames[item.type]||item.type));
+          card.append(visual,category,name,price,button);grid.append(card);
+        });
+      };
+      search.addEventListener("input",render);
+      render();result.className="shop-catalog";result.replaceChildren(hero,tools,grid);
+    }catch(e){result.className="empty-state";result.textContent=e.message;}
+  };
   refresh?.addEventListener("click",load);await load();
+}
+function showShopDetails(item,icon,category){
+  const old=document.getElementById("shopDetailsModal");if(old)old.remove();
+  const modal=document.createElement("div");modal.id="shopDetailsModal";modal.className="shop-modal";
+  const dialog=document.createElement("div");dialog.className="shop-modal-card";dialog.setAttribute("role","dialog");dialog.setAttribute("aria-modal","true");
+  const close=document.createElement("button");close.className="shop-modal-close";close.type="button";close.textContent="×";close.setAttribute("aria-label","Закрыть");
+  const symbol=document.createElement("div");symbol.className="shop-modal-icon";symbol.textContent=icon;
+  const tag=document.createElement("span");tag.className="shop-category";tag.textContent=category;
+  const title=document.createElement("h2");title.textContent=item.name;
+  const price=document.createElement("p");price.className="shop-modal-price";price.textContent=Number(item.price).toLocaleString("ru-RU")+" баллов";
+  const note=document.createElement("p");note.className="shop-modal-note";note.textContent="Покупка через панель пока не подключена. Уточни оформление товара у администрации WhiteGrief.";
+  const done=document.createElement("button");done.className="shop-buy-button";done.type="button";done.textContent="Понятно";
+  const dismiss=()=>modal.remove();close.addEventListener("click",dismiss);done.addEventListener("click",dismiss);modal.addEventListener("click",e=>{if(e.target===modal)dismiss();});
+  dialog.append(close,symbol,tag,title,price,note,done);modal.append(dialog);document.body.append(modal);done.focus();
 }
