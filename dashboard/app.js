@@ -217,7 +217,10 @@ async function loadRequests(section){
           const actions=document.createElement("div");actions.className="request-card-actions";
           if(item.type==="join"){
             const approve=document.createElement("button");approve.type="button";approve.className="request-approve-button";approve.textContent="✓  Одобрить заявку";
-            approve.addEventListener("click",()=>approveJoinRequest(item.user_id,approve));actions.append(approve);
+            approve.addEventListener("click",()=>approveJoinRequest(item.user_id,approve));
+            const reject=document.createElement("button");reject.type="button";reject.className="request-reject-button";reject.textContent="✕  Отклонить / удалить";
+            reject.addEventListener("click",()=>rejectJoinRequest(item.user_id,reject));
+            actions.append(approve,reject);
           }
           card.append(top,user,payload,meta,actions);list.append(card);
         });
@@ -258,6 +261,37 @@ async function approveJoinRequest(userId,button){
       showToast("Заявка одобрена. Сообщение отправлено в Discord.");
       const section=document.getElementById("comingPage");if(section)await loadRequests(section);
     }catch(error){button.disabled=false;button.textContent="✓  Одобрить заявку";throw error;}
+  });
+}
+
+function openRejectDialog(userId,onReject){
+  const old=document.getElementById("rejectActionModal");if(old)old.remove();
+  const modal=document.createElement("div");modal.id="rejectActionModal";modal.className="action-modal";
+  const card=document.createElement("section");card.className="action-modal-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
+  const close=document.createElement("button");close.type="button";close.className="action-modal-close";close.textContent="×";
+  const eyebrow=document.createElement("span");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="WHITEGRIEF • APPLICATION CENTER";
+  const title=document.createElement("h2");title.textContent="Отклонить заявку?";
+  const description=document.createElement("p");description.className="action-modal-description";description.textContent="Discord ID: "+userId;
+  const note=document.createElement("div");note.className="action-modal-note";note.textContent="Заявка будет удалена из очереди, а роль «Ожидание верификации» будет снята. Пользователь НЕ будет исключён с сервера.";
+  const footer=document.createElement("div");footer.className="action-modal-footer";
+  const cancel=document.createElement("button");cancel.type="button";cancel.className="action-modal-cancel";cancel.textContent="Отмена";
+  const reject=document.createElement("button");reject.type="button";reject.className="action-modal-confirm";reject.textContent="✕  Отклонить";
+  const dismiss=()=>modal.remove();close.addEventListener("click",dismiss);cancel.addEventListener("click",dismiss);
+  modal.addEventListener("click",e=>{if(e.target===modal)dismiss();});
+  reject.addEventListener("click",async()=>{reject.disabled=true;reject.textContent="Обрабатываем…";cancel.disabled=true;try{await onReject();dismiss();}catch(error){note.textContent=error.message||"Не удалось отклонить заявку.";note.classList.add("error");reject.disabled=false;reject.textContent="Повторить";cancel.disabled=false;}});
+  footer.append(cancel,reject);card.append(close,eyebrow,title,description,note,footer);modal.append(card);document.body.append(modal);reject.focus();
+}
+async function rejectJoinRequest(userId,button){
+  openRejectDialog(userId,async()=>{
+    button.disabled=true;button.textContent="Обрабатываем…";
+    try{
+      const response=await fetch("/api/requests/"+encodeURIComponent(userId)+"/reject",{method:"POST",credentials:"same-origin"});
+      const raw=await response.text();let data={};
+      try{data=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ (HTTP "+response.status+").");}
+      if(!response.ok)throw new Error(data.detail||("Ошибка отклонения (HTTP "+response.status+")."));
+      showToast("Заявка отклонена. Роль ожидания снята, пользователь остался на сервере.");
+      const section=document.getElementById("comingPage");if(section)await loadRequests(section);
+    }catch(error){button.disabled=false;button.textContent="✕  Отклонить / удалить";throw error;}
   });
 }
 
