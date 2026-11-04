@@ -248,3 +248,9 @@ html,body,button,input,textarea,select{font-family:'Inter',Arial,sans-serif}
 #refreshRequests:disabled{opacity:.6;cursor:wait}
 @media(max-width:760px){.request-list{grid-template-columns:1fr}.requests-stats{grid-template-columns:1fr}.requests-hero{padding:21px}.requests-hero-symbol{width:60px;height:60px;font-size:29px}.requests-toolbar{align-items:stretch}.requests-search{width:100%;max-width:none}}
 @media(max-width:420px){.request-card{padding:13px}.request-payload{grid-template-columns:1fr}.requests-hero-symbol{display:none}}
+
+
+.request-card-actions{display:flex;justify-content:flex-end;padding-top:2px}
+.request-approve-button{border:1px solid #4d9878;border-radius:9px;padding:10px 14px;background:linear-gradient(110deg,#286b53,#1d4d3e);color:#d5ffea;font:700 10px Inter;cursor:pointer;transition:.18s}
+.request-approve-button:hover{transform:translateY(-1px);filter:brightness(1.15);box-shadow:0 6px 18px #2b9b6b33}
+.request-approve-button:disabled{opacity:.55;cursor:wait;transform:none}
