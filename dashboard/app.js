@@ -140,29 +140,41 @@ async function loadPlayers(section){
   const load=async()=>{result.className="empty-state";result.textContent="Загружаем участников…";try{const data=await apiGet("/api/players");players=data.players||[];render();}catch(e){result.className="empty-state";result.textContent=e.message;}};
   search?.addEventListener("input",render);refresh?.addEventListener("click",load);await load();
 }
-async function changePlayerWarn(userId,action){
-  const reason=window.prompt(action==="warn"?"Укажи причину выдачи варна:":"Укажи причину снятия варна:");
-  if(reason===null)return;
-  if(!reason.trim()){
-    window.alert("Нужно указать причину.");
-    return;
-  }
-  try{
-    const response=await fetch("/api/players/"+encodeURIComponent(userId)+"/"+action,{
-      method:"POST",
-      credentials:"same-origin",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({reason:reason.trim()})
-    });
-    const data=await response.json();
-    if(!response.ok)throw new Error(data.detail||"Не удалось изменить варны.");
-    window.alert(action==="warn"?"Варн выдан.":"Варн снят.");
-    const section=document.getElementById("comingPage");
-    if(section)await loadPlayers(section);
-  }catch(error){
-    window.alert(error.message||"Произошла ошибка.");
-  }
+function openWarnDialog(userId,action){
+  const existing=document.getElementById("warnActionModal");if(existing)existing.remove();
+  const isAdd=action==="warn";
+  const modal=document.createElement("div");modal.id="warnActionModal";modal.className="warn-modal";
+  const dialog=document.createElement("form");dialog.className="warn-modal-card";dialog.setAttribute("role","dialog");dialog.setAttribute("aria-modal","true");
+  const close=document.createElement("button");close.type="button";close.className="warn-modal-close";close.textContent="×";close.setAttribute("aria-label","Закрыть");
+  const eyebrow=document.createElement("span");eyebrow.className="warn-modal-eyebrow";eyebrow.textContent="WHITEGRIEF • MODERATION";
+  const title=document.createElement("h2");title.textContent=isAdd?"Выдать предупреждение":"Снять предупреждение";
+  const description=document.createElement("p");description.className="warn-modal-description";description.textContent="Игрок Discord ID: "+userId+". Укажи причину действия.";
+  const label=document.createElement("label");label.className="warn-modal-label";label.textContent="Причина";
+  const textarea=document.createElement("textarea");textarea.className="warn-modal-reason";textarea.rows=4;textarea.maxLength=500;textarea.placeholder="Опиши нарушение или причину снятия…";textarea.required=true;
+  const footer=document.createElement("div");footer.className="warn-modal-footer";
+  const cancel=document.createElement("button");cancel.type="button";cancel.className="warn-modal-cancel";cancel.textContent="Отмена";
+  const submit=document.createElement("button");submit.type="submit";submit.className="warn-modal-submit"+(isAdd?" danger":"");submit.textContent=isAdd?"Выдать варн":"Снять варн";
+  const error=document.createElement("p");error.className="warn-modal-error";error.hidden=true;
+  const dismiss=()=>modal.remove();close.addEventListener("click",dismiss);cancel.addEventListener("click",dismiss);
+  modal.addEventListener("click",e=>{if(e.target===modal)dismiss();});
+  dialog.addEventListener("submit",async e=>{
+    e.preventDefault();const reason=textarea.value.trim();if(!reason){error.textContent="Укажи причину.";error.hidden=false;return;}
+    submit.disabled=true;submit.textContent="Обработка…";error.hidden=true;
+    try{
+      const response=await fetch("/api/players/"+encodeURIComponent(userId)+"/"+action,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason})});
+      const data=await response.json();if(!response.ok)throw new Error(data.detail||"Не удалось изменить варны.");
+      dismiss();const section=document.getElementById("comingPage");if(section)await loadPlayers(section);
+      showToast(isAdd?"Варн успешно выдан.":"Варн успешно снят.");
+    }catch(err){error.textContent=err.message||"Произошла ошибка.";error.hidden=false;submit.disabled=false;submit.textContent=isAdd?"Выдать варн":"Снять варн";}
+  });
+  footer.append(cancel,submit);label.append(textarea);dialog.append(close,eyebrow,title,description,label,error,footer);modal.append(dialog);document.body.append(modal);textarea.focus();
 }
+function showToast(message){
+  const old=document.getElementById("panelToast");if(old)old.remove();
+  const toast=document.createElement("div");toast.id="panelToast";toast.className="panel-toast";toast.textContent=message;document.body.append(toast);
+  window.setTimeout(()=>toast.remove(),2600);
+}
+async function changePlayerWarn(userId,action){openWarnDialog(userId,action);}
 
 async function loadRequests(section){
   const result=section.querySelector("#requestsResult"),refresh=section.querySelector("#refreshRequests");
