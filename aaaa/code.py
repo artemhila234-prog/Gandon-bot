@@ -279,14 +279,13 @@ async def reconcile_server_players(guild):
     db_ids = {
         int(row[0]) for row in conn.execute("SELECT user_id FROM users").fetchall()
     }
-    pending_ids = {
-        int(row[0]) for row in conn.execute("SELECT DISTINCT user_id FROM pending_requests").fetchall()
-    }
-    known_ids = db_ids | pending_ids
-    to_purge = known_ids - present_with_role
+    # Ожидающие заявки не требуют роли игрока: не удаляем их при сверке.
+    # Очищаем только записи users тех, кто отсутствует на сервере или лишён роли игрока.
+    to_purge = db_ids - present_with_role
     for user_id in to_purge:
         purge_user_data(user_id)
-    print(f"🧹 Очистка базы: сохранено {len(present_with_role & known_ids)}, удалено {len(to_purge)} записей пользователей.")
+    pending_count = conn.execute("SELECT COUNT(*) FROM pending_requests").fetchone()[0]
+    print(f"🧹 Очистка базы: сохранено {len(present_with_role & db_ids)} записей игроков, удалено {len(to_purge)}; ожидающих заявок сохранено {pending_count}.")
 
 def load_pending_requests():
     """Восстанавливает ожидающие заявки после запуска."""
