@@ -302,9 +302,15 @@ async def change_warns(request: Request, user_id: str, delta: int, reason: str) 
     await require_access(request, "co_adm")
     if not user_id.isdigit() or not reason.strip():
         raise HTTPException(status_code=400, detail="Укажи корректный Discord ID и причину.")
+    actor_name = str(user.get("global_name") or user.get("username") or user.get("discord_username") or "Участник")[:80]
     return await bot_api_request(
         "POST", f"/api/internal/data/players/{user_id}/warn",
-        payload={"delta": delta, "reason": reason.strip()},
+        payload={
+            "delta": delta,
+            "reason": reason.strip(),
+            "actor_id": str(user.get("id", "")),
+            "actor_name": actor_name,
+        },
     )
 
 @app.post("/api/players/{user_id}/warn")
