@@ -22,6 +22,7 @@ SHOP_CHANNEL_ID = 1564188124844662814  # ID канала для логов по�
 AUDIT_LOG_CHANNEL_ID = 1567159721398370457  # Канал полного журнала действий
 LOGS_DIR = "logs"
 LATEST_LOG_FILE = os.path.join(LOGS_DIR, "latest.log")
+WARN_LOG_CHANNEL_ID = 1546125784026972262  # Единый канал журнала варнов
 POVIXA_CHANNEL_ID = 1564557395907186798  # ID канала, где должна работать команда /povixa
 
 # Настройка московского времени (UTC+3)
@@ -535,6 +536,12 @@ async def warn(interaction: discord.Interaction, игрок: discord.Member, п�
     if not is_allowed_guild(interaction):
         await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
         return
+    if interaction.channel_id != WARN_LOG_CHANNEL_ID:
+        await interaction.response.send_message(
+            f"❌ Команды управления варнами доступны только в канале <#{WARN_LOG_CHANNEL_ID}>.",
+            ephemeral=True
+        )
+        return
     if not is_moderator(interaction.user):
         await interaction.response.send_message("❌ У вас нет прав.", ephemeral=True)
         return
@@ -577,7 +584,11 @@ async def warn(interaction: discord.Interaction, игрок: discord.Member, п�
         timestamp=datetime.now(MSK)
     )
     embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message("✅ Варн выдан. Запись добавлена в единый журнал.", ephemeral=True)
+    log_channel = interaction.guild.get_channel(WARN_LOG_CHANNEL_ID)
+    if log_channel is None:
+        log_channel = await interaction.guild.fetch_channel(WARN_LOG_CHANNEL_ID)
+    await log_channel.send(embed=embed)
 
 # -------- /unwarn --------
 @bot.tree.command(name="unwarn", description="Снять одно предупреждение с игрока")
@@ -585,6 +596,12 @@ async def warn(interaction: discord.Interaction, игрок: discord.Member, п�
 async def unwarn(interaction: discord.Interaction, игрок: discord.Member, причина: str):
     if not is_allowed_guild(interaction):
         await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
+        return
+    if interaction.channel_id != WARN_LOG_CHANNEL_ID:
+        await interaction.response.send_message(
+            f"❌ Команды управления варнами доступны только в канале <#{WARN_LOG_CHANNEL_ID}>.",
+            ephemeral=True
+        )
         return
     if not is_moderator(interaction.user):
         await interaction.response.send_message("❌ У вас нет прав.", ephemeral=True)
@@ -625,7 +642,11 @@ async def unwarn(interaction: discord.Interaction, игрок: discord.Member, �
         timestamp=datetime.now(MSK)
     )
     embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message("✅ Варн снят. Запись добавлена в единый журнал.", ephemeral=True)
+    log_channel = interaction.guild.get_channel(WARN_LOG_CHANNEL_ID)
+    if log_channel is None:
+        log_channel = await interaction.guild.fetch_channel(WARN_LOG_CHANNEL_ID)
+    await log_channel.send(embed=embed)
 
 # -------- /snyat --------
 @bot.tree.command(name="snyat", description="Снять игрока (Warn 3/3 + кик + удаление личного канала)")
