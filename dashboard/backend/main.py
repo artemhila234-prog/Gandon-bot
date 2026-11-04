@@ -344,6 +344,17 @@ async def api_approve_request(user_id: str, request: Request):
                  "actor_name": str(actor.get("global_name") or actor.get("username") or "Модератор")[:80]},
     )
 
+@app.post("/api/requests/{user_id}/reject")
+async def api_reject_request(user_id: str, request: Request):
+    actor = await require_access(request, "co_adm")
+    if not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный Discord ID.")
+    return await bot_api_request(
+        "POST", f"/api/internal/data/requests/{user_id}/reject",
+        payload={"actor_id": str(actor.get("id", "")),
+                 "actor_name": str(actor.get("global_name") or actor.get("username") or "Модератор")[:80]},
+    )
+
 @app.get("/api/shop")
 async def api_shop(request: Request):
     await require_access(request, "media")
@@ -558,6 +569,64 @@ async def internal_approve_request(user_id: str, request: Request):
         raise
     except (sqlite3.Error, json.JSONDecodeError, KeyError, TypeError) as exc:
         raise HTTPException(status_code=500, detail=f"Не удалось обработать заявку: {exc}")
+
+@app.post("/api/internal/data/requests/{user_id}/reject")
+async def internal_reject_request(user_id: str, request: Request):
+    require_bot_data_secret(request)
+    payload = await request.json()
+    actor_id = str(payload.get("actor_id", "")).strip()
+    actor_name = str(payload.get("actor_name", "Модератор")).strip()[:80]
+    if not user_id.isdigit() or not actor_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректные данные отклонения заявки.")
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
+    try:
+        with sqlite3.connect(path, timeout=10) as db:
+            row = db.execute(
+                "SELECT message_id, data FROM pending_requests WHERE CAST(user_id AS TEXT) = ? AND request_type = 'join'",
+                (str(user_id),)
+            ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Ожидающая заявка не найдена.")
+        message_id, raw_data = row
+        app_data = json.loads(raw_data)
+        member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{user_id}")
+        roles = {str(role_id) for role_id in member.get("roles", [])}
+        pending_role_id = "1567152429093363782"
+        had_pending_role = pending_role_id in roles
+        roles.discard(pending_role_id)
+        if had_pending_role:
+            await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(roles)})
+        with sqlite3.connect(path, timeout=10) as db:
+            db.execute("DELETE FROM pending_requests WHERE request_type = 'join' AND user_id = ?", (int(user_id),))
+            db.commit()
+        if message_id:
+            rejected = {
+                "embeds": [{
+                    "title": "❌ ЗАЯВКА ОТКЛОНЕНА",
+                    "description": f"<@{user_id}> — заявка отклонена. Роль ожидания верификации снята.",
+                    "color": 14495300,
+                    "fields": [
+                        {"name": "Игровой ник", "value": str(app_data.get("nick", "Не указан"))[:100], "inline": True},
+                        {"name": "Должность", "value": str(app_data.get("position", "Не указана"))[:100], "inline": True},
+                        {"name": "Отклонил", "value": f"{actor_name} (<@{actor_id}>)", "inline": False},
+                    ],
+                    "footer": {"text": "WHITEGRIEF MEDIA • Заявки на вступление"},
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }],
+                "allowed_mentions": {"parse": [], "users": []},
+            }
+            try:
+                await discord_request("PATCH", f"/channels/1551952140929601576/messages/{message_id}", payload=rejected)
+            except HTTPException:
+                pass
+        return {"ok": True, "user_id": user_id, "role_removed": had_pending_role, "kicked": False}
+    except HTTPException:
+        raise
+    except (sqlite3.Error, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise HTTPException(status_code=500, detail=f"Не удалось отклонить заявку: {exc}")
 
 @app.get("/api/internal/data/balance/{user_id}")
 async def internal_data_balance(user_id: str, request: Request):
