@@ -505,7 +505,7 @@ async def internal_approve_request(user_id: str, request: Request):
             db.execute("INSERT INTO users (user_id, balance, warns, personal_channel_id) VALUES (?, 0, 0, ?) ON CONFLICT(user_id) DO UPDATE SET personal_channel_id = excluded.personal_channel_id", (int(user_id), int(channel_id)))
             db.execute("DELETE FROM pending_requests WHERE request_type = 'join' AND user_id = ?", (int(user_id),))
             db.commit()
-        await discord_request("PUT", f"/channels/{message_id}/reactions/%E2%9C%85/@me")
+        await discord_request("PUT", f"/channels/1551952140929601576/messages/{message_id}/reactions/%E2%9C%85/@me")
         accepted = {
             "embeds": [{
                 "title": "✅ ЗАЯВКА ОДОБРЕНА",
