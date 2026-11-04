@@ -299,7 +299,7 @@ async def bot_api_request(method: str, path: str, *, payload: dict[str, Any] | N
 
 
 async def change_warns(request: Request, user_id: str, delta: int, reason: str) -> dict[str, Any]:
-    await require_access(request, "co_adm")
+    user = await require_access(request, "co_adm")
     if not user_id.isdigit() or not reason.strip():
         raise HTTPException(status_code=400, detail="Укажи корректный Discord ID и причину.")
     actor_name = str(user.get("global_name") or user.get("username") or user.get("discord_username") or "Участник")[:80]
@@ -328,6 +328,17 @@ async def api_requests(request: Request):
     await require_access(request, "co_adm")
     result = await bot_api_request("GET", "/api/internal/data/requests")
     return result
+
+@app.post("/api/requests/{user_id}/approve")
+async def api_approve_request(user_id: str, request: Request):
+    actor = await require_access(request, "co_adm")
+    if not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный Discord ID.")
+    return await bot_api_request(
+        "POST", f"/api/internal/data/requests/{user_id}/approve",
+        payload={"actor_id": str(actor.get("id", "")),
+                 "actor_name": str(actor.get("global_name") or actor.get("username") or "Модератор")[:80]},
+    )
 
 @app.get("/api/shop")
 async def api_shop(request: Request):
@@ -442,6 +453,84 @@ async def internal_data_requests(request: Request):
     except (sqlite3.Error, json.JSONDecodeError):
         raise HTTPException(status_code=503, detail="Не удалось прочитать заявки из базы бота.")
 
+
+@app.post("/api/internal/data/requests/{user_id}/approve")
+async def internal_approve_request(user_id: str, request: Request):
+    require_bot_data_secret(request)
+    payload = await request.json()
+    actor_id = str(payload.get("actor_id", "")).strip()
+    actor_name = str(payload.get("actor_name", "Модератор")).strip()[:80]
+    if not user_id.isdigit() or not actor_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректные данные одобрения заявки.")
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
+    try:
+        with sqlite3.connect(path, timeout=10) as db:
+            row = db.execute(
+                "SELECT request_type, message_id, data FROM pending_requests WHERE user_id = ? AND request_type = 'join'",
+                (int(user_id),)
+            ).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Ожидающая заявка на вступление не найдена.")
+        request_type, message_id, raw_data = row
+        app_data = json.loads(raw_data)
+        nick = str(app_data.get("nick", "")).strip()
+        position = str(app_data.get("position", "")).strip()
+        if not nick or not position or not message_id:
+            raise HTTPException(status_code=409, detail="В заявке отсутствуют ник, должность или ID сообщения.")
+        member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{user_id}")
+        target_user = member.get("user", {})
+        target_name = member.get("nick") or target_user.get("global_name") or target_user.get("username") or user_id
+        roles = {str(x) for x in member.get("roles", [])}
+        new_nick = f"{nick} | {position}"[:32]
+        await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"nick": new_nick})
+        roles.update({"1546125522675962027", "1546125519240564797", "1539269779267915827"})
+        roles.discard("1567152429093363782")
+        await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(roles)})
+        channel_payload = {
+            "name": nick.lower().replace(" ", "-")[:90],
+            "type": 0,
+            "parent_id": "1551950227865608292",
+            "permission_overwrites": [
+                {"id": GUILD_ID, "type": 0, "deny": "1024"},
+                {"id": user_id, "type": 1, "allow": "68608"},
+                {"id": actor_id, "type": 1, "allow": "68608"},
+            ],
+        }
+        channel = await discord_request("POST", f"/guilds/{GUILD_ID}/channels", payload=channel_payload)
+        channel_id = str(channel["id"])
+        with sqlite3.connect(path, timeout=10) as db:
+            db.execute("INSERT INTO users (user_id, balance, warns, personal_channel_id) VALUES (?, 0, 0, ?) ON CONFLICT(user_id) DO UPDATE SET personal_channel_id = excluded.personal_channel_id", (int(user_id), int(channel_id)))
+            db.execute("DELETE FROM pending_requests WHERE request_type = 'join' AND user_id = ?", (int(user_id),))
+            db.commit()
+        await discord_request("PUT", f"/channels/{message_id}/reactions/%E2%9C%85/@me")
+        accepted = {
+            "embeds": [{
+                "title": "✅ ЗАЯВКА ОДОБРЕНА",
+                "description": f"<@{user_id}> успешно принят в команду **WhiteGrief Media**!",
+                "color": 65280,
+                "fields": [
+                    {"name": "🎮 Игровой ник", "value": nick, "inline": True},
+                    {"name": "🛡️ Должность", "value": position, "inline": True},
+                    {"name": "📁 Личный канал", "value": f"<#{channel_id}>", "inline": False},
+                    {"name": "🚀 Следующий шаг", "value": "Загляни в личный канал, ознакомься с инструкциями и приступай к работе!", "inline": False},
+                    {"name": "Одобрил", "value": f"{actor_name} (<@{actor_id}>)", "inline": False},
+                ],
+                "footer": {"text": "WHITEGRIEF MEDIA • Принято через Control Panel"},
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }],
+            "allowed_mentions": {"parse": [], "users": []},
+        }
+        await discord_request("POST", f"/channels/1551952140929601576/messages", payload=accepted)
+        welcome = {"content": f"Привет, <@{user_id}>! Ты принят в команду WhiteGrief Media. Добро пожаловать! Ознакомься с инструкциями в этом канале."}
+        await discord_request("POST", f"/channels/{channel_id}/messages", payload=welcome)
+        return {"ok": True, "user_id": user_id, "username": target_name, "actor_name": actor_name}
+    except HTTPException:
+        raise
+    except (sqlite3.Error, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise HTTPException(status_code=500, detail=f"Не удалось обработать заявку: {exc}")
 
 @app.get("/api/internal/data/balance/{user_id}")
 async def internal_data_balance(user_id: str, request: Request):
