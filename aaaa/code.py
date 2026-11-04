@@ -625,15 +625,18 @@ async def warn(interaction: discord.Interaction, игрок: discord.Member, п�
     except discord.Forbidden:
         await interaction.response.send_message("⚠️ Варн записан в БД, но бот **не смог выдать роль** (проверьте иерархию ролей бота).", ephemeral=True)
 
-    time_str = get_msk_time_str()
     embed = discord.Embed(
-        title="⚠️ Выдан варн!",
-        color=0xFFA500,
-        description=f"Игроку {игрок.mention} выдан варн!\n**Причина:** {причина}\n**Выдан варн:** Warn {new_warns}/3",
+        title="⚠️ ВАРН ВЫДАН",
+        color=0xE05265,
         timestamp=datetime.now(MSK)
     )
-    embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
-    await interaction.response.send_message("✅ Варн выдан. Запись добавлена в единый журнал.", ephemeral=True)
+    embed.add_field(name="Игрок", value=f"{игрок.display_name} ({игрок.mention})", inline=False)
+    embed.add_field(name="Действие выполнил", value=f"{interaction.user.display_name} ({interaction.user.mention})", inline=False)
+    embed.add_field(name="Количество варнов", value=f"{current_warns} → {new_warns}", inline=False)
+    embed.add_field(name="Причина", value=причина[:1000], inline=False)
+    embed.add_field(name="Источник", value="Discord-команда /warn", inline=False)
+    embed.set_footer(text="WhiteGrief • Журнал модерации")
+    await interaction.response.send_message("✅ Варн выдан и записан в единый журнал.", ephemeral=True)
     log_channel = interaction.guild.get_channel(WARN_LOG_CHANNEL_ID)
     if log_channel is None:
         log_channel = await interaction.guild.fetch_channel(WARN_LOG_CHANNEL_ID)
@@ -683,15 +686,18 @@ async def unwarn(interaction: discord.Interaction, игрок: discord.Member, �
         await interaction.response.send_message("⚠️ Варн снят в БД, но бот **не смог изменить роли** (проверьте, что роль бота стоит ВЫШЕ ролей Warn).", ephemeral=True)
         return
 
-    time_str = get_msk_time_str()
     embed = discord.Embed(
-        title="✅ Снят варн!",
-        color=0x2ECC71,
-        description=f"Игроку {игрок.mention} снят варн!\n**Причина:** {причина}",
+        title="✅ ВАРН СНЯТ",
+        color=0x55C995,
         timestamp=datetime.now(MSK)
     )
-    embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
-    await interaction.response.send_message("✅ Варн снят. Запись добавлена в единый журнал.", ephemeral=True)
+    embed.add_field(name="Игрок", value=f"{игрок.display_name} ({игрок.mention})", inline=False)
+    embed.add_field(name="Действие выполнил", value=f"{interaction.user.display_name} ({interaction.user.mention})", inline=False)
+    embed.add_field(name="Количество варнов", value=f"{current_warns} → {new_warns}", inline=False)
+    embed.add_field(name="Причина", value=причина[:1000], inline=False)
+    embed.add_field(name="Источник", value="Discord-команда /unwarn", inline=False)
+    embed.set_footer(text="WhiteGrief • Журнал модерации")
+    await interaction.response.send_message("✅ Варн снят и записан в единый журнал.", ephemeral=True)
     log_channel = interaction.guild.get_channel(WARN_LOG_CHANNEL_ID)
     if log_channel is None:
         log_channel = await interaction.guild.fetch_channel(WARN_LOG_CHANNEL_ID)
