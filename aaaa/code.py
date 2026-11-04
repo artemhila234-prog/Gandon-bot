@@ -255,6 +255,37 @@ def delete_pending_request(request_type, user_id):
     )
     conn.commit()
 
+def purge_user_data(user_id):
+    """Полностью удаляет локальные данные пользователя из базы бота."""
+    user_id = int(user_id)
+    with conn:
+        conn.execute("DELETE FROM purchases WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM reports WHERE author_id = ?", (user_id,))
+        conn.execute("DELETE FROM pending_requests WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+    pending_apps.pop(user_id, None)
+    pending_points.pop(user_id, None)
+
+async def reconcile_server_players(guild):
+    """Удаляет данные тех, кто не состоит на сервере или лишён роли игрока."""
+    kept_role_id = 1546125522675962027
+    present_with_role = set()
+    async for member in guild.fetch_members(limit=None):
+        if any(role.id == kept_role_id for role in member.roles):
+            present_with_role.add(member.id)
+
+    db_ids = {
+        int(row[0]) for row in conn.execute("SELECT user_id FROM users").fetchall()
+    }
+    pending_ids = {
+        int(row[0]) for row in conn.execute("SELECT DISTINCT user_id FROM pending_requests").fetchall()
+    }
+    known_ids = db_ids | pending_ids
+    to_purge = known_ids - present_with_role
+    for user_id in to_purge:
+        purge_user_data(user_id)
+    print(f"🧹 Очистка базы: сохранено {len(present_with_role & known_ids)}, удалено {len(to_purge)} записей пользователей.")
+
 def load_pending_requests():
     """Восстанавливает ожидающие заявки после запуска."""
     rows = conn.execute(
@@ -271,6 +302,24 @@ def load_pending_requests():
             pending_points[user_id] = data
 
 load_pending_requests()
+
+# ================== АВТООЧИСТКА ДАННЫХ ИГРОКОВ ==================
+@bot.event
+async def on_member_remove(member):
+    if member.guild.id == 1546125037545988207:
+        purge_user_data(member.id)
+        print(f"🧹 Удалены данные ушедшего участника {member.id}")
+
+@bot.event
+async def on_member_update(before, after):
+    if after.guild.id != 1546125037545988207:
+        return
+    kept_role_id = 1546125522675962027
+    had_role = any(role.id == kept_role_id for role in before.roles)
+    has_role = any(role.id == kept_role_id for role in after.roles)
+    if had_role and not has_role:
+        purge_user_data(after.id)
+        print(f"🧹 Удалены данные участника {after.id}: снята роль игрока")
 
 # ================== ВЫДАЧА PLAYER ПРИ ВХОДЕ ==================
 @bot.event
@@ -1288,6 +1337,15 @@ async def console_input_loop():
 async def on_ready():
     global _console_reader_started
     print(f'Бот {bot.user} запущен!')
+    if not getattr(bot, "_player_data_reconciled", False):
+        for guild_id in ALLOWED_GUILDS:
+            guild = bot.get_guild(guild_id)
+            if guild:
+                try:
+                    await reconcile_server_players(guild)
+                except Exception as e:
+                    print(f"❌ Не удалось выполнить очистку данных игроков: {e}")
+        bot._player_data_reconciled = True
     if not _console_reader_started:
         _console_reader_started = True
         asyncio.create_task(console_input_loop())
