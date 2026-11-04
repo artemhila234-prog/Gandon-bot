@@ -373,10 +373,13 @@ async def api_my_balance(request: Request):
 async def api_players(request: Request):
     await require_access(request, "media")
     result = await bot_api_request("GET", "/api/internal/data/players")
-    players = result.get("players", [])
+    db_players = {
+        str(player["user_id"]): player
+        for player in result.get("players", [])
+    }
+
     try:
-        # Discord returns at most 1000 guild members per request.
-        # Fetch subsequent pages so players beyond the first 1000 are not omitted.
+        # Получаем всех участников сервера постранично, затем оставляем только нужную роль.
         members = []
         after = "0"
         while True:
@@ -394,32 +397,34 @@ async def api_players(request: Request):
                 break
             after = last_user_id
 
-        member_map = {str(m.get("user", {}).get("id")): m.get("user", {}) for m in members}
-        active_players = []
-        member_role_map = {
-            str(m.get("user", {}).get("id")): {str(role_id) for role_id in m.get("roles", [])}
-            for m in members
-        }
-        for player in players:
-            player_id = str(player["user_id"])
-            member_user = member_map.get(player_id)
-            if not member_user or PLAYER_LIST_ROLE_ID not in member_role_map.get(player_id, set()):
+        players = []
+        for member in members:
+            member_user = member.get("user", {})
+            player_id = str(member_user.get("id", ""))
+            role_ids = {str(role_id) for role_id in member.get("roles", [])}
+            if not player_id or PLAYER_LIST_ROLE_ID not in role_ids:
                 continue
+
+            # Сохраняем реальные значения из БД; для новых участников используем нули.
+            player = dict(db_players.get(player_id, {}))
+            player["user_id"] = player_id
+            player.setdefault("balance", 0)
+            player.setdefault("warns", 0)
             player["username"] = member_user.get("global_name") or member_user.get("username") or "Участник"
             player["discord_username"] = member_user.get("username") or ""
             avatar_hash = member_user.get("avatar")
             player["avatar_url"] = (
-                f"https://cdn.discordapp.com/avatars/{player['user_id']}/{avatar_hash}.png?size=64"
+                f"https://cdn.discordapp.com/avatars/{player_id}/{avatar_hash}.png?size=64"
                 if avatar_hash else None
             )
-            active_players.append(player)
-        players = active_players
+            players.append(player)
+
+        players.sort(key=lambda item: item["username"].casefold())
+        return {"players": players, "count": len(players)}
+
     except (HTTPException, TypeError, AttributeError):
-        for player in players:
-            player["username"] = "Участник WhiteGrief"
-            player["discord_username"] = ""
-            player["avatar_url"] = None
-    return {"players": players, "count": len(players)}
+        # Не выдаём неполный список за полный при ошибке Discord API.
+        raise HTTPException(status_code=502, detail="Не удалось получить полный список участников Discord. Проверь права бота и Server Members Intent.")
 
 
 @app.get("/health")
