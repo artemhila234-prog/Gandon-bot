@@ -375,7 +375,25 @@ async def api_players(request: Request):
     result = await bot_api_request("GET", "/api/internal/data/players")
     players = result.get("players", [])
     try:
-        members = await discord_request("GET", f"/guilds/{GUILD_ID}/members?limit=1000")
+        # Discord returns at most 1000 guild members per request.
+        # Fetch subsequent pages so players beyond the first 1000 are not omitted.
+        members = []
+        after = "0"
+        while True:
+            page = await discord_request(
+                "GET",
+                f"/guilds/{GUILD_ID}/members?limit=1000&after={after}"
+            )
+            if not isinstance(page, list) or not page:
+                break
+            members.extend(page)
+            if len(page) < 1000:
+                break
+            last_user_id = str(page[-1].get("user", {}).get("id", ""))
+            if not last_user_id or last_user_id == after:
+                break
+            after = last_user_id
+
         member_map = {str(m.get("user", {}).get("id")): m.get("user", {}) for m in members}
         active_players = []
         member_role_map = {
