@@ -18,6 +18,7 @@ CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN", "")
 REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8000/auth/callback")
 GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1546125037545988207")
+PLAYER_LIST_ROLE_ID = "1546125522675962027"
 SESSION_SECRET = os.getenv("SESSION_SECRET", "")
 BOT_SYNC_SECRET = os.getenv("BOT_SYNC_SECRET", "")
 BOT_API_URL = os.getenv("BOT_API_URL", "").rstrip("/")
@@ -357,9 +358,14 @@ async def api_players(request: Request):
         members = await discord_request("GET", f"/guilds/{GUILD_ID}/members?limit=1000")
         member_map = {str(m.get("user", {}).get("id")): m.get("user", {}) for m in members}
         active_players = []
+        member_role_map = {
+            str(m.get("user", {}).get("id")): {str(role_id) for role_id in m.get("roles", [])}
+            for m in members
+        }
         for player in players:
-            member_user = member_map.get(str(player["user_id"]))
-            if not member_user:
+            player_id = str(player["user_id"])
+            member_user = member_map.get(player_id)
+            if not member_user or PLAYER_LIST_ROLE_ID not in member_role_map.get(player_id, set()):
                 continue
             player["username"] = member_user.get("global_name") or member_user.get("username") or "Участник"
             player["discord_username"] = member_user.get("username") or ""
