@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import sys
 import threading
+import uvicorn
 from discord import app_commands
 from discord.ext import commands
 import sqlite3
@@ -1805,5 +1806,40 @@ def setup_session_logs():
 if not TOKEN:
     raise RuntimeError("Не задан DISCORD_TOKEN. Добавь токен в переменные окружения Bot-Hosting.")
 
+async def run_services():
+    """Запускает Discord-бота и FastAPI в одном процессе Bot-Hosting."""
+    from dashboard.backend.main import app as panel_app
+
+    port = int(os.getenv("PORT", "25321"))
+    config = uvicorn.Config(
+        panel_app,
+        host="0.0.0.0",
+        port=port,
+        log_level="info",
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+    )
+    web_server = uvicorn.Server(config)
+
+    print(f"🌐 Запускаю WhiteGrief Control Panel на порту {port}...", flush=True)
+    bot_task = asyncio.create_task(bot.start(TOKEN), name="discord-bot")
+    web_task = asyncio.create_task(web_server.serve(), name="control-panel")
+
+    done, pending = await asyncio.wait(
+        {bot_task, web_task},
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+
+    for task in pending:
+        task.cancel()
+    web_server.should_exit = True
+    await asyncio.gather(*pending, return_exceptions=True)
+
+    for task in done:
+        error = task.exception()
+        if error:
+            raise error
+
+
 setup_session_logs()
-bot.run(TOKEN)
+asyncio.run(run_services())
