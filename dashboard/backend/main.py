@@ -271,7 +271,9 @@ async def discord_request(method: str, path: str, *, payload: dict[str, Any] | N
     async with httpx.AsyncClient(timeout=15) as client:
         response = await client.request(method, f"{DISCORD_API}{path}", headers={"Authorization": f"Bot {BOT_TOKEN}"}, json=payload)
     if response.status_code == 404:
-        raise HTTPException(status_code=404, detail="Участник не найден на Discord-сервере.")
+        if "/members/" in path:
+            raise HTTPException(status_code=404, detail=f"Discord не нашёл участника {path.rsplit('/', 1)[-1]} на сервере {GUILD_ID}. Проверь, что пользователь состоит на этом сервере и что DISCORD_GUILD_ID на первом хостинге указан верно.")
+        raise HTTPException(status_code=404, detail="Объект не найден в Discord. Проверь ID канала, сообщения или сервера.")
     if response.status_code == 403:
         raise HTTPException(status_code=502, detail="Боту не хватает прав или его роль ниже роли участника.")
     if response.status_code >= 400:
@@ -470,11 +472,11 @@ async def internal_approve_request(user_id: str, request: Request):
     try:
         with sqlite3.connect(path, timeout=10) as db:
             row = db.execute(
-                "SELECT request_type, message_id, data FROM pending_requests WHERE user_id = ? AND request_type = 'join'",
-                (int(user_id),)
+                "SELECT request_type, message_id, data FROM pending_requests WHERE CAST(user_id AS TEXT) = ? AND request_type = 'join'",
+                (str(user_id),)
             ).fetchone()
         if not row:
-            raise HTTPException(status_code=404, detail="Ожидающая заявка на вступление не найдена.")
+            raise HTTPException(status_code=404, detail="Заявка не найдена в базе бота. Обнови список заявок: возможно, она уже обработана или была отправлена с другого Discord ID.")
         request_type, message_id, raw_data = row
         app_data = json.loads(raw_data)
         nick = str(app_data.get("nick", "")).strip()
