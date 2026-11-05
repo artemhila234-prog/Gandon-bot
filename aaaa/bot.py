@@ -336,7 +336,7 @@ async def verify_tiktok_link(user_id: int):
         raise RuntimeError("Этот TikTok-аккаунт уже привязан к другому Discord-пользователю.")
     conn.execute(
         """INSERT INTO tiktok_accounts (user_id, open_id, username, profile_url, token_cipher)
-           SELECT user_id, open_id, username, ?, token_cipher FROM tiktok_pending WHERE user_id = ?
+           SELECT user_id, open_id, username, ?, token_cipher FROM tiktok_pending WHERE user_id = ? AND 1=1
            ON CONFLICT(user_id) DO UPDATE SET open_id=excluded.open_id, username=excluded.username,
              profile_url=excluded.profile_url, token_cipher=excluded.token_cipher, updated_at=CURRENT_TIMESTAMP""",
         (profile_url, int(user_id))
@@ -1284,23 +1284,6 @@ async def on_message(message):
             elif low.startswith('доказательства:'):
                 proof = line.split(':', 1)[1].strip()
 
-            if low.startswith('1. твой никнейм:') or low.startswith('твой никнейм:') \
-               or low.startswith('1. ник:') or low.startswith('ник:'):
-                nick = line.split(':', 1)[1].strip()
-            elif (low.startswith('2. сколько ты хочешь получить балов:') or
-                  low.startswith('сколько ты хочешь получить балов:') or
-                  low.startswith('2. сколько ты хочешь получить баллов:') or
-                  low.startswith('сколько ты хочешь получить баллов:')):
-                try:
-                    points = int(line.split(':', 1)[1].strip())
-                except:
-                    points = None
-            elif (low.startswith('3. ссылка на ролик:') or
-                  low.startswith('ссылка на ролик:') or
-                  low.startswith('3. ссылка:') or
-                  low.startswith('ссылка:')):
-                link = line.split(':', 1)[1].strip()
-
         # ---- ОТЧЁТ ----
         if ban_number is not None and mute_number is not None and proof:
             embed = discord.Embed(
@@ -1543,7 +1526,6 @@ async def console_input_loop():
                     )""")
                     conn.commit()
                     pending_apps.clear()
-                    pending_points.clear()
                     print("✅ Таблица pending_requests пересоздана. Все ожидающие заявки удалены; остальные таблицы не затронуты.", flush=True)
                 except sqlite3.Error as error:
                     conn.rollback()
