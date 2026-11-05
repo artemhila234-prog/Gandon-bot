@@ -135,6 +135,7 @@ pending_request_columns = {row[1] for row in cursor.fetchall()}
 if "message_id" not in pending_request_columns:
     cursor.execute("ALTER TABLE pending_requests ADD COLUMN message_id INTEGER")
 conn.commit()
+print(f"🗄️ База WhiteGrief: {os.path.abspath(DB_PATH)}", flush=True)
 
 # ================== БОТ ==================
 intents = discord.Intents.default()
@@ -249,6 +250,7 @@ def save_pending_request(request_type, user_id, message_id, data):
         (request_type, user_id, message_id, json.dumps(data, ensure_ascii=False))
     )
     conn.commit()
+    print(f"💾 Заявка сохранена: type={request_type}, user_id={user_id}, message_id={message_id}, db={DB_PATH}", flush=True)
 
 def delete_pending_request(request_type, user_id):
     conn.execute(
@@ -263,7 +265,8 @@ def purge_user_data(user_id):
     with conn:
         conn.execute("DELETE FROM purchases WHERE user_id = ?", (user_id,))
         conn.execute("DELETE FROM reports WHERE author_id = ?", (user_id,))
-        conn.execute("DELETE FROM pending_requests WHERE user_id = ?", (user_id,))
+        # Keep pending applications even if player data is purged.
+        # Moderators must still be able to approve or reject the saved request.
         conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
     pending_apps.pop(user_id, None)
     pending_points.pop(user_id, None)
