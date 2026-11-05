@@ -633,7 +633,35 @@ async def internal_reject_request(user_id: str, request: Request):
                 await discord_request("PATCH", f"/channels/1551952140929601576/messages/{message_id}", payload=rejected)
             except HTTPException:
                 pass
-        return {"ok": True, "user_id": user_id, "role_removed": had_pending_role, "kicked": False}
+        dm_sent = False
+        try:
+            dm_channel = await discord_request(
+                "POST", "/users/@me/channels",
+                payload={"recipient_id": user_id},
+            )
+            dm_channel_id = str(dm_channel["id"])
+            dm_message = {
+                "embeds": [{
+                    "title": "❌ Заявка в WhiteGrief Media отклонена",
+                    "description": (
+                        "К сожалению, по итогам рассмотрения твоя заявка **не была одобрена**.\n\n"
+                        "Спасибо за интерес к команде **WhiteGrief Media** и за потраченное время. "
+                        "Не расстраивайся: это не повод останавливаться. "
+                        "Если хочешь узнать подробности решения или получить рекомендации, "
+                        "можешь обратиться к администрации проекта.\n\n"
+                        "Желаем удачи!"
+                    ),
+                    "color": 14495300,
+                    "footer": {"text": "WHITEGRIEF MEDIA • Уведомление по заявке"},
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }]
+            }
+            await discord_request("POST", f"/channels/{dm_channel_id}/messages", payload=dm_message)
+            dm_sent = True
+        except (HTTPException, KeyError, TypeError):
+            # Личные сообщения могут быть закрыты — это не должно отменять отклонение заявки.
+            pass
+        return {"ok": True, "user_id": user_id, "role_removed": had_pending_role, "kicked": False, "dm_sent": dm_sent}
     except HTTPException:
         raise
     except (sqlite3.Error, json.JSONDecodeError, KeyError, TypeError) as exc:
