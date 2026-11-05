@@ -36,6 +36,8 @@ function showPage(page){
 function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show")}
 document.querySelectorAll("[data-page]").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.page)));
 document.querySelectorAll("[data-go]").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.go)));
+const initialPage=new URLSearchParams(window.location.search).get("page");
+if(initialPage && pageNames[initialPage]) showPage(initialPage);
 document.getElementById("menuButton").addEventListener("click",()=>{sidebar.classList.toggle("open");overlay.classList.toggle("show")});
 overlay.addEventListener("click",closeMenu);
 // The dashboard is a static first-stage shell. No fake metrics or live bot actions are exposed.
