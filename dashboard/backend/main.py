@@ -593,7 +593,7 @@ async def internal_approve_request(user_id: str, request: Request):
                 ],
                 "footer": {"text": "WHITEGRIEF MEDIA • Удачной работы!"},
             }],
-            "allowed_mentions": {"parse": [], "users": ["{user_id}"]},
+            "allowed_mentions": {"parse": [], "users": [user_id]},
         }
         await discord_request("POST", f"/channels/{channel_id}/messages", payload=welcome)
         return {"ok": True, "user_id": user_id, "username": target_name, "actor_name": actor_name}
