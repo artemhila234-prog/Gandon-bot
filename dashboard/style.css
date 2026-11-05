@@ -330,3 +330,17 @@ html,body,button,input,textarea,select{font-family:'Inter',Arial,sans-serif}
 .legal-footer a{color:#bbaaff;text-decoration:none;letter-spacing:0;font-size:10px}
 .legal-footer a:hover{text-decoration:underline}
 @media(max-width:640px){.legal-page{padding:20px 14px 38px}.legal-top{margin-bottom:22px}.legal-hero{padding:25px 21px;border-radius:17px}.legal-document{padding:22px 18px}.legal-tabs{display:grid;grid-template-columns:1fr 1fr}.legal-tab{justify-content:center;padding:11px 8px;font-size:10px}.legal-footer{align-items:flex-start;flex-direction:column}}
+
+
+/* Shared dashboard sidebar on legal document pages */
+.legal-page{padding:0}
+.legal-main-area{min-height:100vh;padding:34px 22px 60px}
+.legal-wrap{width:min(980px,100%);margin:0 auto}
+.legal-menu-button{display:none}
+.legal-sidebar .nav-item-link{text-decoration:none}
+@media(max-width:700px){
+  .legal-main-area{margin-left:0;padding:20px 14px 38px}
+  .legal-menu-button{display:inline-flex;align-items:center;justify-content:center}
+  .legal-top{justify-content:flex-start}
+  .legal-top .legal-brand{margin-right:auto}
+}
