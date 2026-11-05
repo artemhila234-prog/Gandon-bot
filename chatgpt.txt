@@ -185,3 +185,22 @@ D. Важное ограничение API
 - Изменённый файл: dashboard/style.css.
 - Commit: 3a9d0512b87f21e0608b00bc5c07760b6d10152e
 - GitHub обновлён; деплой на Bot-Hosting не подтверждён. Для проверки нужно синхронизировать панель и обновить страницу с принудительной очисткой кэша (Ctrl+F5).
+
+13. УТОЧНЕНИЕ СТАРОЙ СИСТЕМЫ БАЛЛОВ И ИСТОЧНИКА КОДА (2026-11-05)
+- По текущему GitHub default branch файл в корне bot.py не найден (GitHub Contents API вернул 404).
+- Найдены aaaa/bot.py (blob SHA 7504eafb4569aae21eadcfe04d71d7261aa86165) и aaaa/code.py (blob SHA 6c0657b6a0bfaf99af9345725c7cfe37abc187ea). Оба содержат старую систему баллов; точный файл, который реально запускается на Bot-Hosting, пока не подтверждён.
+- В aaaa/bot.py подтверждены: pending_points, загрузка заявок request_type='points' из SQLite, обработчик !принято, который вызывает update_balance(), и парсер старого формата сообщения с ником/количеством баллов/ссылкой в on_message.
+- Старую обработку нужно убрать из реально запускаемого файла: парсер заявок, pending_points, ветку восстановления points, команду !принято/accept_points и связанный текст. Не трогать заявки на вступление (request_type='join'), users.balance, магазин, покупки, отчёты и другие команды.
+- В aaaa/bot.py сохранение баланса реализовано через SQLite users и update_balance(user_id, amount); новые TikTok таблицы должны добавляться миграцией, не сбрасывая users.
+
+14. ПОДТВЕРЖДЁННАЯ СХЕМА TIKTOK И БЛОКЕРЫ РЕАЛИЗАЦИИ (2026-11-05)
+- Пользователь подтвердил желаемый сценарий: /привязать_аккаунт с TikTok profile URL → случайный код 5 символов → код в bio → кнопка «Проверить» → сохранить привязку Discord ID ↔ TikTok account; затем отправка видео URL → проверка владельца → 1 балл за каждые 5 просмотров.
+- По актуальной официальной документации TikTok Display API, для чтения bio требуется scope user.info.profile; для списка публичных видео и view_count требуется video.list. Пользовательская авторизация через TikTok Login Kit обязательна: владелец должен дать согласие и выдать токен приложению. Одной ссылки на профиль недостаточно.
+- TikTok API официально предоставляет bio_description через user info при наличии user.info.profile, а публичные видео и view_count через video list/query при наличии video.list. Видео query может проверять, принадлежит ли указанный video ID авторизованному пользователю.
+- Источники документации:
+  https://developers.tiktok.com/docs/en/display-api-get-started
+  https://developers.tiktok.com/docs/en/tiktok-api-scopes
+  https://developers.tiktok.com/docs/en/tiktok-api-v1-video-query
+  https://developers.tiktok.com/docs/en/tiktok-api-v1-video-list
+- Нужно запросить у пользователя статус одобрения user.info.profile и video.list в TikTok Developer Portal, затем проверить реальный startup path Bot-Hosting прежде чем редактировать код. До подтверждения scopes и startup path реализация не коммичена.
+- Правило повторных начислений: базовое безопасное поведение — один раз на уникальный TikTok video ID, по текущему view_count при первой отправке; доначисление за рост просмотров отдельно не подтверждено.
