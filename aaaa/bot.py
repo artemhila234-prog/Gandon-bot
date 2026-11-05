@@ -428,13 +428,17 @@ class TikTokVerifyView(discord.ui.View):
             if not success:
                 await interaction.followup.send("Код пока не найден в BIO. Добавь его в описание TikTok-профиля и нажми Проверить ещё раз.", ephemeral=True)
                 return
+            for child in self.children:
+                child.disabled = True
+            try:
+                await interaction.message.edit(view=self)
+            except discord.HTTPException as edit_error:
+                print(f"[TIKTOK] Не удалось отключить кнопку: {edit_error}", flush=True)
+
             await interaction.followup.send(
                 f"✅ TikTok успешно привязан: [@{username}]({profile_url}). Теперь отправляй ссылки на свои ролики в личный канал.",
                 ephemeral=True
             )
-            for child in self.children:
-                child.disabled = True
-            await interaction.message.edit(view=self)
         except Exception as exc:
             await interaction.followup.send(f"❌ {str(exc)[:350]}", ephemeral=True)
 
