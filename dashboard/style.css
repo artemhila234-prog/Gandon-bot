@@ -344,3 +344,16 @@ html,body,button,input,textarea,select{font-family:'Inter',Arial,sans-serif}
   .legal-top{justify-content:flex-start}
   .legal-top .legal-brand{margin-right:auto}
 }
+
+/* Prevent browser link underlines in the legal-page sidebar */
+.legal-sidebar a.nav-item,
+.legal-sidebar a.nav-item:link,
+.legal-sidebar a.nav-item:visited,
+.legal-sidebar a.nav-item:hover,
+.legal-sidebar a.nav-item:active,
+.legal-sidebar a.nav-item:focus {
+  text-decoration: none !important;
+}
+.legal-sidebar a.nav-item * {
+  text-decoration: none !important;
+}
