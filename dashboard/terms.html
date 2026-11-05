@@ -8,8 +8,26 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body class="legal-page">
-  <main class="legal-wrap">
-    <header class="legal-top">\n      <button class="icon-button legal-menu-button" id="legalMenuButton" aria-label="Открыть меню">☰</button>
+  <aside class="sidebar legal-sidebar" id="legalSidebar">
+    <a class="brand" href="/" aria-label="WhiteGrief Control Panel"><span class="brand-mark">W</span><span><strong>WHITEGRIEF</strong><small>CONTROL PANEL</small></span></a>
+    <div class="server-card"><div class="server-avatar">WG</div><div class="server-info"><strong>WhiteGrief</strong><span>Discord Bot</span></div><span class="server-dot"></span></div>
+    <div class="nav-label">ОБЗОР</div><nav class="nav-list"><a class="nav-item" href="/"><span class="nav-icon">▦</span>Главная</a></nav>
+    <div class="nav-label">УПРАВЛЕНИЕ</div><nav class="nav-list">
+      <a class="nav-item" href="/?page=players"><span class="nav-icon">♙</span>Игроки</a><a class="nav-item" href="/?page=requests"><span class="nav-icon">▤</span>Заявки</a><a class="nav-item" href="/?page=shop"><span class="nav-icon">◇</span>Магазин</a><a class="nav-item" href="/?page=messages"><span class="nav-icon">✉</span>Сообщения</a>
+    </nav>
+    <div class="nav-label">СИСТЕМА</div><nav class="nav-list">
+      <a class="nav-item" href="/?page=logs"><span class="nav-icon">≋</span>Логи</a><a class="nav-item" href="/?page=console"><span class="nav-icon">⌘</span>Консоль</a><a class="nav-item" href="/?page=settings"><span class="nav-icon">⚙</span>Настройки</a>
+    </nav>
+    <div class="nav-label">ИНФОРМАЦИЯ</div><nav class="nav-list">
+      <a class="nav-item nav-item-link active" href="/terms"><span class="nav-icon">§</span>Условия использования</a>
+      <a class="nav-item nav-item-link " href="/privacy"><span class="nav-icon">◈</span>Конфиденциальность</a>
+    </nav>
+    <div class="sidebar-bottom"><div class="connection-line"><span class="pulse"></span><span>WhiteGrief Control Panel</span></div><div class="user-card"><div class="user-avatar">W</div><div><strong>WhiteGrief</strong><small>Документы проекта</small></div><span class="more">···</span></div></div>
+  </aside>
+  <div class="mobile-overlay" id="legalOverlay"></div>
+  <main class="main-area legal-main-area"><div class="legal-wrap">
+    <header class="legal-top">
+      <button class="icon-button legal-menu-button" id="legalMenuButton" aria-label="Открыть меню">☰</button>
       <a class="legal-brand" href="/" aria-label="WhiteGrief — главная"><span class="legal-brand-mark">W</span><span>WHITEGRIEF<small style="display:block;color:#85879c;font-size:8px;letter-spacing:2px;margin-top:3px">CONTROL PANEL</small></span></a>
       <a class="legal-back" href="/">← Вернуться в панель</a>
     </header>
@@ -35,6 +53,12 @@
       <section class="legal-section" id="contact"><h2><span>08</span>Контакт</h2><p>По вопросам использования Сервиса обратитесь к администрации WhiteGrief через официальный Discord-сервер проекта.</p></section>
     </article>
     <footer class="legal-footer"><span>WHITEGRIEF CONTROL PANEL • MADE FOR THE TEAM</span><a href="/privacy">Перейти к политике конфиденциальности →</a></footer>
-  </main>
+  </div></main>
+  <script>
+    const legalSidebar=document.getElementById("legalSidebar");
+    const legalOverlay=document.getElementById("legalOverlay");
+    document.getElementById("legalMenuButton").addEventListener("click",()=>{legalSidebar.classList.toggle("open");legalOverlay.classList.toggle("show")});
+    legalOverlay.addEventListener("click",()=>{legalSidebar.classList.remove("open");legalOverlay.classList.remove("show")});
+  </script>
 </body>
 </html>
