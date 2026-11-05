@@ -531,8 +531,12 @@ async def internal_approve_request(user_id: str, request: Request):
         roles = {str(x) for x in member.get("roles", [])}
         new_nick = f"{nick} | {position}"[:32]
         await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"nick": new_nick})
-        roles.update({"1546125522675962027", "1546125519240564797", "1539269779267915827"})
-        roles.discard("1567152429093363782")
+        roles.update({
+            "1546125522675962027",  # Команда медиа
+            "1546125519240564797",  # 🔮» Media
+            "1567181453479903405",  # Media » уровень доступа
+        })
+        roles.discard("1567152429093363782")  # Снять ожидание верификации
         await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(roles)})
         channel_payload = {
             "name": nick.lower().replace(" ", "-")[:90],
