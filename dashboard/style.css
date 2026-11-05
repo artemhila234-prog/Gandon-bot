@@ -292,3 +292,41 @@ html,body,button,input,textarea,select{font-family:'Inter',Arial,sans-serif}
 #rejectActionModal .action-modal-confirm:disabled{
   opacity:.55 !important;
 }
+
+
+/* Legal pages — matching WhiteGrief Control Panel */
+.nav-item-link{text-decoration:none}
+.nav-item-link:focus-visible{outline:2px solid #a58aff;outline-offset:2px}
+.legal-page{min-height:100vh;background:radial-gradient(ellipse at 78% 0%,#30244d55,transparent 34%),var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif;padding:34px 22px 60px}
+.legal-wrap{width:min(980px,100%);margin:0 auto}
+.legal-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:34px}
+.legal-brand{display:flex;align-items:center;gap:11px;color:var(--text);text-decoration:none;font-size:12px;font-weight:800;letter-spacing:1.2px}
+.legal-brand-mark{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#a58aff,#6245c5);box-shadow:0 8px 24px #7655db44;font-size:19px}
+.legal-back{color:#c8baff;text-decoration:none;border:1px solid #40365f;background:#211c34;padding:10px 14px;border-radius:10px;font-size:11px;font-weight:600;transition:.18s}
+.legal-back:hover{background:#30264a;border-color:#725ab4;transform:translateY(-1px)}
+.legal-hero{position:relative;overflow:hidden;border:1px solid #40365f;border-radius:22px;background:linear-gradient(120deg,#211c34,#171824 72%);padding:34px 36px;margin-bottom:22px;box-shadow:0 18px 55px #0003}
+.legal-hero:after{content:"";position:absolute;width:240px;height:240px;border-radius:50%;right:-65px;top:-115px;background:radial-gradient(circle,#a58aff35,transparent 68%);pointer-events:none}
+.legal-kicker{display:inline-flex;align-items:center;gap:8px;color:#bbaaff;font-size:9px;font-weight:800;letter-spacing:1.8px;margin-bottom:15px}
+.legal-kicker:before{content:"";width:6px;height:6px;border-radius:50%;background:#9b83ff;box-shadow:0 0 12px #9b83ff}
+.legal-hero h1{font-size:clamp(27px,4vw,39px);letter-spacing:-1.2px;margin:0 0 10px;line-height:1.12}
+.legal-hero p{max-width:660px;color:#a7a5bb;font-size:12px;line-height:1.8}
+.legal-meta{display:flex;align-items:center;gap:9px;margin-top:20px;color:#85879c;font-size:10px}
+.legal-meta span{border:1px solid #373047;background:#211d2d;padding:6px 9px;border-radius:7px;color:#c0b3e8}
+.legal-tabs{display:flex;gap:9px;margin:0 0 20px;flex-wrap:wrap}
+.legal-tab{display:inline-flex;align-items:center;gap:9px;text-decoration:none;color:#a9a8bb;background:#151722;border:1px solid #292b3d;border-radius:11px;padding:12px 15px;font-size:11px;font-weight:600;transition:.18s}
+.legal-tab:hover{border-color:#65528f;color:#fff;transform:translateY(-1px)}
+.legal-tab.active{background:linear-gradient(100deg,#352b59,#252039);border-color:#514171;color:#d5caff;box-shadow:inset 0 0 0 1px #9d7cff18}
+.legal-document{border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#171925,#13151e);padding:30px 34px;box-shadow:0 14px 40px #0002}
+.legal-intro{border:1px solid #37304f;background:#201c30;border-radius:12px;padding:17px 19px;color:#c3bdd8;font-size:12px;line-height:1.8;margin-bottom:24px}
+.legal-section{padding:20px 0;border-bottom:1px solid #292b3b;scroll-margin-top:20px}
+.legal-section:first-of-type{padding-top:0}
+.legal-section:last-child{border-bottom:0;padding-bottom:0}
+.legal-section h2{display:flex;align-items:center;gap:11px;color:#e9e5f8;font-size:15px;letter-spacing:-.2px;margin:0 0 9px}
+.legal-section h2 span{width:27px;height:27px;flex:0 0 27px;display:grid;place-items:center;border-radius:8px;background:#30274b;color:#bbaaff;font-size:10px}
+.legal-section p,.legal-section li{color:#9fa1b3;font-size:12px;line-height:1.85}
+.legal-section ul{padding-left:20px;margin:10px 0 0}
+.legal-section li{padding:3px 0}
+.legal-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:18px;padding:17px 3px;color:#77798d;font-size:9px;letter-spacing:1px}
+.legal-footer a{color:#bbaaff;text-decoration:none;letter-spacing:0;font-size:10px}
+.legal-footer a:hover{text-decoration:underline}
+@media(max-width:640px){.legal-page{padding:20px 14px 38px}.legal-top{margin-bottom:22px}.legal-hero{padding:25px 21px;border-radius:17px}.legal-document{padding:22px 18px}.legal-tabs{display:grid;grid-template-columns:1fr 1fr}.legal-tab{justify-content:center;padding:11px 8px;font-size:10px}.legal-footer{align-items:flex-start;flex-direction:column}}
