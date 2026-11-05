@@ -161,6 +161,11 @@ async def stylesheet():
 async def frontend_script():
     return FileResponse(os.path.join(BASE_DIR, "app.js"), media_type="application/javascript")
 
+@app.get("/tiktokm5Y1iWvDkXPyhVbml4Yb7W3NE8WSScOd.txt")
+async def tiktok_site_verification():
+    verification_file = os.path.join(BASE_DIR, "tiktokm5Y1iWvDkXPyhVbml4Yb7W3NE8WSScOd.txt")
+    return FileResponse(verification_file, media_type="text/plain")
+
 
 @app.get("/auth/login")
 async def auth_login(request: Request):
