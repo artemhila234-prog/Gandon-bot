@@ -331,6 +331,13 @@ async def api_remove_warn(user_id: str, request: Request):
 async def api_requests(request: Request):
     await require_access(request, "co_adm")
     result = await bot_api_request("GET", "/api/internal/data/requests")
+    # Discord snowflake IDs exceed JavaScript's safe integer range.
+    # Convert them to strings before returning JSON to the browser.
+    for item in result.get("requests", []):
+        if item.get("user_id") is not None:
+            item["user_id"] = str(item["user_id"])
+        if item.get("message_id") is not None:
+            item["message_id"] = str(item["message_id"])
     return result
 
 @app.post("/api/requests/{user_id}/approve")
