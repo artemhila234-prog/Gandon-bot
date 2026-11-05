@@ -7,7 +7,7 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
 from starlette.middleware.sessions import SessionMiddleware
 
 load_dotenv()
@@ -25,6 +25,11 @@ SESSION_SECRET = os.getenv("SESSION_SECRET", "")
 BOT_SYNC_SECRET = os.getenv("BOT_SYNC_SECRET", "")
 BOT_API_URL = os.getenv("BOT_API_URL", "").rstrip("/")
 BOT_DATA_API_SECRET = os.getenv("BOT_DATA_API_SECRET", "")
+TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY", "")
+TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET", "")
+TIKTOK_REDIRECT_URI = os.getenv("TIKTOK_REDIRECT_URI", "https://med1a.apps.bot-hosting.cloud/tiktok/callback")
+TIKTOK_TOKEN_ENCRYPTION_KEY = os.getenv("TIKTOK_TOKEN_ENCRYPTION_KEY", "")
+TIKTOK_SCOPES = "user.info.basic,user.info.profile,video.list"
 PANEL_DB_PATH = os.getenv("PANEL_DB_PATH", os.path.join(os.path.dirname(__file__), "panel.db"))
 ACCESS_RANK = {"none": 0, "media": 1, "co_adm": 2, "adm": 3, "full": 4}
 
@@ -780,6 +785,144 @@ async def internal_data_change_warns(user_id: str, request: Request):
     except HTTPException:
         print("Не удалось отправить лог изменения варна в Discord.", flush=True)
     return {"ok": True, "user_id": user_id, "warns": updated, "reason": reason, "actor_name": actor_name}
+
+
+# ================== TIKTOK OAUTH + BOT-SIDE TOKEN STORAGE ==================
+@app.get("/tiktok/login")
+async def tiktok_login(state: str = ""):
+    if not TIKTOK_CLIENT_KEY or not TIKTOK_CLIENT_SECRET or not TIKTOK_REDIRECT_URI:
+        raise HTTPException(status_code=503, detail="TikTok OAuth не настроен: проверь TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET и TIKTOK_REDIRECT_URI.")
+    if not state or len(state) < 24:
+        raise HTTPException(status_code=400, detail="Некорректный код привязки.")
+    pending = await bot_api_request("GET", f"/api/internal/tiktok/pending/{state}")
+    from urllib.parse import urlencode
+    params = {
+        "client_key": TIKTOK_CLIENT_KEY,
+        "response_type": "code",
+        "scope": TIKTOK_SCOPES,
+        "redirect_uri": TIKTOK_REDIRECT_URI,
+        "state": state,
+        "disable_auto_auth": "1",
+    }
+    return RedirectResponse("https://www.tiktok.com/v2/auth/authorize/?" + urlencode(params))
+
+@app.get("/tiktok/callback")
+async def tiktok_callback(code: str = "", state: str = "", error: str = "", error_description: str = ""):
+    if error:
+        return HTMLResponse("<h2>Подключение TikTok отменено</h2><p>Вернись в Discord и попробуй ещё раз.</p>", status_code=400)
+    if not code or not state:
+        raise HTTPException(status_code=400, detail="TikTok не вернул код авторизации или state.")
+    pending = await bot_api_request("GET", f"/api/internal/tiktok/pending/{state}")
+    if not TIKTOK_CLIENT_KEY or not TIKTOK_CLIENT_SECRET or not TIKTOK_TOKEN_ENCRYPTION_KEY:
+        raise HTTPException(status_code=503, detail="Не настроены TikTok credentials или ключ шифрования на сайте.")
+    async with httpx.AsyncClient(timeout=25) as client:
+        token_response = await client.post(
+            "https://open.tiktokapis.com/v2/oauth/token/",
+            data={
+                "client_key": TIKTOK_CLIENT_KEY, "client_secret": TIKTOK_CLIENT_SECRET,
+                "code": code, "grant_type": "authorization_code", "redirect_uri": TIKTOK_REDIRECT_URI,
+            },
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        token_data = token_response.json()
+        if token_response.status_code != 200 or not token_data.get("access_token"):
+            raise HTTPException(status_code=502, detail="TikTok не выдал токен. Проверь Login Kit, redirect URI и разрешения приложения.")
+        profile_response = await client.get(
+            "https://open.tiktokapis.com/v2/user/info/?fields=open_id,username,bio_description,profile_deep_link",
+            headers={"Authorization": f"Bearer {token_data['access_token']}"},
+        )
+        profile_data = profile_response.json()
+    if profile_response.status_code != 200 or profile_data.get("error", {}).get("code") not in (None, "ok", 0):
+        raise HTTPException(status_code=502, detail="Не удалось получить профиль TikTok. Проверь разрешение user.info.profile.")
+    profile = profile_data.get("data", {}).get("user", {})
+    username = str(profile.get("username") or "").lstrip("@")
+    open_id = str(profile.get("open_id") or "")
+    expected_username = str(pending.get("expected_username") or "").lstrip("@")
+    if not username or not open_id:
+        raise HTTPException(status_code=502, detail="TikTok не вернул username или open_id.")
+    if username.casefold() != expected_username.casefold():
+        raise HTTPException(status_code=400, detail=f"Ты авторизовал @{username}, а в команде указан @{expected_username}. Запусти /привязать_аккаунт заново.")
+    now = int(datetime.now(timezone.utc).timestamp())
+    token_bundle = {
+        "access_token": token_data["access_token"],
+        "refresh_token": token_data.get("refresh_token", ""),
+        "access_token_expires_at": now + int(token_data.get("expires_in", 86400)),
+        "refresh_token_expires_at": now + int(token_data.get("refresh_expires_in", 31536000)),
+        "scope": token_data.get("scope", ""),
+        "open_id": open_id,
+    }
+    try:
+        from cryptography.fernet import Fernet
+        encrypted = Fernet(TIKTOK_TOKEN_ENCRYPTION_KEY.encode("utf-8")).encrypt(json.dumps(token_bundle).encode("utf-8")).decode("utf-8")
+    except Exception:
+        raise HTTPException(status_code=503, detail="Ключ TIKTOK_TOKEN_ENCRYPTION_KEY некорректен. Используй ключ Fernet и одинаковое значение на обоих хостингах.")
+    profile_url = str(profile.get("profile_deep_link") or f"https://www.tiktok.com/@{username}")
+    await bot_api_request("POST", "/api/internal/tiktok/complete", payload={
+        "state": state, "open_id": open_id, "username": username,
+        "profile_url": profile_url, "token_cipher": encrypted,
+    })
+    return HTMLResponse(
+        "<!doctype html><html lang='ru'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
+        "<title>WhiteGrief — TikTok</title><body style='background:#101018;color:#f4f1ff;font:16px Arial;display:grid;place-items:center;min-height:90vh'>"
+        "<main style='max-width:520px;padding:32px;border:1px solid #38304f;border-radius:18px;background:#191624'>"
+        "<h2>✅ TikTok подключён</h2><p>Аккаунт @" + username + " авторизован. Вернись в Discord и нажми кнопку «Проверить», "
+        "чтобы подтвердить код в BIO.</p><p>Это окно можно закрыть.</p></main></body></html>"
+    )
+
+@app.get("/api/internal/tiktok/pending/{state}")
+async def internal_tiktok_pending(state: str, request: Request):
+    require_bot_data_secret(request)
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
+    with sqlite3.connect(path, timeout=10) as db:
+        row = db.execute(
+            "SELECT user_id, expected_username, expires_at FROM tiktok_pending WHERE oauth_state = ?", (state,)
+        ).fetchone()
+    if not row or row[2] <= datetime.now(timezone.utc).isoformat():
+        raise HTTPException(status_code=404, detail="Заявка на привязку не найдена или истекла. Запусти команду заново.")
+    return {"user_id": str(row[0]), "expected_username": row[1], "expires_at": row[2]}
+
+@app.post("/api/internal/tiktok/complete")
+async def internal_tiktok_complete(request: Request):
+    require_bot_data_secret(request)
+    payload = await request.json()
+    state = str(payload.get("state", ""))
+    open_id = str(payload.get("open_id", ""))
+    username = str(payload.get("username", "")).lstrip("@")
+    profile_url = str(payload.get("profile_url", ""))[:500]
+    token_cipher = str(payload.get("token_cipher", ""))
+    if not state or not open_id or not username or not token_cipher or not profile_url.startswith("https://"):
+        raise HTTPException(status_code=400, detail="TikTok вернул неполные данные профиля.")
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
+    try:
+        with sqlite3.connect(path, timeout=10) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT user_id, expected_username, expires_at FROM tiktok_pending WHERE oauth_state = ?", (state,)
+            ).fetchone()
+            if not row or row[2] <= datetime.now(timezone.utc).isoformat():
+                raise HTTPException(status_code=404, detail="Заявка на привязку истекла. Запусти команду заново.")
+            if username.casefold() != str(row[1]).casefold():
+                raise HTTPException(status_code=400, detail="Авторизованный TikTok-профиль не совпадает с указанным.")
+            owner = db.execute("SELECT user_id FROM tiktok_accounts WHERE open_id = ?", (open_id,)).fetchone()
+            if owner and int(owner[0]) != int(row[0]):
+                raise HTTPException(status_code=409, detail="Этот TikTok-аккаунт уже привязан к другому Discord-пользователю.")
+            db.execute(
+                "UPDATE tiktok_pending SET token_cipher=?, open_id=?, username=?, profile_url=? WHERE user_id=? AND oauth_state=?",
+                (token_cipher, open_id, username, profile_url, int(row[0]), state)
+            )
+            db.commit()
+    except HTTPException:
+        raise
+    except sqlite3.Error:
+        raise HTTPException(status_code=503, detail="Не удалось сохранить TikTok-привязку в базе бота.")
+    return {"ok": True, "username": username}
+
 
 @app.post("/api/internal/sync-roles")
 async def sync_access_roles(request: Request):
