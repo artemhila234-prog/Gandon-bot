@@ -136,6 +136,9 @@ if "message_id" not in pending_request_columns:
     cursor.execute("ALTER TABLE pending_requests ADD COLUMN message_id INTEGER")
 conn.commit()
 
+# TikTok reward rule: one point for every five video views (round down).
+TIKTOK_VIEWS_PER_POINT = 5
+
 # TikTok tables: pending links, linked accounts and one-time video rewards.
 cursor.execute("""CREATE TABLE IF NOT EXISTS tiktok_pending (
     user_id INTEGER PRIMARY KEY, code TEXT NOT NULL, expected_username TEXT NOT NULL,
@@ -372,9 +375,9 @@ async def process_tiktok_video(message: discord.Message):
             await message.reply("❌ TikTok не подтвердил, что это видео принадлежит привязанному аккаунту.", mention_author=False)
             return
         views = max(0, int(video.get("view_count", 0)))
-        points = views // 5
+        points = views // TIKTOK_VIEWS_PER_POINT
         if points < 1:
-            await message.reply(f"ℹ️ У ролика пока {views} просмотров. Для начисления нужен минимум 5. Можешь отправить ссылку позже.", mention_author=False)
+            await message.reply(f"ℹ️ У ролика пока {views} просмотров. Для начисления нужен минимум {TIKTOK_VIEWS_PER_POINT}. Можешь отправить ссылку позже.", mention_author=False)
             return
         conn.execute("BEGIN IMMEDIATE")
         inserted = conn.execute(
@@ -398,7 +401,7 @@ async def process_tiktok_video(message: discord.Message):
         embed.add_field(name="Просмотры", value=f"{views:,}".replace(",", " "), inline=True)
         embed.add_field(name="Начислено", value=f"**{points:,}** баллов".replace(",", " "), inline=True)
         embed.add_field(name="Новый баланс", value=f"**{balance:,}** баллов".replace(",", " "), inline=True)
-        embed.add_field(name="Правило", value="5 просмотров = 1 балл. За один ролик начисление производится только один раз.", inline=False)
+        embed.add_field(name="Правило", value=f"{TIKTOK_VIEWS_PER_POINT} просмотров = 1 балл. За один ролик начисление производится только один раз.", inline=False)
         embed.add_field(name="Видео", value=f"[Открыть ролик](https://www.tiktok.com/@{account[0]}/video/{video_id})", inline=False)
         await message.reply(embed=embed, mention_author=False)
     except Exception as exc:
@@ -585,7 +588,7 @@ async def shop(interaction: discord.Interaction):
         "🎬 Зарабатывай баллы за просмотры, покупай игровые наборы и донаты и получай награды за свою активность!\n\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         "🎥・**КАК ЗАРАБОТАТЬ БАЛЛЫ?**\n"
-        "📊 5 просмотров = 1 балл\n"
+        f"📊 {TIKTOK_VIEWS_PER_POINT} просмотров = 1 балл\n"
         "▫️ 500 просмотров — 100 баллов\n"
         "▫️ 1 000 просмотров — 200 баллов\n"
         "▫️ 5 000 просмотров — 1 000 баллов\n"
@@ -621,7 +624,7 @@ async def shop(interaction: discord.Interaction):
         "📝 Снятие 1 выговора — 400 баллов\n\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         "📜・**ПРАВИЛА МАГАЗИНА**\n"
-        "🔹 За каждые 5 просмотров начисляется 1 балл.\n"
+        f"🔹 За каждые {TIKTOK_VIEWS_PER_POINT} просмотров начисляется 1 балл.\n"
         "🔹 Накрутка просмотров запрещена.\n"
         "🔹 Для покупки обратись к администрации или куратору медиа.\n"
         "🔹 После покупки баллы списываются с баланса.\n"
