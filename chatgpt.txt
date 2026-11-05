@@ -365,3 +365,16 @@ D. Важное ограничение API
 - Рекомендовано дождаться до 1 часа для применения изменений на стороне TikTok, затем повторить вход через https://med1a.apps.bot-hosting.cloud/ и снова нажать привязку TikTok.
 - Если ошибка non_sandbox_target останется, следующий шаг — проверить, что аккаунт виден в Target users, используется Client Key/Secret именно того Sandbox и изменения Sandbox сохранены/применены. При необходимости попросить скриншоты страницы режима приложения и списка Target users; секретные ключи не показывать.
 - На этом этапе пользователь ещё не подтвердил повторный успешный вход; OAuth остаётся непроверенным. Код и переменные окружения не менялись.
+
+28. ОШИБКА CALLBACK: НЕ НАСТРОЕНЫ TIKTOK CREDENTIALS ИЛИ КЛЮЧ ШИФРОВАНИЯ (2026-11-05)
+- После добавления аккаунта в Sandbox пользователь прошёл до callback, но сайт показал: {"detail":"Не настроены TikTok credentials или ключ шифрования на сайте."}.
+- Проверен dashboard/backend/main.py (актуальный blob SHA 5a44b0f31677230f2ac0e4ff3ac5e2ac1988a30c): в обработчике /tiktok/callback (строка около 816) сайт возвращает именно эту ошибку, если хотя бы одна из переменных TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET или TIKTOK_TOKEN_ENCRYPTION_KEY пуста. Значит, это ошибка конфигурации окружения сайта, а не Target users и не текущая ошибка non_sandbox_target.
+- В dashboard/.env.example подтверждены необходимые имена:
+  TIKTOK_CLIENT_KEY
+  TIKTOK_CLIENT_SECRET
+  TIKTOK_REDIRECT_URI=https://med1a.apps.bot-hosting.cloud/tiktok/callback
+  TIKTOK_TOKEN_ENCRYPTION_KEY
+- Следующее действие: в переменных окружения именно dashboard/web service на Bot-Hosting задать Client Key и Client Secret от того же Sandbox-приложения TikTok; задать Fernet key в TIKTOK_TOKEN_ENCRYPTION_KEY. Один и тот же Fernet key должен быть задан на сайте и на хостинге бота. После сохранения переменных перезапустить сайт/API и повторить OAuth.
+- Если Fernet key ещё не создан, сгенерировать на сервере командой: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())". Не отправлять ключ в чат и не коммитить в GitHub.
+- TIKTOK_REDIRECT_URI на сайте должен точно совпадать с URI в TikTok Developer Portal: https://med1a.apps.bot-hosting.cloud/tiktok/callback.
+- В текущем обращении код приложения не менялся; ошибка указывает на отсутствующие/пустые env vars на сайте. OAuth остаётся незавершённым до настройки и повторного теста.
