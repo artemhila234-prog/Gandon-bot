@@ -301,3 +301,12 @@ D. Важное ограничение API
   6. Убедиться, что TikTok Developer Portal Redirect URI точно равен https://med1a.apps.bot-hosting.cloud/tiktok/callback и scopes Login Kit/Display API одобрены.
 - Важная проверка до production: проверить Python syntax/SQLite migrations и работу OAuth callback на Sandbox. Короткие vm.tiktok.com / vt.tiktok.com short links пока не распознаются: обработчик ждёт полную ссылку вида https://www.tiktok.com/@username/video/123... .
 - Повторное начисление за один ролик отключено навсегда по первому успешному подсчёту; views < 5 не записываются, чтобы участник мог отправить ролик снова позже.
+
+21. УТОЧНЕНИЯ ПОСЛЕ ПРОВЕРКИ TIKTOK (2026-11-05)
+- Проверен актуальный aaaa/bot.py: pending_points, старый обработчик !принято и ручной парсер заявок на баллы отсутствуют; обработка отчётов сохранена.
+- Удалены неиспользуемые APPROVER_POINTS_ROLE_IDS и has_points_role. Исправлены переводы строк в новом welcome embed бота.
+- Последний commit aaaa/bot.py: dc2f4a490ce0d6c3d975abe4226a152161599ddd.
+- В dashboard/backend/main.py ещё остался старый текст welcome embed о ручной подаче баллов; его нужно обновить отдельно. TikTok OAuth и защищённые endpoints уже закоммичены, SHA 2c5d4dfbc17b3aef2c546372b19f15ee01f291d6.
+- Код не запускался на Bot-Hosting и не прошёл runtime/compile test в этой сессии. Не утверждать, что интеграция уже работает; сначала установить зависимости и секреты, синхронизировать файлы, проверить запуск и TikTok Sandbox.
+- TIKTOK_CLIENT_KEY и TIKTOK_CLIENT_SECRET должны быть на dashboard host и bot host (на боте нужны для refresh token). TIKTOK_REDIRECT_URI нужен на dashboard host. TIKTOK_TOKEN_ENCRYPTION_KEY должен быть одним и тем же Fernet key на обоих хостингах. Секреты не коммитить и не отправлять в чат.
+- Следующий шаг: сгенерировать Fernet key на сервере с cryptography и сохранить его в TIKTOK_TOKEN_ENCRYPTION_KEY на обоих сервисах; убедиться, что cryptography установлен в обоих окружениях через новые requirements.txt.
