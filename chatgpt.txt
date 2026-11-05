@@ -262,3 +262,42 @@ D. Важное ограничение API
 - Репозиторий не содержит requirements.txt, поэтому наличие cryptography/Fernet в окружении Bot-Hosting не удалось подтвердить. Для безопасного шифрования токенов потребуется обеспечить пакет cryptography в окружении бота и отдельный TIKTOK_TOKEN_ENCRYPTION_KEY только на хостинге бота; не хранить ключ или токены в GitHub/chatgpt.txt. Не использовать самодельное шифрование.
 - Пользователь подтвердил наличие user.info.basic; ранее также подтверждены user.info.profile и video.list. Это подтверждение настроек пользователя, но реальное одобрение/доступность scopes следует проверять по фактическим ответам TikTok API в Sandbox.
 - Пока код не изменён и коммиты функциональности TikTok не сделаны. Следующий этап: реализовать защищённый bot-side API для pending link/сохранения зашифрованного token/account, TikTok OAuth callback на панели с привязкой state к Discord user, кнопку проверки bio, а затем проверку владельца video ID/view_count и уникальное начисление через update_balance(). Удалять только points-specific parser/handler/restore logic, сохранить join applications, отчёты, магазин, покупки и балансы.
+
+
+20. РЕАЛИЗАЦИЯ TIKTOK — ПЕРВЫЙ КОММИТ КОДА (2026-11-05)
+- Пользователь подтвердил «да давай» на реализацию OAuth, проверки BIO и автоматического начисления за TikTok.
+- Перед работой повторно прочитан актуальный chatgpt.txt. После анализа архитектуры начата реализация в правильных файлах.
+- Изменён aaaa/bot.py:
+  - Добавлены SQLite-таблицы tiktok_pending, tiktok_accounts и tiktok_videos (миграция через CREATE TABLE IF NOT EXISTS, существующие users/reports/purchases и балансы не затрагиваются).
+  - Добавлена slash-команда /привязать_аккаунт с проверкой TikTok URL, 5-символьным кодом, сроком действия 15 минут, случайным OAuth state и Discord View с кнопками «Подключить TikTok» и «Проверить».
+  - Добавлена проверка bio_description через TikTok user info API, сверка open_id и username с ожидаемым профилем; после совпадения кода аккаунт сохраняется как привязанный.
+  - Добавлено обновление access token через refresh_token; токены ожидаются в формате Fernet ciphertext, расшифровываются только на стороне бота.
+  - В личных каналах TikTok video URL проверяется через /v2/video/query/ с полями id,view_count,share_url; API подтверждает принадлежность видео авторизованному аккаунту. Баллы начисляются как views // 5, уникальный video_id сохраняется, повторное начисление блокируется. Если просмотров меньше 5, ролик не фиксируется, чтобы его можно было отправить повторно после роста просмотров.
+  - Удалены points-specific pending_points/старый обработчик !принято/ручной парсер и остаточная очистка pending_points. При старте удаляются только устаревшие pending_requests request_type='points'; заявки request_type='join' сохраняются.
+  - Заявки, отчёты, магазин, покупки и текущие балансы оставлены.
+  - Команда/процесс пока не запускались в реальном Discord; требуется deploy и проверка на тестовом аккаунте.
+- Изменён dashboard/backend/main.py:
+  - Добавлен /tiktok/login, который проверяет pending state через защищённый API бота и направляет пользователя на TikTok OAuth web flow.
+  - Добавлен /tiktok/callback: обмен authorization code, получение username/open_id/profile_deep_link, шифрование token bundle через Fernet и отправка только ciphertext на bot API.
+  - Добавлены защищённые bot API endpoints GET /api/internal/tiktok/pending/{state} и POST /api/internal/tiktok/complete. Токены сохраняются в bot_data.db через эти endpoints, не в panel.db.
+  - Redirect URI по умолчанию: https://med1a.apps.bot-hosting.cloud/tiktok/callback. Запрашиваемые scopes: user.info.basic,user.info.profile,video.list.
+  - Bot API URL в проекте исторически HTTP, поэтому токены шифруются на панели ДО передачи; Fernet key должен совпадать на dashboard и bot hosts.
+- Добавлен dashboard/.env.example с TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET, TIKTOK_REDIRECT_URI, TIKTOK_TOKEN_ENCRYPTION_KEY (только имена/пустые значения, секретов нет).
+- Добавлены requirements.txt в корень и dashboard/requirements.txt; оба включают cryptography для Fernet.
+- Commits:
+  - aaaa/bot.py основная TikTok реализация: e3598a3d5b4030d067894e891772026cbb015ccc
+  - aaaa/bot.py удаление оставшихся ссылок на ручные баллы: 80f73816d755fa85e7da00ace931e2df45989f77
+  - aaaa/bot.py обновление старого welcome embed: 32909e3d2b2572caf8fdef57b73a350b9a788b56 (в тексте welcome-инструкции сейчас присутствует риск лишних буквальных обратных слэшей перед \n; перед deploy надо поправить/проверить отображение)
+  - dashboard/backend/main.py OAuth + bot API: 2c5d4dfbc17b3aef2c546372b19f15ee01f291d6
+  - dashboard/.env.example: ecd302b5561499eadad54036520b560da0c9df9b
+  - root requirements.txt: a70af5a5c691d1d4b7795e626f93a4ba836b87af
+  - dashboard/requirements.txt: 6d299aa147dc13d1f5a74416f3e16a9b79c6bd53
+- Критичные настройки перед тестом:
+  1. Установить cryptography на обоих хостингах (корневой requirements.txt для бота; dashboard/requirements.txt для сайта, если хостинг не устанавливает автоматически).
+  2. Сгенерировать Fernet key командой: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" и установить ОДИНАКОВОЕ значение TIKTOK_TOKEN_ENCRYPTION_KEY на обоих хостингах. Не коммитить ключ.
+  3. На dashboard host должны быть TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET, TIKTOK_REDIRECT_URI и TIKTOK_TOKEN_ENCRYPTION_KEY.
+  4. На bot host должны быть TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET и тот же TIKTOK_TOKEN_ENCRYPTION_KEY (client secret нужен для обновления access token); TIKTOK_CONNECT_URL по умолчанию указывает на https://med1a.apps.bot-hosting.cloud/tiktok/login.
+  5. На dashboard host уже должны быть BOT_API_URL и BOT_DATA_API_SECRET; на bot host BOT_DATA_API_SECRET должен совпадать.
+  6. Убедиться, что TikTok Developer Portal Redirect URI точно равен https://med1a.apps.bot-hosting.cloud/tiktok/callback и scopes Login Kit/Display API одобрены.
+- Важная проверка до production: проверить Python syntax/SQLite migrations и работу OAuth callback на Sandbox. Короткие vm.tiktok.com / vt.tiktok.com short links пока не распознаются: обработчик ждёт полную ссылку вида https://www.tiktok.com/@username/video/123... .
+- Повторное начисление за один ролик отключено навсегда по первому успешному подсчёту; views < 5 не записываются, чтобы участник мог отправить ролик снова позже.
