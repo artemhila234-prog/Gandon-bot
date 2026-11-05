@@ -1305,6 +1305,8 @@ async def console_input_loop():
                     "Команды консоли:\n"
                     "/text <ID канала> <сообщение> — отправить сообщение\n"
                     "/channels — список текстовых каналов и их ID\n"
+                    "/delete pending_requests — удалить все ожидающие заявки\n"
+                    "/restart pending_requests — пересоздать таблицу заявок (удалит записи)\n"
                     "/help — показать эту подсказку",
                     flush=True
                 )
@@ -1341,6 +1343,42 @@ async def console_input_loop():
                     print("❌ Нет прав на отправку сообщений в этот канал.", flush=True)
                 except discord.HTTPException as error:
                     print(f"❌ Discord не принял сообщение: {error}", flush=True)
+
+            elif command == "/delete":
+                if len(parts) != 2 or parts[1].lower() != "pending_requests":
+                    print("❌ Формат: /delete pending_requests", flush=True)
+                    continue
+                try:
+                    conn.execute("BEGIN IMMEDIATE")
+                    deleted_count = conn.execute("DELETE FROM pending_requests").rowcount
+                    conn.commit()
+                    print(f"✅ Таблица pending_requests очищена. Удалено заявок: {deleted_count}. Остальные таблицы не затронуты.", flush=True)
+                except sqlite3.Error as error:
+                    conn.rollback()
+                    print(f"❌ Не удалось очистить pending_requests: {error}", flush=True)
+
+            elif command == "/restart":
+                if len(parts) != 2 or parts[1].lower() != "pending_requests":
+                    print("❌ Формат: /restart pending_requests", flush=True)
+                    continue
+                try:
+                    conn.execute("BEGIN IMMEDIATE")
+                    conn.execute("DROP TABLE IF EXISTS pending_requests")
+                    conn.execute("""CREATE TABLE pending_requests (
+                        request_type TEXT NOT NULL,
+                        user_id INTEGER NOT NULL,
+                        message_id INTEGER,
+                        data TEXT NOT NULL,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (request_type, user_id)
+                    )""")
+                    conn.commit()
+                    pending_apps.clear()
+                    pending_points.clear()
+                    print("✅ Таблица pending_requests пересоздана. Все ожидающие заявки удалены; остальные таблицы не затронуты.", flush=True)
+                except sqlite3.Error as error:
+                    conn.rollback()
+                    print(f"❌ Не удалось пересоздать pending_requests: {error}", flush=True)
 
             elif command == "/channels":
                 print("📚 Текстовые каналы доступных серверов:", flush=True)
