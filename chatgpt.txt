@@ -214,3 +214,16 @@ D. Важное ограничение API
   https://developers.tiktok.com/docs/en/getting-started-create-an-app
 - Дополнительно перед подачей проверить, что сайт является полноценным публичным продуктом, а ссылки Terms of Service и Privacy Policy видны на главной странице без открытия меню; это отдельное требование App Review Guidelines.
 - Пока не записывать фальшивую демонстрацию: TikTok-интеграция в панели/боте ещё не реализована и фактические scopes/status не подтверждены. Следующий этап — выяснить sandbox setup и одобряемые scopes, реализовать рабочий end-to-end flow, затем записать экран.
+
+
+16. ПРОДОЛЖЕНИЕ TIKTOK APP REVIEW — ПОДТВЕРЖДЕНО ПОЛЬЗОВАТЕЛЕМ (2026-11-05)
+- Пользователь отдельно подчеркнул, что для получения доступа к TikTok API необходимо также подготовить и загрузить demo video. Продолжать работу с этого этапа, не возвращаясь к началу обсуждения начисления баллов.
+- Повторно сверены официальные TikTok документы (актуальная редакция App Review Guidelines от 2026-08-04): минимум одно demo video, максимум 5 видео, каждое до 50 MB; видео должно показывать полный end-to-end сценарий актуальной интеграции, UI и действия пользователя, а также каждый выбранный product/scope. Для первого review обязательно использовать Sandbox. Домен сайта в записи должен совпадать с Website URL приложения.
+- Официальная инструкция регистрации приложения дополнительно подтверждает загрузку demo video в App review перед Submit for review; для Web нужен действительный Redirect URI. Для app configuration после 2024-09-09 нужно подтвердить Website URL, Terms of Service URL и Privacy Policy URL.
+- Sandbox создаётся переключением приложения в Sandbox mode; можно создать до 5 sandbox. В Sandbox settings нужно добавить target TikTok account (до 10) и авторизовать его через Login Kit. Результаты добавления target user могут появиться с задержкой до часа. Sandbox не предоставляет Content Posting API для публичных видео и Data Portability API; для нашего сценария нужно проверить доступность нужных Login Kit/Display API scopes в Sandbox.
+- Важное требование к самому сайту из App Review Guidelines: сайт должен быть полноценным внешним продуктом, не landing/login page; активные ссылки Terms of Service и Privacy Policy должны быть видны на сайте без раскрытия меню. В текущей панели ссылки ранее добавлялись в боковое меню, поэтому перед подачей нужно вынести их в постоянно видимую область страницы.
+- Источники:
+  https://developers.tiktok.com/docs/en/app-review-guidelines
+  https://developers.tiktok.com/docs/en/getting-started-create-an-app
+  https://developers.tiktok.com/docs/en/add-a-sandbox
+- Следующий практический этап: открыть TikTok Developer Portal → приложение WhiteGrief » Медия → создать Sandbox → добавить свой TikTok аккаунт как Target user → проверить доступные продукты/scopes и настроить Login Kit redirect URI. Затем реализовать реальный OAuth/Display API end-to-end сценарий на сайте/в боте, протестировать его в Sandbox и только после этого записывать видео. Не записывать постановочное видео с фиктивными API-ответами.
