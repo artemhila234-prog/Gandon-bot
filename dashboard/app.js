@@ -218,7 +218,7 @@ async function loadRequests(section){
           if(item.type==="join"){
             const approve=document.createElement("button");approve.type="button";approve.className="request-approve-button";approve.textContent="✓  Одобрить заявку";
             approve.addEventListener("click",()=>approveJoinRequest(item.user_id,approve));
-            const reject=document.createElement("button");reject.type="button";reject.className="request-reject-button";reject.textContent="✕  Отклонить / удалить";
+            const reject=document.createElement("button");reject.type="button";reject.className="request-reject-button";reject.textContent="✕  Отклонить";
             reject.addEventListener("click",()=>rejectJoinRequest(item.user_id,reject));
             actions.append(approve,reject);
           }
@@ -272,7 +272,7 @@ function openRejectDialog(userId,onReject){
   const eyebrow=document.createElement("span");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="WHITEGRIEF • APPLICATION CENTER";
   const title=document.createElement("h2");title.textContent="Отклонить заявку?";
   const description=document.createElement("p");description.className="action-modal-description";description.textContent="Discord ID: "+userId;
-  const note=document.createElement("div");note.className="action-modal-note";note.textContent="Заявка будет удалена из очереди, а роль «Ожидание верификации» будет снята. Пользователь НЕ будет исключён с сервера.";
+  const note=document.createElement("div");note.className="action-modal-note";note.textContent="Заявка будет отклонена, роль «Ожидание верификации» будет снята, а пользователю придёт уведомление в личные сообщения. С сервера он исключён не будет.";
   const footer=document.createElement("div");footer.className="action-modal-footer";
   const cancel=document.createElement("button");cancel.type="button";cancel.className="action-modal-cancel";cancel.textContent="Отмена";
   const reject=document.createElement("button");reject.type="button";reject.className="action-modal-confirm";reject.textContent="✕  Отклонить";
@@ -291,7 +291,7 @@ async function rejectJoinRequest(userId,button){
       if(!response.ok)throw new Error(data.detail||("Ошибка отклонения (HTTP "+response.status+")."));
       showToast("Заявка отклонена. Роль ожидания снята, пользователь остался на сервере.");
       const section=document.getElementById("comingPage");if(section)await loadRequests(section);
-    }catch(error){button.disabled=false;button.textContent="✕  Отклонить / удалить";throw error;}
+    }catch(error){button.disabled=false;button.textContent="✕  Отклонить";throw error;}
   });
 }
 
