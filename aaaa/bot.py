@@ -135,6 +135,25 @@ pending_request_columns = {row[1] for row in cursor.fetchall()}
 if "message_id" not in pending_request_columns:
     cursor.execute("ALTER TABLE pending_requests ADD COLUMN message_id INTEGER")
 conn.commit()
+
+# TikTok tables: pending links, linked accounts and one-time video rewards.
+cursor.execute("""CREATE TABLE IF NOT EXISTS tiktok_pending (
+    user_id INTEGER PRIMARY KEY, code TEXT NOT NULL, expected_username TEXT NOT NULL,
+    oauth_state TEXT NOT NULL UNIQUE, expires_at TEXT NOT NULL, token_cipher TEXT,
+    open_id TEXT, username TEXT, profile_url TEXT
+)""")
+cursor.execute("""CREATE TABLE IF NOT EXISTS tiktok_accounts (
+    user_id INTEGER PRIMARY KEY, open_id TEXT NOT NULL UNIQUE, username TEXT NOT NULL,
+    profile_url TEXT NOT NULL, token_cipher TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)""")
+cursor.execute("""CREATE TABLE IF NOT EXISTS tiktok_videos (
+    video_id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, views INTEGER NOT NULL,
+    points INTEGER NOT NULL, rewarded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)""")
+cursor.execute("DELETE FROM pending_requests WHERE request_type = 'points'")
+conn.commit()
+
 print(f"🗄️ База WhiteGrief: {os.path.abspath(DB_PATH)}", flush=True)
 
 # ================== БОТ ==================
@@ -235,8 +254,222 @@ def has_povixa_role(member):
 def get_msk_time_str():
     return datetime.now(MSK).strftime('%d.%m.%Y %H:%M')
 
+
+# ================== TIKTOK ==================
+TIKTOK_CONNECT_URL = os.getenv("TIKTOK_CONNECT_URL", "https://med1a.apps.bot-hosting.cloud/tiktok/login")
+TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY", "")
+TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET", "")
+TIKTOK_VIDEO_RE = re.compile(r"https?://(?:(?:www|vm|vt)\.)?tiktok\.com/@[A-Za-z0-9._]+/video/(\d+)", re.I)
+TIKTOK_PROFILE_RE = re.compile(r"^https?://(?:www\.)?tiktok\.com/@([A-Za-z0-9._]+)/?$", re.I)
+
+def tiktok_fernet():
+    from cryptography.fernet import Fernet
+    key = os.getenv("TIKTOK_TOKEN_ENCRYPTION_KEY", "").strip()
+    if not key:
+        raise RuntimeError("Не задан TIKTOK_TOKEN_ENCRYPTION_KEY.")
+    return Fernet(key.encode("utf-8"))
+
+async def get_tiktok_tokens(user_id: int, *, pending: bool = False):
+    table = "tiktok_pending" if pending else "tiktok_accounts"
+    row = conn.execute(f"SELECT token_cipher FROM {table} WHERE user_id = ?", (int(user_id),)).fetchone()
+    if not row or not row[0]:
+        raise RuntimeError("TikTok не подключён. Сначала выполни /привязать_аккаунт.")
+    try:
+        payload = json.loads(tiktok_fernet().decrypt(row[0].encode("utf-8")).decode("utf-8"))
+    except Exception as exc:
+        raise RuntimeError("Не удалось расшифровать TikTok-токен. Проверь ключ шифрования на обоих хостингах.") from exc
+    if int(payload.get("access_token_expires_at", 0)) <= int(datetime.now(timezone.utc).timestamp()) + 90:
+        if not TIKTOK_CLIENT_KEY or not TIKTOK_CLIENT_SECRET or not payload.get("refresh_token"):
+            raise RuntimeError("TikTok-токен истёк. Повтори привязку аккаунта.")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://open.tiktokapis.com/v2/oauth/token/",
+                data={"client_key": TIKTOK_CLIENT_KEY, "client_secret": TIKTOK_CLIENT_SECRET,
+                      "grant_type": "refresh_token", "refresh_token": payload["refresh_token"]},
+                timeout=aiohttp.ClientTimeout(total=20),
+            ) as response:
+                refreshed = await response.json(content_type=None)
+                if response.status != 200 or not refreshed.get("access_token"):
+                    raise RuntimeError("TikTok не смог обновить доступ. Повтори привязку аккаунта.")
+        now = int(datetime.now(timezone.utc).timestamp())
+        payload["access_token"] = refreshed["access_token"]
+        payload["refresh_token"] = refreshed.get("refresh_token", payload["refresh_token"])
+        payload["access_token_expires_at"] = now + int(refreshed.get("expires_in", 86400))
+        payload["refresh_token_expires_at"] = now + int(refreshed.get("refresh_expires_in", 31536000))
+        encrypted = tiktok_fernet().encrypt(json.dumps(payload).encode("utf-8")).decode("utf-8")
+        conn.execute(f"UPDATE {table} SET token_cipher = ? WHERE user_id = ?", (encrypted, int(user_id)))
+        conn.commit()
+    return payload
+
+async def tiktok_get_user(access_token: str):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(
+            "https://open.tiktokapis.com/v2/user/info/?fields=open_id,username,bio_description,profile_deep_link",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=aiohttp.ClientTimeout(total=20),
+        ) as response:
+            data = await response.json(content_type=None)
+            if response.status != 200 or data.get("error", {}).get("code") not in (None, "ok", 0):
+                raise RuntimeError("TikTok API не вернул профиль. Проверь разрешение user.info.profile.")
+    return data.get("data", {}).get("user", {})
+
+async def verify_tiktok_link(user_id: int):
+    row = conn.execute(
+        "SELECT code, expected_username, open_id, username, profile_url FROM tiktok_pending WHERE user_id = ? AND expires_at > ?",
+        (int(user_id), datetime.now(timezone.utc).isoformat())
+    ).fetchone()
+    if not row:
+        raise RuntimeError("Заявка на привязку истекла. Запусти /привязать_аккаунт ещё раз.")
+    code, expected_username, saved_open_id, saved_username, saved_url = row
+    tokens = await get_tiktok_tokens(user_id, pending=True)
+    profile = await tiktok_get_user(tokens["access_token"])
+    username = str(profile.get("username") or saved_username or "").lstrip("@")
+    if not profile.get("open_id") or profile.get("open_id") != saved_open_id:
+        raise RuntimeError("TikTok вернул другой аккаунт. Начни привязку заново.")
+    if username.casefold() != expected_username.casefold():
+        raise RuntimeError("Авторизован не тот TikTok-профиль, который был указан в команде.")
+    if code.casefold() not in str(profile.get("bio_description") or "").casefold():
+        return False, username, saved_url
+    profile_url = str(profile.get("profile_deep_link") or saved_url or f"https://www.tiktok.com/@{username}")
+    existing = conn.execute("SELECT user_id FROM tiktok_accounts WHERE open_id = ?", (profile["open_id"],)).fetchone()
+    if existing and int(existing[0]) != int(user_id):
+        raise RuntimeError("Этот TikTok-аккаунт уже привязан к другому Discord-пользователю.")
+    conn.execute(
+        """INSERT INTO tiktok_accounts (user_id, open_id, username, profile_url, token_cipher)
+           SELECT user_id, open_id, username, ?, token_cipher FROM tiktok_pending WHERE user_id = ?
+           ON CONFLICT(user_id) DO UPDATE SET open_id=excluded.open_id, username=excluded.username,
+             profile_url=excluded.profile_url, token_cipher=excluded.token_cipher, updated_at=CURRENT_TIMESTAMP""",
+        (profile_url, int(user_id))
+    )
+    conn.execute("DELETE FROM tiktok_pending WHERE user_id = ?", (int(user_id),))
+    conn.commit()
+    return True, username, profile_url
+
+async def process_tiktok_video(message: discord.Message):
+    match = TIKTOK_VIDEO_RE.search(message.content or "")
+    if not match:
+        await message.reply("❌ Нужна полная ссылка вида https://www.tiktok.com/@username/video/123...", mention_author=False)
+        return
+    video_id = match.group(1)
+    account = conn.execute("SELECT username FROM tiktok_accounts WHERE user_id = ?", (message.author.id,)).fetchone()
+    if not account:
+        await message.reply("❌ TikTok ещё не привязан. Сначала выполни /привязать_аккаунт.", mention_author=False)
+        return
+    try:
+        tokens = await get_tiktok_tokens(message.author.id)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                "https://open.tiktokapis.com/v2/video/query/?fields=id,view_count,share_url",
+                headers={"Authorization": f"Bearer {tokens['access_token']}", "Content-Type": "application/json"},
+                json={"filters": {"video_ids": [video_id]}},
+                timeout=aiohttp.ClientTimeout(total=25),
+            ) as response:
+                data = await response.json(content_type=None)
+                if response.status != 200 or data.get("error", {}).get("code") not in (None, "ok", 0):
+                    raise RuntimeError("TikTok API не смог проверить ролик. Возможно, видео приватное или доступ временно ограничен.")
+        video = next((item for item in data.get("data", {}).get("videos", []) if str(item.get("id")) == video_id), None)
+        if not video:
+            await message.reply("❌ TikTok не подтвердил, что это видео принадлежит привязанному аккаунту.", mention_author=False)
+            return
+        views = max(0, int(video.get("view_count", 0)))
+        points = views // 5
+        if points < 1:
+            await message.reply(f"ℹ️ У ролика пока {views} просмотров. Для начисления нужен минимум 5. Можешь отправить ссылку позже.", mention_author=False)
+            return
+        conn.execute("BEGIN IMMEDIATE")
+        inserted = conn.execute(
+            "INSERT OR IGNORE INTO tiktok_videos (video_id, user_id, views, points) VALUES (?, ?, ?, ?)",
+            (video_id, message.author.id, views, points)
+        ).rowcount
+        if not inserted:
+            conn.rollback()
+            await message.reply("⚠️ Этот ролик уже отправлялся. Повторное начисление за него невозможно.", mention_author=False)
+            return
+        conn.execute(
+            """INSERT INTO users (user_id, balance, warns, personal_channel_id)
+               VALUES (?, ?, 0, NULL)
+               ON CONFLICT(user_id) DO UPDATE SET balance = users.balance + excluded.balance""",
+            (message.author.id, points)
+        )
+        conn.commit()
+        balance = int(conn.execute("SELECT balance FROM users WHERE user_id = ?", (message.author.id,)).fetchone()[0])
+        embed = discord.Embed(title="🎉 Баллы за TikTok начислены",
+            description=f"Видео принадлежит привязанному аккаунту **@{account[0]}**.", color=0x2ECC71)
+        embed.add_field(name="Просмотры", value=f"{views:,}".replace(",", " "), inline=True)
+        embed.add_field(name="Начислено", value=f"**{points:,}** баллов".replace(",", " "), inline=True)
+        embed.add_field(name="Новый баланс", value=f"**{balance:,}** баллов".replace(",", " "), inline=True)
+        embed.add_field(name="Правило", value="5 просмотров = 1 балл. За один ролик начисление производится только один раз.", inline=False)
+        embed.add_field(name="Видео", value=f"[Открыть ролик](https://www.tiktok.com/@{account[0]}/video/{video_id})", inline=False)
+        await message.reply(embed=embed, mention_author=False)
+    except Exception as exc:
+        if conn.in_transaction:
+            conn.rollback()
+        await message.reply(f"❌ Не удалось проверить TikTok: {str(exc)[:350]}", mention_author=False)
+
+class TikTokVerifyView(discord.ui.View):
+    def __init__(self, user_id: int, connect_url: str):
+        super().__init__(timeout=900)
+        self.user_id = int(user_id)
+        self.add_item(discord.ui.Button(label="Подключить TikTok", style=discord.ButtonStyle.link, url=connect_url))
+        button = discord.ui.Button(label="Проверить", style=discord.ButtonStyle.success)
+        button.callback = self.verify
+        self.add_item(button)
+
+    async def verify(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Эта кнопка предназначена не для тебя.", ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        try:
+            success, username, profile_url = await verify_tiktok_link(self.user_id)
+            if not success:
+                await interaction.followup.send("Код пока не найден в BIO. Добавь его в описание TikTok-профиля и нажми Проверить ещё раз.", ephemeral=True)
+                return
+            await interaction.followup.send(
+                f"✅ TikTok успешно привязан: [@{username}]({profile_url}). Теперь отправляй ссылки на свои ролики в личный канал.",
+                ephemeral=True
+            )
+            for child in self.children:
+                child.disabled = True
+            await interaction.message.edit(view=self)
+        except Exception as exc:
+            await interaction.followup.send(f"❌ {str(exc)[:350]}", ephemeral=True)
+
+@bot.tree.command(name="привязать_аккаунт", description="Привязать TikTok-профиль для начисления баллов")
+@app_commands.describe(profile_url="Ссылка на твой TikTok-профиль")
+async def tiktok_link_command(interaction: discord.Interaction, profile_url: str):
+    if not is_allowed_guild(interaction):
+        await interaction.response.send_message("❌ Команда доступна только на сервере WhiteGrief.", ephemeral=True)
+        return
+    match = TIKTOK_PROFILE_RE.match(profile_url.strip())
+    if not match:
+        await interaction.response.send_message("❌ Укажи ссылку в формате https://www.tiktok.com/@username.", ephemeral=True)
+        return
+    username = match.group(1).lstrip("@")
+    import secrets as secrets_module
+    code = "".join(secrets_module.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(5))
+    oauth_state = secrets_module.token_urlsafe(32)
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=15)).isoformat()
+    connect_url = f"{TIKTOK_CONNECT_URL}?state={oauth_state}"
+    conn.execute(
+        """INSERT INTO tiktok_pending (user_id, code, expected_username, oauth_state, expires_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(user_id) DO UPDATE SET code=excluded.code, expected_username=excluded.expected_username,
+             oauth_state=excluded.oauth_state, expires_at=excluded.expires_at,
+             token_cipher=NULL, open_id=NULL, username=NULL, profile_url=NULL""",
+        (interaction.user.id, code, username, oauth_state, expires_at)
+    )
+    conn.commit()
+    await interaction.response.send_message(
+        f"**Привязка TikTok — шаг 1 из 3**\n\n"
+        f"1. Добавь этот код в BIO профиля **@{username}**:\n## {code}\n"
+        "2. Нажми Подключить TikTok и разреши доступ приложению WhiteGrief.\n"
+        "3. Вернись сюда и нажми Проверить.\n\nСсылка и код действуют 15 минут.",
+        view=TikTokVerifyView(interaction.user.id, connect_url), ephemeral=True
+    )
+
+
 pending_apps = {}
-pending_points = {}
 
 def save_pending_request(request_type, user_id, message_id, data):
     """Сохраняет или обновляет заявку пользователя в SQLite."""
@@ -269,7 +502,6 @@ def purge_user_data(user_id):
         # Moderators must still be able to approve or reject the saved request.
         conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
     pending_apps.pop(user_id, None)
-    pending_points.pop(user_id, None)
 
 async def reconcile_server_players(guild):
     """Удаляет данные тех, кто не состоит на сервере или лишён роли игрока."""
@@ -302,8 +534,6 @@ def load_pending_requests():
             continue
         if request_type == "join":
             pending_apps[user_id] = data
-        elif request_type == "points":
-            pending_points[user_id] = data
 
 load_pending_requests()
 
@@ -985,75 +1215,6 @@ async def accept(ctx):
 
     await ctx.message.delete()
 
-# ================== !принято (заявки на баллы) ==================
-@bot.command(name='принято')
-async def accept_points(ctx):
-    if not ctx.message.reference:
-        await ctx.send("❌ Вы должны ответить на сообщение с заявкой на баллы.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
-
-    try:
-        original_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-    except:
-        await ctx.send("❌ Не удалось найти исходное сообщение.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
-
-    if not is_personal_channel(ctx.channel):
-        await ctx.send("❌ Эта команда работает только в личных каналах игроков.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
-
-    author = ctx.author
-    if not has_points_role(author):
-        await ctx.send("❌ У вас нет прав принимать заявки на баллы.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
-
-    if original_msg.author.bot or original_msg.author == author:
-        await ctx.send("❌ Нельзя принять сообщение от бота или самого себя.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
-
-    for reaction in original_msg.reactions:
-        if str(reaction.emoji) == '✅':
-            await ctx.send("❌ Эта заявка уже одобрена.", delete_after=10)
-            await ctx.message.delete(delay=10)
-            return
-
-    member = original_msg.author
-    app_data = pending_points.get(member.id)
-    if not app_data:
-        await ctx.send("⚠️ Данные заявки не найдены.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
-
-    points = app_data['points']
-
-    update_balance(member.id, points)
-    pending_points.pop(member.id, None)
-    delete_pending_request("points", member.id)
-    try:
-        await original_msg.clear_reaction('🕐')
-    except:
-        pass
-    await original_msg.add_reaction('✅')
-    new_balance = get_user_data(member.id)['balance']
-    time_str = get_msk_time_str()
-
-    embed = discord.Embed(
-        title="✅ Заявка одобрена!",
-        color=0x2ECC71,
-        description=f"Игроку {member.mention} начислено **{points}** баллов.\n"
-                    f"**Текущий баланс:** {new_balance} баллов.\n"
-                    f"**Одобрил:** {author.mention}",
-        timestamp=datetime.now(MSK)
-    )
-    embed.set_footer(text=f"Действие зафиксировано | {time_str} МСК")
-    await ctx.send(embed=embed)
-    await ctx.message.delete()
-
 # ================== ON_MESSAGE ==================
 @bot.event
 async def on_message(message):
@@ -1107,9 +1268,6 @@ async def on_message(message):
         ban_number = None
         mute_number = None
         proof = None
-        nick = None
-        points = None
-        link = None
 
         for line in lines:
             line = line.strip()
@@ -1162,30 +1320,9 @@ async def on_message(message):
             await message.channel.send(f"✅ Отчёт от {message.author.mention} принят!", delete_after=5)
             return
 
-        # ---- ЗАЯВКА НА БАЛЛЫ ----
-        if nick and points is not None and link:
-            app_data = {'nick': nick, 'points': points, 'link': link}
-            pending_points[message.author.id] = app_data
-            save_pending_request("points", message.author.id, message.id, app_data)
-            await message.add_reaction('🕐')
-
-            mentions = []
-            for role_id in APPROVER_POINTS_ROLE_IDS:
-                role = message.guild.get_role(role_id)
-                if role:
-                    mentions.append(role.mention)
-
-            if mentions:
-                roles_text = " ".join(mentions)
-                await message.channel.send(
-                    f"{roles_text}, игрок {message.author.mention} подал заявку на **{points}** баллов.\n"
-                    f"Напиши **!принято** ответом на его сообщение, чтобы начислить баллы."
-                )
-            else:
-                await message.channel.send(
-                    f"⚠️ Роли для заявок на баллы не найдены.\n"
-                    f"Игрок {message.author.mention} ждёт одобрения. Напиши **!принято**."
-                )
+        # ---- АВТОМАТИЧЕСКОЕ НАЧИСЛЕНИЕ ЗА TIKTOK ----
+        if "tiktok.com/" in (message.content or "").lower():
+            await process_tiktok_video(message)
             return
 
         return
