@@ -152,7 +152,7 @@ async def index():
     return FileResponse(os.path.join(BASE_DIR, "index.html"))
 
 
-@app.get("/style.css")
+@app.get("/terms")\n@app.get("/terms/")\nasync def terms_page():\n    return FileResponse(os.path.join(BASE_DIR, "terms.html"), media_type="text/html; charset=utf-8")\n\n@app.get("/privacy")\n@app.get("/privacy/")\nasync def privacy_page():\n    return FileResponse(os.path.join(BASE_DIR, "privacy.html"), media_type="text/html; charset=utf-8")\n\n@app.get("/style.css")
 async def stylesheet():
     return FileResponse(os.path.join(BASE_DIR, "style.css"), media_type="text/css")
 
