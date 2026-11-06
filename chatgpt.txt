@@ -505,3 +505,11 @@ D. Важное ограничение API
 - dashboard/style.css commit df00397e3b863723db129193981a22ebc2ccecfa (file picker, preview, attribution styling).
 - dashboard/index.html cache-busting bumped to messages6; commit 6e13f3410d0e8bafd406c4b1c8746022445a8cf1.
 - ВАЖНО: не проверено реальной отправкой в Discord. Нужно обновить на втором хостинге dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html; перезапустить Dashboard; затем Ctrl+F5 и протестировать текст, Embed и фото в тестовом канале. Автор сообщения в Discord технически всё равно будет бот, а в тексте/футере будет указан Discord-ник администратора, который отправил сообщение через панель.
+
+46. ИСПРАВЛЕНИЕ ЦВЕТА EMBED В ПРЕДПРОСМОТРЕ (2026-11-06)
+- Пользователь показал, что при выборе красного цвета Embed левая полоса остаётся фиолетовой, а цвет появляется на внешней обводке.
+- Причина: динамическое borderLeftColor перекрывалось CSS-правилами карточки; цветной inset box-shadow создавал нежелательную обводку.
+- Исправлено в dashboard/app.js: устанавливается `border-left: 4px solid <выбранный цвет>` через setProperty(..., 'important'), обычная граница прозрачная, фон карточки остаётся Discord-серым, box-shadow отключён. Таким образом выбранный цвет меняет именно левую полосу.
+- Commit app.js: 5cee0f536488afbd3db34aeb35b86b527769da7d.
+- dashboard/index.html обновлён до app.js?v=20261106-messages7; commit 2aa936831cf09f6417b9d08bc72937c3497b911e.
+- Требуется обновить на втором хостинге dashboard/app.js и dashboard/index.html, перезапустить Dashboard и выполнить Ctrl+F5. Проверить изменение полосы на нескольких цветах.
