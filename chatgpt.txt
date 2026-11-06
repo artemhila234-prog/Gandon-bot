@@ -584,3 +584,10 @@ D. Важное ограничение API
 - `dashboard/style.css`: оформлен список вложений; `dashboard/index.html`: обновлён cache-buster `app.js?v=20261106-attachments1`, `style.css?v=20261106-attachments1`.
 - Commits: backend `971744bb3271624eea76740986dc6b156479c953`; frontend `f13174e0fba03a2a37d80e9195f6b2b767313e53`; CSS `35c0205bcefe456c76a445e78a4c7fd6fb637d6a`; dashboard requirements `6235efeea6f595cb6ef402313ab3a91be8a5305f`; backend requirements `46624c13c93ad76dfe8bda647503ae1510def995`; HTML cache `50a6ffdc57d537120106c5b9fb619fa020a86766`.
 - Deployment: обновить на втором (Dashboard) хостинге `dashboard/backend/main.py`, `dashboard/app.js`, `dashboard/style.css`, `dashboard/index.html`, `dashboard/requirements.txt` (и/или `dashboard/backend/requirements.txt`, в зависимости от startup install path); переустановить зависимости и перезапустить Dashboard. Первый Discord-бот хост менять не нужно — endpoint отправки сообщений расположен в Dashboard backend. После рестарта проверить PDF/TXT/PNG и несколько файлов одновременно. Runtime не проверен.
+
+56. РАСШИРЕНИЕ ПРОСМОТРЩИКА ФАЙЛА В `logs/` (2026-11-06)
+- Пользователь сообщил, что после открытия файла в разделе Logs просмотрщик занимает слишком узкую колонку. Причина: `#logsResult` оставался CSS Grid контейнером файловой сетки, и просмотрщик занимал одну карточную колонку.
+- `dashboard/app.js`: при открытии файла на `#logsResult` добавляется класс `log-viewer-mode`; при возврате к списку класс снимается.
+- `dashboard/style.css`: `.logs-file-grid.log-viewer-mode` переводится в блочный контейнер на всю ширину, просмотрщик и `<pre>` растягиваются на 100%; увеличена минимальная высота окна просмотра до 420px.
+- Commits: JS `e294fd530511d37c8d6bd702e9717c13022ef9fb`; CSS `e97550b2a36ee8eeca4f66b0218c889053e5d647`; HTML cache-buster `b329e8ef4148ebe6edfb53f531afcb1eb74f5745`.
+- Обновить на втором (Dashboard) хостинге `dashboard/app.js`, `dashboard/style.css`, `dashboard/index.html`, затем перезапустить сайт и сделать Ctrl+F5. Реальный UI после деплоя ещё не проверен.
