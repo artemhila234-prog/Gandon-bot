@@ -406,6 +406,44 @@ async def api_message_channels(request: Request):
     return {"channels": items, "sender": {"username": user.get("username", "Администратор"), "discord_username": user.get("discord_username", "")}}
 
 
+@app.get("/api/messages/history")
+async def api_message_history(request: Request, channel_id: str):
+    await require_access(request, "adm")
+    channel_id = str(channel_id).strip()
+    if not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID канала.")
+    channel = await discord_request("GET", f"/channels/{channel_id}")
+    if str(channel.get("guild_id", "")) != GUILD_ID:
+        raise HTTPException(status_code=403, detail="Этот канал не принадлежит серверу WhiteGrief.")
+    messages = await discord_request("GET", f"/channels/{channel_id}/messages?limit=50")
+    items = []
+    for message in messages if isinstance(messages, list) else []:
+        author = message.get("author") or {}
+        member = message.get("member") or {}
+        if author.get("bot"):
+            continue
+        attachments = [
+            {"name": str(a.get("filename") or "Файл"), "url": str(a.get("url") or "")}
+            for a in message.get("attachments", []) if a.get("url")
+        ]
+        embeds = [
+            {"title": str(e.get("title") or ""), "description": str(e.get("description") or "")[:1200]}
+            for e in message.get("embeds", [])[:3]
+            if e.get("title") or e.get("description")
+        ]
+        items.append({
+            "id": str(message.get("id", "")),
+            "author_id": str(author.get("id", "")),
+            "author": str(member.get("nick") or author.get("global_name") or author.get("username") or "Игрок"),
+            "avatar": f"https://cdn.discordapp.com/avatars/{author.get('id')}/{author.get('avatar')}.png" if author.get("avatar") else "",
+            "content": str(message.get("content") or ""),
+            "timestamp": str(message.get("timestamp") or ""),
+            "attachments": attachments,
+            "embeds": embeds,
+        })
+    return {"messages": items}
+
+
 @app.post("/api/messages/send")
 async def api_send_message(request: Request):
     user = await require_access(request, "adm")
