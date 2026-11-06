@@ -2116,11 +2116,28 @@ async def panel_console_command(command: str):
     return {"command": raw, "exit_code": int(process.returncode or 0), "output": (output or ("Команда выполнена без вывода." if process.returncode == 0 else "Команда завершилась с ошибкой."))[:14000]}
 
 async def panel_restart_bot():
-    """Перезапускает весь процесс бота и встроенного API без остановки хостинга."""
-    print("♻️ [ПАНЕЛЬ] Запрошен перезапуск процесса WhiteGrief.", flush=True)
-    loop = asyncio.get_running_loop()
-    loop.call_later(2.0, os.execv, sys.executable, [sys.executable, *sys.argv])
-    return {"message": "Перезапуск запланирован. Бот и API переподключатся через несколько секунд."}
+    """Перезапускает текущий процесс тем же Python-интерпретатором и тем же startup-файлом."""
+    script = os.path.abspath(sys.argv[0])
+    if not os.path.isfile(script):
+        raise RuntimeError(f"Не найден файл запуска для перезапуска: {script}")
+    argv = [sys.executable, script, *sys.argv[1:]]
+    print(
+        f"♻️ [ПАНЕЛЬ] Перезапуск запрошен. PID={os.getpid()}, файл={script}, Python={sys.executable}",
+        flush=True,
+    )
+
+    def replace_process():
+        try:
+            print("♻️ [ПАНЕЛЬ] Выполняю os.execv для повторного запуска WhiteGrief…", flush=True)
+            os.execv(sys.executable, argv)
+        except Exception as error:
+            print(f"❌ [ПАНЕЛЬ] Не удалось перезапустить процесс: {type(error).__name__}: {error}", flush=True)
+
+    # Даём FastAPI завершить HTTP-ответ, затем заменяем процесс.
+    asyncio.get_running_loop().call_later(2.0, replace_process)
+    return {
+        "message": "Команда перезапуска принята. Ожидается перезапуск процесса и повторное подключение Discord."
+    }
 async def panel_refresh_presence():
     if not bot.is_ready(): raise RuntimeError("Discord-бот ещё не подключён.")
     await bot.change_presence(activity=discord.Game(name="/shop | модерация"))
