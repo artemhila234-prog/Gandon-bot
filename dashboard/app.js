@@ -429,7 +429,7 @@ async function loadMessages(section){
       incomingBusy=true;
       try{
         const result=await apiGet("/api/messages/history?channel_id="+encodeURIComponent(channelSelect.value));
-        const messages=result.messages||[];
+        const messages=(result.messages||[]).slice().reverse(); // Discord API returns newest first; show oldest at top and newest at bottom.
         incomingFeed.replaceChildren();
         if(!messages.length){const empty=document.createElement("div");empty.className="empty-state";empty.textContent="Пока нет сообщений от игроков в этом канале.";incomingFeed.append(empty);return;}
         messages.forEach(message=>{
