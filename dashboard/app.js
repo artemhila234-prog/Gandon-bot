@@ -434,18 +434,42 @@ async function loadMessages(section){
         if(!messages.length){const empty=document.createElement("div");empty.className="empty-state";empty.textContent="Пока нет сообщений от игроков в этом канале.";incomingFeed.append(empty);return;}
         messages.forEach(message=>{
           const card=document.createElement("article");card.className="incoming-message";
+          const icon=document.createElement("div");icon.className="incoming-message-avatar";
+          if(message.avatar){const avatar=document.createElement("img");avatar.src=message.avatar;avatar.alt="";avatar.loading="lazy";icon.append(avatar);}
+          else{icon.textContent=(message.author||"И").trim().slice(0,1).toUpperCase();}
+          const main=document.createElement("div");main.className="incoming-message-main";
+          if(message.reply){
+            const reply=document.createElement("div");reply.className="incoming-message-context";
+            const glyph=document.createElement("span");glyph.className="incoming-context-icon";glyph.textContent="↪";
+            const label=document.createElement("span");label.textContent="Ответ на ";
+            const who=document.createElement("strong");who.textContent=message.reply.author||"сообщение";
+            const excerpt=document.createElement("span");excerpt.className="incoming-context-excerpt";excerpt.textContent=message.reply.content||"Вложение или сообщение без текста";
+            reply.append(glyph,label,who,excerpt);main.append(reply);
+          }
+          (message.forwarded||[]).forEach(source=>{
+            const forward=document.createElement("div");forward.className="incoming-message-context incoming-message-forward";
+            const glyph=document.createElement("span");glyph.className="incoming-context-icon";glyph.textContent="➦";
+            const label=document.createElement("span");label.textContent="Переслано из ";
+            const channel=document.createElement("strong");channel.textContent="#"+(source.channel_name||"другого канала");
+            const who=document.createElement("span");who.textContent=" · "+(source.author||"игрок");
+            const excerpt=document.createElement("span");excerpt.className="incoming-context-excerpt";excerpt.textContent=source.content||"Вложение или сообщение без текста";
+            forward.append(glyph,label,channel,who,excerpt);main.append(forward);
+          });
           const head=document.createElement("div");head.className="incoming-message-head";
+          const identity=document.createElement("div");identity.className="incoming-message-identity";
           const author=document.createElement("strong");author.textContent=message.author||"Игрок";
+          const channelBadge=document.createElement("span");channelBadge.className="incoming-message-channel";channelBadge.textContent="В WhiteGrief";
+          identity.append(author,channelBadge);
           const time=document.createElement("time");
           const date=new Date(message.timestamp);time.textContent=Number.isNaN(date.getTime())?"":date.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
-          head.append(author,time);card.append(head);
-          if(message.content){const body=document.createElement("p");body.className="incoming-message-content";body.textContent=message.content;card.append(body);}
+          head.append(identity,time);main.append(head);
+          if(message.content){const body=document.createElement("p");body.className="incoming-message-content";body.textContent=message.content;main.append(body);}
           (message.attachments||[]).forEach(file=>{
-            const link=document.createElement("a");link.className="incoming-message-attachment";link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.name;card.append(link);
-            if(/\.(png|jpe?g|gif|webp)(\?|$)/i.test(file.url)){const img=document.createElement("img");img.className="incoming-message-image";img.src=file.url;img.alt=file.name;img.loading="lazy";card.append(img);}
+            const link=document.createElement("a");link.className="incoming-message-attachment";link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.name;main.append(link);
+            if((file.content_type||"").startsWith("image/")||/\.(png|jpe?g|gif|webp)(\?|$)/i.test(file.url)){const img=document.createElement("img");img.className="incoming-message-image";img.src=file.url;img.alt=file.name;img.loading="lazy";main.append(img);}
           });
-          (message.embeds||[]).forEach(embed=>{const box=document.createElement("div");box.className="incoming-message-embed";if(embed.title){const t=document.createElement("strong");t.textContent=embed.title;box.append(t);}if(embed.description){const d=document.createElement("p");d.textContent=embed.description;box.append(d);}card.append(box);});
-          incomingFeed.append(card);
+          (message.embeds||[]).forEach(embed=>{const box=document.createElement("div");box.className="incoming-message-embed";if(embed.title){const t=document.createElement("strong");t.textContent=embed.title;box.append(t);}if(embed.description){const d=document.createElement("p");d.textContent=embed.description;box.append(d);}main.append(box);});
+          card.append(icon,main);incomingFeed.append(card);
         });
       }catch(error){incomingFeed.replaceChildren();const empty=document.createElement("div");empty.className="empty-state";empty.textContent="Не удалось загрузить сообщения: "+error.message;incomingFeed.append(empty);}
       finally{incomingBusy=false;}
