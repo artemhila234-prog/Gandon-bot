@@ -28,6 +28,9 @@ function showPage(page){
     } else if(page==="messages"){
       section.innerHTML='<div class="panel-heading"><div><h2>Сообщения Discord</h2><p>Отправка обычных сообщений и Embed от имени WhiteGrief</p></div><button class="text-button" id="refreshMessageChannels">Обновить каналы</button></div><div id="messagesResult" class="messages-workspace"><div class="empty-state">Загружаем каналы Discord…</div></div>';
       loadMessages(section);
+    } else if(page==="logs"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Журнал событий</h2><p>Системные события бота и история действий администрации</p></div><button class="text-button" id="refreshLogs">↻ Обновить</button></div><div class="logs-toolbar"><div class="logs-tabs"><button class="logs-tab active" data-log-kind="system">⌁ Системные логи</button><button class="logs-tab" data-log-kind="audit">◈ Аудит действий</button></div><div class="logs-filters"><input id="logsSearch" class="panel-search" placeholder="Поиск по событиям…"><select id="logsLevel" class="logs-select"><option value="all">Все уровни</option><option value="info">Информация</option><option value="warning">Предупреждения</option><option value="error">Ошибки</option><option value="audit">Аудит</option></select></div></div><div class="logs-summary" id="logsSummary">Подключаемся к журналу…</div><div id="logsResult" class="logs-list"><div class="empty-state">Загрузка логов…</div></div>';
+      loadLogs(section);
     }
     content.appendChild(section);
   }else{
@@ -99,6 +102,51 @@ if(logoutButton){
 loadSession();
 
 
+async function loadLogs(section){
+  const result=section.querySelector("#logsResult"),refresh=section.querySelector("#refreshLogs");
+  const search=section.querySelector("#logsSearch"),level=section.querySelector("#logsLevel"),summary=section.querySelector("#logsSummary");
+  const tabs=[...section.querySelectorAll("[data-log-kind]")];
+  let kind="system",busy=false;
+  const load=async()=>{
+    if(busy||!section.isConnected)return;busy=true;
+    result.innerHTML='<div class="empty-state">Загружаем события…</div>';
+    try{
+      const params=new URLSearchParams({kind,level:level.value,q:search.value.trim(),limit:"300"});
+      const response=await fetch("/api/logs?"+params.toString(),{credentials:"same-origin"});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.detail||"Не удалось загрузить логи.");
+      summary.textContent=data.available
+        ? "Найдено событий: "+(data.total??data.count??0)+" · Обновление каждые 15 секунд"
+        : "Папка logs пока не найдена на сервере бота.";
+      result.replaceChildren();
+      if(!data.entries?.length){
+        const empty=document.createElement("div");empty.className="empty-state";empty.textContent=data.available?"По выбранным фильтрам ничего не найдено.":"Логи появятся после запуска бота.";result.append(empty);return;
+      }
+      data.entries.forEach(entry=>{
+        const card=document.createElement("article");card.className="log-entry log-"+String(entry.level||"info").toLowerCase();
+        const marker=document.createElement("span");marker.className="log-level";marker.textContent=entry.level==="ERROR"?"ОШИБКА":entry.level==="WARNING"?"ВНИМАНИЕ":entry.level==="AUDIT"?"АУДИТ":"INFO";
+        const body=document.createElement("div");body.className="log-entry-body";
+        const head=document.createElement("div");head.className="log-entry-head";
+        const time=document.createElement("time");time.textContent=entry.timestamp||"Время не указано";
+        const source=document.createElement("span");source.textContent=(entry.file||"latest.log")+(entry.line?" · строка "+entry.line:"");
+        head.append(time,source);
+        const message=document.createElement("pre");message.className="log-entry-message";message.textContent=entry.message||"";
+        body.append(head,message);card.append(marker,body);result.append(card);
+      });
+    }catch(error){
+      summary.textContent="Не удалось получить журнал";
+      result.replaceChildren();const empty=document.createElement("div");empty.className="empty-state";empty.textContent=error.message||"Ошибка загрузки логов.";result.append(empty);
+    }finally{busy=false;}
+  };
+  tabs.forEach(tab=>tab.addEventListener("click",()=>{kind=tab.dataset.logKind;tabs.forEach(item=>item.classList.toggle("active",item===tab));load();}));
+  refresh?.addEventListener("click",load);
+  let searchTimer;
+  search?.addEventListener("input",()=>{clearTimeout(searchTimer);searchTimer=setTimeout(load,350);});
+  level?.addEventListener("change",load);
+  if(window.__wgLogsTimer)clearInterval(window.__wgLogsTimer);
+  await load();
+  window.__wgLogsTimer=setInterval(()=>{if(section.isConnected)load();else{clearInterval(window.__wgLogsTimer);window.__wgLogsTimer=null;}},15000);
+}
 function makeCell(value){
   const cell=document.createElement("td");
   cell.textContent=String(value??"—");
