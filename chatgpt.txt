@@ -549,3 +549,8 @@ D. Важное ограничение API
 - Without an Embed, attribution remains a muted-text fallback at the end of the ordinary message.
 - Backend commit: `246cd260c3e550c1e795a8ca1c175359086c4b62`.
 - Deploy: update `dashboard/backend/main.py` on the second (Dashboard) host and restart Dashboard. Verify the attribution appears inside the Embed, below its description, in muted small text.
+
+52. ПОРЯДОК ВХОДЯЩИХ СООБЩЕНИЙ (2026-11-06)
+- Пользователь попросил отображать сообщения в ленте снизу вверх по времени, как в Discord: старые выше, новые внизу (последнее сообщение внизу).
+- В `dashboard/app.js` результат API (Discord возвращает последние сообщения в обратном порядке) копируется и разворачивается через `.slice().reverse()` перед отрисовкой. Серверный порядок и API не менялись.
+- Commit: 81d7c7ec48040bf78a39b39cec5f0f8e243bbf65. Для применения обновить `dashboard/app.js` на втором Dashboard-хостинге, перезапустить/обновить страницу через Ctrl+F5. `index.html` не менялся, поэтому если хостинг использует агрессивный кеш JS, можно увеличить query-параметр версии скрипта.
