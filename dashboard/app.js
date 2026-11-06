@@ -406,9 +406,10 @@ async function loadMessages(section){
       previewContent.textContent=content.value.trim()||"Текст сообщения появится здесь.";
       const hasEmbed=title.value.trim()||description.value.trim();
       preview.hidden=!hasEmbed;previewTitle.textContent=title.value;previewDescription.textContent=description.value;
-      preview.style.borderLeftColor=color.value;
-      preview.style.backgroundColor=`color-mix(in srgb, ${color.value} 9%, #2b2d31)`;
-      preview.style.boxShadow=`inset 0 0 0 1px color-mix(in srgb, ${color.value} 22%, transparent), 0 5px 15px #0002`;
+      preview.style.setProperty("border-left",`4px solid ${color.value}`,"important");
+      preview.style.borderColor="transparent";
+      preview.style.backgroundColor="#2b2d31";
+      preview.style.boxShadow="none";
       colorText.textContent=color.value.toUpperCase();
       const selected=channelSelect.options[channelSelect.selectedIndex];
       previewChannel.textContent=selected?selected.textContent.split(" / ").pop():"канал";
