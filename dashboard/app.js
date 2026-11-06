@@ -108,7 +108,7 @@ async function loadLogs(section){
   const tabs=[...section.querySelectorAll("[data-log-kind]")];
   let kind="system",busy=false;
   const load=async()=>{
-    if(busy||!section.isConnected)return;busy=true;
+    if(busy||!result)return;busy=true;
     result.innerHTML='<div class="empty-state">Загружаем события…</div>';
     try{
       const params=new URLSearchParams({kind,level:level.value,q:search.value.trim(),limit:"300"});
