@@ -443,3 +443,12 @@ D. Важное ограничение API
 - После изменения проверить, что список scopes в форме ревью включает именно user.info.basic, user.info.profile, video.list, и обновить/сохранить конфигурацию приложения. В demo показать реальные пользовательские сценарии, соответствующие этим разрешениям.
 - Примечание: scopes в OAuth authorize URL должны совпадать с разрешениями, настроенными/одобренными в TikTok Developer Portal; перед production review повторно сверить текущий TIKTOK_SCOPES в dashboard/backend/main.py, если код изменялся после предыдущей проверки.
 - В текущем обращении код не менялся; обновляется только конфигурация TikTok Developer Portal по рекомендации. Следующий шаг: пользователь добавит user.info.basic, удалит user.info.stats и пришлёт скриншот итогового списка.
+
+36. TIKTOK user.info.basic НЕ НАХОДИТСЯ ЧЕРЕЗ ADD SCOPES — УТОЧНЕНИЕ ПО ОФИЦИАЛЬНОЙ ДОКУМЕНТАЦИИ (2026-11-06)
+- Пользователь попытался добавить user.info.basic через Add scopes, но портал показал "No scopes found".
+- Проверена актуальная официальная документация TikTok Scopes Overview (обновлена 19 Aug 2026): https://developers.tiktok.com/docs/en/scopes-overview — user.info.basic добавляется по умолчанию для всех приложений с Login Kit; поэтому его не нужно искать/добавлять вручную через Add scopes.
+- Официальная миграционная документация TikTok https://developers.tiktok.com/bulletin/user-info-scope-migration подтверждает: open_id остаётся в user.info.basic; username, bio_description и profile_deep_link относятся к user.info.profile; follower/following/likes/video_count относятся к user.info.stats.
+- Поэтому для WhiteGrief: user.info.basic автоматически обеспечивается Login Kit; user.info.profile оставить; video.list оставить; user.info.stats убрать, так как текущая интеграция не использует follower_count/following_count/likes_count/video_count из User Info API. Не добавлять user.info.basic вручную через Add scopes — отсутствие результата в поиске ожидаемо.
+- Текущий OAuth код ранее проверен: TIKTOK_SCOPES = "user.info.basic,user.info.profile,video.list"; profile fields включают open_id, username, bio_description, profile_deep_link. Это согласуется с автоматическим базовым scope и дополнительным user.info.profile.
+- Источники: официальная TikTok Scopes Overview и User Info API Scope Migration. В текущем обращении код не менялся; обновлена только памятка.
+- Следующий шаг: удалить user.info.stats в Developer Portal, оставить user.info.profile и video.list; user.info.basic будет предоставляться Login Kit автоматически. Затем прислать скриншот итогового списка.
