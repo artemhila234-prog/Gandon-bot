@@ -486,11 +486,33 @@ async def api_message_history(request: Request, channel_id: str):
 @app.post("/api/messages/send")
 async def api_send_message(request: Request):
     user = await require_access(request, "adm")
-    try:
-        form = await request.form()
-        data = json.loads(str(form.get("payload_json") or "{}"))
-    except Exception:
-        raise HTTPException(status_code=400, detail="Некорректный запрос или не удалось прочитать вложения.")
+    form = None
+    content_type = (request.headers.get("content-type") or "").lower()
+    if "multipart/form-data" in content_type:
+        try:
+            # Ограничиваем количество частей на уровне парсера; размер файлов
+            # дополнительно проверяется ниже до отправки в Discord.
+            form = await request.form(max_files=10, max_fields=10)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Не удалось разобрать загрузку файлов ({type(exc).__name__}). Обнови страницу и попробуй ещё раз."
+            )
+        payload_field = form.get("payload_json")
+        if not isinstance(payload_field, str):
+            raise HTTPException(status_code=400, detail="В запросе отсутствует корректное описание сообщения (payload_json). Обнови страницу панели.")
+        try:
+            data = json.loads(payload_field)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Не удалось прочитать данные сообщения. Обнови страницу панели и попробуй ещё раз.")
+    else:
+        # Совместимость со старой вкладкой/кешированной версией frontend без файлов.
+        try:
+            data = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Некорректные данные сообщения. Обнови страницу панели.")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Данные сообщения должны быть объектом JSON.")
 
     channel_id = str(data.get("channel_id", "")).strip()
     content = str(data.get("content", "")).strip()
@@ -535,7 +557,7 @@ async def api_send_message(request: Request):
                 raise HTTPException(status_code=400, detail="Некорректный цвет Embed.")
             payload["embeds"] = [{"title": title or None, "description": description or None, "color": color}]
 
-    uploads = [item for item in form.getlist("files") if hasattr(item, "read")]
+    uploads = [item for item in form.getlist("files") if hasattr(item, "read")] if form is not None else []
     if len(uploads) > 10:
         raise HTTPException(status_code=400, detail="За одно сообщение можно прикрепить не больше 10 файлов.")
     discord_files = []
