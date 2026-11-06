@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import sys
 import threading
+import shlex
 import uvicorn
 from discord import app_commands
 from discord.ext import commands
@@ -2068,6 +2069,58 @@ async def panel_sync_roles():
             return {"message": f"Роли доступа синхронизированы: {guild.name}."}
     raise RuntimeError("Доступный Discord-сервер не найден.")
 
+async def panel_console_command(command: str):
+    """Выполняет только ограниченный набор безопасных диагностических команд."""
+    raw = str(command or "").strip()
+    if not raw or len(raw) > 300:
+        raise RuntimeError("Команда пустая или слишком длинная (максимум 300 символов).")
+    try:
+        parts = shlex.split(raw)
+    except ValueError:
+        raise RuntimeError("Не удалось разобрать команду. Проверь кавычки.")
+    if not parts:
+        raise RuntimeError("Введи команду. Напиши help для списка.")
+    if parts == ["help"]:
+        return {"command": raw, "exit_code": 0, "output": "Доступные команды:\n  help — список команд\n  pwd — текущая папка\n  ls / ls -la — список файлов\n  python --version — версия Python\n  pip --version — версия pip\n  pip list — установленные пакеты\n  pip show ИМЯ — информация о пакете\n  df -h — место на диске\n  free -h — память\n  uptime — время работы хоста\n  ps aux — процессы\n  clear — очистить окно терминала\n  restart — перезапустить Discord-бота"}
+    fixed = {
+        ("pwd",): ["pwd"],
+        ("ls",): ["ls", "-la"],
+        ("ls", "-la"): ["ls", "-la"],
+        ("ls", "-l"): ["ls", "-l"],
+        ("python", "--version"): [sys.executable, "--version"],
+        ("python3", "--version"): [sys.executable, "--version"],
+        ("pip", "--version"): [sys.executable, "-m", "pip", "--version"],
+        ("pip3", "--version"): [sys.executable, "-m", "pip", "--version"],
+        ("pip", "list"): [sys.executable, "-m", "pip", "list"],
+        ("df", "-h"): ["df", "-h"],
+        ("free", "-h"): ["free", "-h"],
+        ("uptime",): ["uptime"],
+        ("ps", "aux"): ["ps", "aux"],
+    }
+    argv = fixed.get(tuple(parts))
+    if argv is None and len(parts) == 3 and parts[0] == "pip" and parts[1] == "show" and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", parts[2]):
+        argv = [sys.executable, "-m", "pip", "show", parts[2]]
+    if argv is None:
+        raise RuntimeError("Эта команда недоступна. Напиши help, чтобы увидеть разрешённые команды.")
+    try:
+        process = await asyncio.create_subprocess_exec(*argv, cwd=BASE_DIR, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        try:
+            output_bytes, _ = await asyncio.wait_for(process.communicate(), timeout=15)
+        except asyncio.TimeoutError:
+            process.kill()
+            await process.communicate()
+            raise RuntimeError("Команда выполнялась дольше 15 секунд и была остановлена.")
+    except FileNotFoundError:
+        raise RuntimeError("Команда недоступна в окружении хостинга.")
+    output = output_bytes.decode("utf-8", errors="replace").strip()
+    return {"command": raw, "exit_code": int(process.returncode or 0), "output": (output or ("Команда выполнена без вывода." if process.returncode == 0 else "Команда завершилась с ошибкой."))[:14000]}
+
+async def panel_restart_bot():
+    """Перезапускает весь процесс бота и встроенного API без остановки хостинга."""
+    print("♻️ [ПАНЕЛЬ] Запрошен перезапуск процесса WhiteGrief.", flush=True)
+    loop = asyncio.get_running_loop()
+    loop.call_later(2.0, os.execv, sys.executable, [sys.executable, *sys.argv])
+    return {"message": "Перезапуск запланирован. Бот и API переподключатся через несколько секунд."}
 async def panel_refresh_presence():
     if not bot.is_ready(): raise RuntimeError("Discord-бот ещё не подключён.")
     await bot.change_presence(activity=discord.Game(name="/shop | модерация"))
@@ -2080,10 +2133,12 @@ async def run_services():
 
     panel_app.state.bot_controller = {
         "status": panel_console_status,
+        "command": panel_console_command,
         "actions": {
             "sync_commands": panel_sync_commands,
             "sync_roles": panel_sync_roles,
             "refresh_presence": panel_refresh_presence,
+            "restart": panel_restart_bot,
         },
     }
 
