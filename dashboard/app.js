@@ -29,8 +29,9 @@ function showPage(page){
       section.innerHTML='<div class="panel-heading"><div><h2>Сообщения Discord</h2><p>Отправка обычных сообщений и Embed от имени WhiteGrief</p></div><button class="text-button" id="refreshMessageChannels">Обновить каналы</button></div><div id="messagesResult" class="messages-workspace"><div class="empty-state">Загружаем каналы Discord…</div></div>';
       loadMessages(section);
     } else if(page==="logs"){
-      section.innerHTML='<div class="panel-heading"><div><h2>Журнал событий</h2><p>Системные события бота и история действий администрации</p></div><button class="text-button" id="refreshLogs">↻ Обновить</button></div><div class="logs-toolbar"><div class="logs-tabs"><button class="logs-tab active" data-log-kind="system">⌁ Системные логи</button><button class="logs-tab" data-log-kind="audit">◈ Аудит действий</button></div><div class="logs-filters"><input id="logsSearch" class="panel-search" placeholder="Поиск по событиям…"><select id="logsLevel" class="logs-select"><option value="all">Все уровни</option><option value="info">Информация</option><option value="warning">Предупреждения</option><option value="error">Ошибки</option><option value="audit">Аудит</option></select></div></div><div class="logs-summary" id="logsSummary">Подключаемся к журналу…</div><div id="logsResult" class="logs-list"><div class="empty-state">Загрузка логов…</div></div>';
+      section.innerHTML='<div class="panel-heading"><div><h2>Папка logs/</h2><p>Все файлы журналов бота. Выбери файл, чтобы открыть просмотрщик.</p></div><button class="text-button" id="refreshLogs">↻ Обновить</button></div><div class="logs-browser-toolbar"><div class="logs-folder-path"><span class="folder-icon">▰</span><span>WhiteGrief</span><span class="muted">/</span><strong>logs/</strong></div><input id="logsFileSearch" class="panel-search" placeholder="Найти файл…"></div><div class="logs-summary" id="logsSummary">Загрузка списка файлов…</div><div id="logsResult" class="logs-file-grid"><div class="empty-state">Загружаем файлы…</div></div>';
       loadLogs(section);
+
     }
     content.appendChild(section);
   }else{
@@ -104,49 +105,92 @@ loadSession();
 
 async function loadLogs(section){
   const result=section.querySelector("#logsResult"),refresh=section.querySelector("#refreshLogs");
-  const search=section.querySelector("#logsSearch"),level=section.querySelector("#logsLevel"),summary=section.querySelector("#logsSummary");
-  const tabs=[...section.querySelectorAll("[data-log-kind]")];
-  let kind="system",busy=false;
-  const load=async()=>{
-    if(busy||!result)return;busy=true;
-    result.innerHTML='<div class="empty-state">Загружаем события…</div>';
-    try{
-      const params=new URLSearchParams({kind,level:level.value,q:search.value.trim(),limit:"300"});
-      const response=await fetch("/api/logs?"+params.toString(),{credentials:"same-origin"});
-      const data=await response.json();
-      if(!response.ok)throw new Error(data.detail||"Не удалось загрузить логи.");
-      summary.textContent=data.available
-        ? "Найдено событий: "+(data.total??data.count??0)+" · Обновление каждые 15 секунд"
-        : "Папка logs пока не найдена на сервере бота.";
-      result.replaceChildren();
-      if(!data.entries?.length){
-        const empty=document.createElement("div");empty.className="empty-state";empty.textContent=data.available?"По выбранным фильтрам ничего не найдено.":"Логи появятся после запуска бота.";result.append(empty);return;
-      }
-      data.entries.forEach(entry=>{
-        const card=document.createElement("article");card.className="log-entry log-"+String(entry.level||"info").toLowerCase();
-        const marker=document.createElement("span");marker.className="log-level";marker.textContent=entry.level==="ERROR"?"ОШИБКА":entry.level==="WARNING"?"ВНИМАНИЕ":entry.level==="AUDIT"?"АУДИТ":"INFO";
-        const body=document.createElement("div");body.className="log-entry-body";
-        const head=document.createElement("div");head.className="log-entry-head";
-        const time=document.createElement("time");time.textContent=entry.timestamp||"Время не указано";
-        const source=document.createElement("span");source.textContent=(entry.file||"latest.log")+(entry.line?" · строка "+entry.line:"");
-        head.append(time,source);
-        const message=document.createElement("pre");message.className="log-entry-message";message.textContent=entry.message||"";
-        body.append(head,message);card.append(marker,body);result.append(card);
-      });
-    }catch(error){
-      summary.textContent="Не удалось получить журнал";
-      result.replaceChildren();const empty=document.createElement("div");empty.className="empty-state";empty.textContent=error.message||"Ошибка загрузки логов.";result.append(empty);
-    }finally{busy=false;}
+  const search=section.querySelector("#logsFileSearch"),summary=section.querySelector("#logsSummary");
+  if(!result)return;
+  let files=[],busy=false;
+  const formatSize=bytes=>bytes<1024?bytes+" B":bytes<1024*1024?(bytes/1024).toFixed(1)+" KB":(bytes/1024/1024).toFixed(2)+" MB";
+  const showFiles=()=>{
+    const term=(search.value||"").trim().toLowerCase();
+    const filtered=files.filter(file=>file.name.toLowerCase().includes(term));
+    result.replaceChildren();
+    if(!filtered.length){
+      const empty=document.createElement("div");empty.className="empty-state";empty.textContent=files.length?"Файлы по такому запросу не найдены.":"В папке logs/ пока нет .log файлов.";result.append(empty);return;
+    }
+    filtered.forEach(file=>{
+      const card=document.createElement("button");card.type="button";card.className="log-file-card";
+      const icon=document.createElement("span");icon.className="log-file-icon";icon.textContent="▤";
+      const details=document.createElement("span");details.className="log-file-details";
+      const name=document.createElement("strong");name.textContent=file.name;
+      const meta=document.createElement("small");meta.textContent=formatSize(file.size)+" · Изменён: "+(file.modified||"—");
+      details.append(name,meta);
+      const arrow=document.createElement("span");arrow.className="log-file-arrow";arrow.textContent="›";
+      card.append(icon,details,arrow);
+      card.addEventListener("click",()=>openLogFile(section,file.name));
+      result.append(card);
+    });
   };
-  tabs.forEach(tab=>tab.addEventListener("click",()=>{kind=tab.dataset.logKind;tabs.forEach(item=>item.classList.toggle("active",item===tab));load();}));
+  const load=async()=>{
+    if(busy)return;busy=true;refresh.disabled=true;
+    try{
+      const response=await fetch("/api/log-files",{credentials:"same-origin"});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.detail||"Не удалось получить список логов.");
+      files=data.files||[];
+      summary.textContent=data.available?"logs/ · "+files.length+" "+(files.length===1?"файл":"файлов"):"Папка logs/ не найдена на сервере бота.";
+      showFiles();
+    }catch(error){
+      summary.textContent="Не удалось открыть папку logs/";
+      result.replaceChildren();const empty=document.createElement("div");empty.className="empty-state";empty.textContent=error.message||"Ошибка загрузки.";result.append(empty);
+    }finally{busy=false;refresh.disabled=false;}
+  };
   refresh?.addEventListener("click",load);
-  let searchTimer;
-  search?.addEventListener("input",()=>{clearTimeout(searchTimer);searchTimer=setTimeout(load,350);});
-  level?.addEventListener("change",load);
-  if(window.__wgLogsTimer)clearInterval(window.__wgLogsTimer);
+  search?.addEventListener("input",showFiles);
   await load();
-  window.__wgLogsTimer=setInterval(()=>{if(section.isConnected)load();else{clearInterval(window.__wgLogsTimer);window.__wgLogsTimer=null;}},15000);
 }
+async function openLogFile(section,filename){
+  const result=section.querySelector("#logsResult"),summary=section.querySelector("#logsSummary");
+  result.innerHTML='<div class="empty-state">Открываем '+escapeHtml(filename)+'…</div>';
+  try{
+    const response=await fetch("/api/log-file?name="+encodeURIComponent(filename),{credentials:"same-origin"});
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.detail||"Не удалось открыть файл.");
+    const wrap=document.createElement("div");wrap.className="log-viewer";
+    const top=document.createElement("div");top.className="log-viewer-top";
+    const back=document.createElement("button");back.type="button";back.className="log-back-button";back.textContent="← Все файлы";
+    back.addEventListener("click",()=>loadLogs(section));
+    const title=document.createElement("div");title.className="log-viewer-title";
+    const name=document.createElement("strong");name.textContent=data.name;
+    const meta=document.createElement("small");meta.textContent=formatLogSize(data.size)+" · "+data.total_lines+" строк · Изменён: "+(data.modified||"—");
+    title.append(name,meta);top.append(back,title);
+    const tools=document.createElement("div");tools.className="log-viewer-tools";
+    const find=document.createElement("input");find.className="panel-search";find.placeholder="Поиск внутри файла…";
+    const count=document.createElement("span");count.className="log-viewer-count";count.textContent=data.truncated?"Показаны последние "+data.shown_lines+" строк":" "+data.shown_lines+" строк";
+    tools.append(find,count);
+    const pre=document.createElement("pre");pre.className="log-file-content";
+    const lines=data.lines||[];
+    const render=()=>{
+      const term=find.value.trim().toLowerCase();
+      pre.replaceChildren();
+      const matches=lines.map((line,index)=>({line,index})).filter(item=>!term||item.line.toLowerCase().includes(term));
+      matches.forEach(item=>{
+        const row=document.createElement("div");row.className="log-file-line";
+        const number=document.createElement("span");number.className="log-line-number";number.textContent=String(data.total_lines-data.shown_lines+item.index+1);
+        const text=document.createElement("span");text.className="log-line-text";text.textContent=item.line||" ";
+        row.append(number,text);pre.append(row);
+      });
+      count.textContent=matches.length+" / "+lines.length+" строк"+(data.truncated?" · показан конец файла":"");
+    };
+    find.addEventListener("input",render);render();
+    wrap.append(top,tools,pre);result.replaceChildren(wrap);
+    summary.textContent="Просмотр файла · "+data.name;
+  }catch(error){
+    result.replaceChildren();const empty=document.createElement("div");empty.className="empty-state";empty.textContent=error.message||"Ошибка открытия файла.";result.append(empty);
+  }
+}
+function formatLogSize(bytes){
+  return bytes<1024?bytes+" B":bytes<1024*1024?(bytes/1024).toFixed(1)+" KB":(bytes/1024/1024).toFixed(2)+" MB";
+}
+
 function makeCell(value){
   const cell=document.createElement("td");
   cell.textContent=String(value??"—");
