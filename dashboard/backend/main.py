@@ -1,4 +1,6 @@
 import json
+import base64
+import binascii
 from datetime import datetime, timezone
 import os
 import secrets
@@ -406,21 +408,30 @@ async def api_message_channels(request: Request):
 
 @app.post("/api/messages/send")
 async def api_send_message(request: Request):
-    await require_access(request, "adm")
+    user = await require_access(request, "adm")
     try:
         data = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Некорректный запрос.")
+
     channel_id = str(data.get("channel_id", "")).strip()
     content = str(data.get("content", "")).strip()
     embed_data = data.get("embed")
+    image_data = data.get("image")
     if not channel_id.isdigit():
         raise HTTPException(status_code=400, detail="Выбери текстовый канал Discord.")
-    if len(content) > 2000:
-        raise HTTPException(status_code=400, detail="Сообщение превышает лимит 2000 символов.")
-    payload: dict[str, Any] = {"allowed_mentions": {"parse": []}}
+
+    sender_name = str(user.get("username") or user.get("discord_username") or "Администратор").strip()
+    sender_tag = str(user.get("discord_username") or "").strip()
+    attribution = f"— Отправитель: {sender_name}" + (f" (@{sender_tag})" if sender_tag and sender_tag.casefold() != sender_name.casefold() else "") + "\\nОтправлено через WhiteGrief Control Panel"
+    if content and len(content) + len(attribution) + 2 > 2000:
+        raise HTTPException(status_code=400, detail="Слишком длинный текст: оставь место для подписи отправителя (лимит Discord — 2000 символов).")
     if content:
-        payload["content"] = content
+        content = content + "\\n\\n" + attribution
+    else:
+        content = attribution
+
+    payload: dict[str, Any] = {"allowed_mentions": {"parse": []}, "content": content}
     if embed_data is not None:
         if not isinstance(embed_data, dict):
             raise HTTPException(status_code=400, detail="Некорректный Embed.")
@@ -435,13 +446,64 @@ async def api_send_message(request: Request):
                     raise ValueError()
             except ValueError:
                 raise HTTPException(status_code=400, detail="Некорректный цвет Embed.")
-            payload["embeds"] = [{"title": title or None, "description": description or None, "color": color}]
-    if not content and not payload.get("embeds"):
-        raise HTTPException(status_code=400, detail="Добавь текст сообщения или Embed.")
+            payload["embeds"] = [{
+                "title": title or None,
+                "description": description or None,
+                "color": color,
+                "footer": {"text": f"Отправитель: {sender_name} · WhiteGrief Control Panel"},
+            }]
+
+    if image_data is not None and not isinstance(image_data, dict):
+        raise HTTPException(status_code=400, detail="Некорректное изображение.")
+    image_bytes = None
+    image_name = ""
+    image_mime = ""
+    if image_data:
+        image_mime = str(image_data.get("mime", "")).lower()
+        image_name = str(image_data.get("name", "image")).replace("/", "_").replace("\\\\", "_")[:100]
+        encoded = str(image_data.get("data", ""))
+        if image_mime not in {"image/png", "image/jpeg", "image/gif", "image/webp"}:
+            raise HTTPException(status_code=400, detail="Поддерживаются только PNG, JPG, GIF и WEBP.")
+        if "," in encoded and encoded.startswith("data:"):
+            encoded = encoded.split(",", 1)[1]
+        try:
+            image_bytes = base64.b64decode(encoded, validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(status_code=400, detail="Не удалось прочитать изображение.")
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="Выбранный файл пуст.")
+        if len(image_bytes) > 8 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Изображение должно быть не больше 8 МБ.")
+        if image_mime == "image/png" and not image_bytes.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+            raise HTTPException(status_code=400, detail="Файл не похож на PNG-изображение.")
+        if image_mime == "image/jpeg" and not image_bytes.startswith(b"\\xff\\xd8\\xff"):
+            raise HTTPException(status_code=400, detail="Файл не похож на JPG-изображение.")
+        if image_mime == "image/gif" and not image_bytes.startswith((b"GIF87a", b"GIF89a")):
+            raise HTTPException(status_code=400, detail="Файл не похож на GIF-изображение.")
+        if image_mime == "image/webp" and not (image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP"):
+            raise HTTPException(status_code=400, detail="Файл не похож на WEBP-изображение.")
+
+    if not content and not payload.get("embeds") and not image_bytes:
+        raise HTTPException(status_code=400, detail="Добавь текст, Embed или изображение.")
     channel = await discord_request("GET", f"/channels/{channel_id}")
     if str(channel.get("guild_id", "")) != GUILD_ID or channel.get("type") not in (0, 5):
         raise HTTPException(status_code=400, detail="Можно отправлять только в текстовые каналы WhiteGrief.")
-    sent = await discord_request("POST", f"/channels/{channel_id}/messages", payload=payload)
+
+    if image_bytes:
+        if len(payload.get("embeds", [])) and payload["embeds"][0].get("image"):
+            payload["embeds"][0]["image"] = {"url": f"attachment://{image_name}"}
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                f"{DISCORD_API}/channels/{channel_id}/messages",
+                headers={"Authorization": f"Bot {BOT_TOKEN}"},
+                data={"payload_json": json.dumps(payload, ensure_ascii=False)},
+                files={"files[0]": (image_name, image_bytes, image_mime)},
+            )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=502, detail=f"Discord не принял изображение (HTTP {response.status_code}). Проверь размер и права бота.")
+        sent = response.json()
+    else:
+        sent = await discord_request("POST", f"/channels/{channel_id}/messages", payload=payload)
     return {"ok": True, "message_id": str(sent.get("id", ""))}
 
 SHOP_ITEMS_PANEL = [
