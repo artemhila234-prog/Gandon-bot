@@ -441,3 +441,13 @@ html,body,button,input,textarea,select{font-family:'Inter',Arial,sans-serif}
 #messagesResult .empty-state{border:1px solid #302b43;border-radius:15px;background:#171622;color:#aaa3bd;padding:28px}
 @media(max-width:900px){#messagesResult .messages-compose{grid-template-columns:1fr!important}}
 @media(max-width:600px){#messagesResult .messages-form,#messagesResult .messages-preview-wrap{padding:17px!important}#messagesResult .messages-form-footer{align-items:stretch!important}#messagesResult .messages-send-button{width:100%}}
+
+
+/* Sender and destination details in the message preview */
+#messagesResult .messages-preview-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:-5px 0 15px;padding:12px 14px;border:1px solid #39334d;border-radius:11px;background:#11121dcc}
+#messagesResult .messages-meta-item{display:flex;flex-direction:column;gap:5px;min-width:0}
+#messagesResult .messages-meta-item small{color:#827b9b;font-size:8px;font-weight:800;letter-spacing:1.2px}
+#messagesResult .messages-meta-item strong{color:#e9e3f8;font-size:11px;font-weight:750;overflow-wrap:anywhere}
+#messagesResult .messages-meta-item em{margin-left:5px;padding:3px 5px;border-radius:4px;background:#5865f2;color:white;font-size:8px;font-style:normal}
+#messagesResult .messages-meta-arrow{color:#8d79c5;font-size:15px}
+#messagesResult .discord-embed-preview{transition:background-color .16s,border-color .16s,box-shadow .16s}
