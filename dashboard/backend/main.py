@@ -429,7 +429,7 @@ async def api_send_message(request: Request):
         raise HTTPException(status_code=400, detail="Слишком длинный текст: оставь место для подписи отправителя (лимит Discord — 2000 символов).")
     if content and not has_embed:
         content = content + "\n\n" + attribution
-    elif not content and not has_embed and not image_data:
+    elif not content and not has_embed:
         content = attribution
 
     payload: dict[str, Any] = {"allowed_mentions": {"parse": []}}
