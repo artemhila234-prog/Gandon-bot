@@ -526,3 +526,11 @@ D. Важное ограничение API
 - Исправлено: app.js устанавливает CSS custom property `--embed-preview-color` из input color; style.css задаёт `border:0!important`, `border-left:4px solid var(--embed-preview-color, #8b6bd6)!important`, обычный Discord-серый фон и отключённую тень. Цветная обводка карточки полностью убрана.
 - app.js commit c4cfc490852bc18e60e0150e283d133f581f1917; style.css commit ac5a0af08b254044906e429df3fe70171a007320; index.html commit 5aef787dacbdd2f438223acd70c76c158c9f066d (cache messages8).
 - Обновить на dashboard-хостинге `dashboard/app.js`, `dashboard/style.css`, `dashboard/index.html`, перезапустить Dashboard и выполнить Ctrl+F5. Проверить, что при выборе красного меняется только левая полоса.
+
+49. ВХОДЯЩИЕ СООБЩЕНИЯ ИЗ DISCORD В CONTROL PANEL (2026-11-06)
+- Пользователь указал, что сообщения игроков не приходят в раздел «Сообщения». Ранее реализована только отправка сообщений из панели в Discord; входящая история не была реализована.
+- Добавлен `GET /api/messages/history?channel_id=...` в dashboard/backend/main.py: проверяет уровень adm, валидирует числовой ID и принадлежность канала текущему Discord-серверу, получает последние 50 сообщений через Discord API, исключает сообщения ботов, возвращает автора, время, текст, вложения и Embed.
+- dashboard/app.js: под формой отправки добавлен блок «Сообщения игроков», при выборе канала подгружает историю, есть ручное обновление и автообновление каждые 10 секунд (при активной вкладке). Показываются ник, timestamp, текст, ссылки/превью изображений и Embed.
+- dashboard/style.css: добавлены стили ленты входящих сообщений.
+- Commits: backend e6f2a813ad429ab9c60b853e6fbb731efbba162c; app.js bc5ca0f37b09f90a12cdae548323717530237944; style.css 5898ab473663687c110f5859cad78802843859b6; index.html 35e45bc3b61be725855c640ed346c4bbd035e3aa (asset cache `inbox1`).
+- Требуется обновить на втором Dashboard-хостинге четыре файла: dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html; перезапустить Dashboard, Ctrl+F5, выбрать канал с сообщениями игроков. Реальная работа Discord API и прав бота ещё не проверена в хостинге.
