@@ -2032,9 +2032,13 @@ def setup_session_logs():
 if not TOKEN:
     raise RuntimeError("Не задан DISCORD_TOKEN. Добавь токен в переменные окружения Bot-Hosting.")
 
+BOT_PROCESS_STARTED_AT = datetime.now(timezone.utc).isoformat()
+
 async def panel_console_status():
     guild = bot.get_guild(ALLOWED_GUILDS[0]) if ALLOWED_GUILDS else None
     return {
+        "process_started_at": BOT_PROCESS_STARTED_AT,
+        "process_id": os.getpid(),
         "online": bool(bot.is_ready() and not bot.is_closed()),
         "bot_name": str(bot.user) if bot.user else "WhiteGrief",
         "guild_name": guild.name if guild else "Сервер не найден",
