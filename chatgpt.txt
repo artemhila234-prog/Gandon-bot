@@ -468,3 +468,9 @@ D. Важное ограничение API
 
 
 39. РАЗДЕЛ СООБЩЕНИЯ: app.js уже получил UI формы/предпросмотра, но backend API и CSS не сохранены. Попытки GitHub update_file для backend и CSS заблокированы инструментом. Не деплоить как готовое; требуется завершить GET /api/messages/channels и POST /api/messages/send с доступом Adm/Full и стили.
+
+41. СООБЩЕНИЯ — РЕАЛИЗАЦИЯ ЗАВЕРШЕНА В GITHUB, НУЖЕН ДЕПЛОЙ И ТЕСТ (2026-11-06)
+- Повторная попытка записи успешно добавила backend endpoints и CSS. GET /api/messages/channels и POST /api/messages/send защищены уровнем adm (Adm/Full), ограничены каналами текущего сервера и отключают массовые упоминания.
+- Проверено fetch_file: app.js SHA 49d200b5c63f1a5091516c6d4a8dd9440c2d2996 (messages UI + API calls); main.py SHA 5a81702204019aa6a07520ee9a28621bae9c321f (оба endpoint); style.css SHA af6e8e75bbc65ee259e4f5fd98e8faeac014e546 (стили composer).
+- Commits: backend d0771e2d13a2e359785971dc86b6228e5bdc736d; CSS b8fb45576ed0c5132cbffce264102023b71c96c3; app.js 03cbad2e76a30f345a67d99d83f71609283625cc.
+- Реальная отправка в Discord ещё не проверена. Деплоить на втором хостинге три файла dashboard/app.js, dashboard/style.css, dashboard/backend/main.py и перезапустить панель. Первый хостинг бота не менять. Затем проверить под Adm/Full в безопасном текстовом канале.
