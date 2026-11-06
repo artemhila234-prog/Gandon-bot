@@ -107,6 +107,7 @@ async function loadLogs(section){
   const result=section.querySelector("#logsResult"),refresh=section.querySelector("#refreshLogs");
   const search=section.querySelector("#logsFileSearch"),summary=section.querySelector("#logsSummary");
   if(!result)return;
+  result.classList.remove("log-viewer-mode");
   let files=[],busy=false;
   const formatSize=bytes=>bytes<1024?bytes+" B":bytes<1024*1024?(bytes/1024).toFixed(1)+" KB":(bytes/1024/1024).toFixed(2)+" MB";
   const showFiles=()=>{
@@ -149,6 +150,7 @@ async function loadLogs(section){
 }
 async function openLogFile(section,filename){
   const result=section.querySelector("#logsResult"),summary=section.querySelector("#logsSummary");
+  result.classList.add("log-viewer-mode");
   result.replaceChildren();const loading=document.createElement("div");loading.className="empty-state";loading.textContent="Открываем "+filename+"…";result.append(loading);
   try{
     const response=await fetch("/api/log-file?name="+encodeURIComponent(filename),{credentials:"same-origin"});
