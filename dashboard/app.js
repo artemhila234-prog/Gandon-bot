@@ -136,18 +136,20 @@ async function loadConsole(section){
       const cancel=document.createElement("button");cancel.type="button";cancel.className="action-modal-cancel";cancel.textContent="Отмена";
       const confirm=document.createElement("button");confirm.type="button";confirm.className="action-modal-confirm";confirm.textContent="Да, перезапустить";
       const dismiss=()=>modal.remove();close.addEventListener("click",dismiss);cancel.addEventListener("click",dismiss);modal.addEventListener("click",event=>{if(event.target===modal)dismiss();});
+      const originalProcessStartedAt=(data.status||{}).process_started_at||"";
       const waitForRestart=async()=>{
         let sawDisconnect=false;
         const deadline=Date.now()+45000;
         while(Date.now()<deadline){
-          await new Promise(resolve=>setTimeout(resolve,1500));
+          await new Promise(resolve=>setTimeout(resolve,1200));
           try{
             const check=await fetch("/api/console",{credentials:"same-origin",cache:"no-store"});
             if(!check.ok){sawDisconnect=true;continue;}
-            const state=await check.json();
-            const online=Boolean(state.status&&state.status.online);
-            if(!online){sawDisconnect=true;continue;}
-            if(sawDisconnect)return true;
+            const state=await check.json(),status=state.status||{};
+            if(!status.online){sawDisconnect=true;continue;}
+            // PID может сохраниться при os.execv, поэтому сверяем timestamp запуска модуля.
+            if(status.process_started_at&&status.process_started_at!==originalProcessStartedAt)return true;
+            if(sawDisconnect&&!originalProcessStartedAt)return true;
           }catch(_error){sawDisconnect=true;}
         }
         return false;
