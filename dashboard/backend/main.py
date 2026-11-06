@@ -615,6 +615,20 @@ async def api_my_balance(request: Request):
     return await bot_api_request("GET", f"/api/internal/data/balance/{user['id']}")
 
 
+@app.get("/api/logs")
+async def api_logs(request: Request):
+    await require_access(request, "adm")
+    from urllib.parse import urlencode
+    kind = (request.query_params.get("kind") or "system").lower()
+    level = (request.query_params.get("level") or "all").lower()
+    query = (request.query_params.get("q") or "")[:200]
+    limit = request.query_params.get("limit", "250")
+    if kind not in {"system", "audit"}:
+        raise HTTPException(status_code=400, detail="Неизвестный тип журнала.")
+    params = urlencode({"kind": kind, "level": level, "q": query, "limit": limit})
+    return await bot_api_request("GET", f"/api/internal/data/logs?{params}")
+
+
 @app.get("/api/players")
 async def api_players(request: Request):
     await require_access(request, "media")
