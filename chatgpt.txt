@@ -632,4 +632,5 @@ D. Важное ограничение API
 - `dashboard/style.css`: добавлено оформление панели и терминала; `dashboard/index.html` обновлены cache-buster версии.
 - Действия: синхронизация slash-команд; синхронизация ролей доступа; обновление активности бота. Перезапуск/остановка процесса не добавлялись, так как без API хостинга это нельзя выполнить корректно и безопасно.
 - Требуется обновить `aaaa/bot.py` и `dashboard/backend/main.py` на первом (Discord-бот) хостинге; `dashboard/backend/main.py`, `dashboard/app.js`, `dashboard/style.css`, `dashboard/index.html` — на втором (Dashboard) хостинге. Перезапустить оба сервиса; затем проверить статус, обновление терминала и каждую кнопку. Изменения в GitHub сами по себе не разворачиваются на Bot-Hosting.
+- Commits: `aaaa/bot.py` `37ce425ab94a989a595aa3fddc7e705576bc4716`; `dashboard/backend/main.py` `44ca1f62538f34f71913ab29695ebc1245812b80`; `dashboard/app.js` `a74344224c22d63eb45df7ddb898cff5c2d21152`; `dashboard/style.css` `427d23da45418e3a5e55b6c687bff594c210d96f`; `dashboard/index.html` `6d9a8794759ba7372419f70ff893c4db914d43d5`.
 - Runtime ещё не проверен.
