@@ -2031,9 +2031,62 @@ def setup_session_logs():
 if not TOKEN:
     raise RuntimeError("Не задан DISCORD_TOKEN. Добавь токен в переменные окружения Bot-Hosting.")
 
+async def panel_console_status():
+    guild = bot.get_guild(ALLOWED_GUILDS[0]) if ALLOWED_GUILDS else None
+    return {
+        "online": bool(bot.is_ready() and not bot.is_closed()),
+        "bot_name": str(bot.user) if bot.user else "WhiteGrief",
+        "guild_name": guild.name if guild else "Сервер не найден",
+        "guild_count": len(bot.guilds),
+        "latency_ms": round(bot.latency * 1000) if bot.is_ready() else None,
+        "started_at": datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+async def panel_sync_commands():
+    if not bot.is_ready(): raise RuntimeError("Discord-бот ещё не подключён.")
+    results = []
+    for guild_id in ALLOWED_GUILDS:
+        guild = bot.get_guild(guild_id)
+        if guild is None: continue
+        bot.tree.clear_commands(guild=guild)
+        await bot.tree.sync(guild=guild)
+        bot.tree.copy_global_to(guild=guild)
+        synced = await bot.tree.sync(guild=guild)
+        results.append({"guild": guild.name, "count": len(synced)})
+        print(f"🖥️ [ПАНЕЛЬ] Синхронизировано {len(synced)} slash-команд на сервере {guild.name}.", flush=True)
+    bot.tree.clear_commands(guild=None)
+    await bot.tree.sync()
+    if not results: raise RuntimeError("Доступный Discord-сервер не найден.")
+    return {"message": "Slash-команды синхронизированы.", "results": results}
+
+async def panel_sync_roles():
+    if not bot.is_ready(): raise RuntimeError("Discord-бот ещё не подключён.")
+    for guild_id in ALLOWED_GUILDS:
+        guild = bot.get_guild(guild_id)
+        if guild is not None:
+            await ensure_control_panel_roles(guild)
+            print(f"🖥️ [ПАНЕЛЬ] Выполнена синхронизация ролей доступа: {guild.name}.", flush=True)
+            return {"message": f"Роли доступа синхронизированы: {guild.name}."}
+    raise RuntimeError("Доступный Discord-сервер не найден.")
+
+async def panel_refresh_presence():
+    if not bot.is_ready(): raise RuntimeError("Discord-бот ещё не подключён.")
+    await bot.change_presence(activity=discord.Game(name="/shop | модерация"))
+    print("🖥️ [ПАНЕЛЬ] Активность бота обновлена.", flush=True)
+    return {"message": "Активность бота обновлена."}
+
 async def run_services():
     """Запускает Discord-бота и FastAPI в одном процессе Bot-Hosting."""
     from dashboard.backend.main import app as panel_app
+
+    panel_app.state.bot_controller = {
+        "status": panel_console_status,
+        "actions": {
+            "sync_commands": panel_sync_commands,
+            "sync_roles": panel_sync_roles,
+            "refresh_presence": panel_refresh_presence,
+        },
+    }
 
     port = int(os.getenv("PORT", "25321"))
     config = uvicorn.Config(
