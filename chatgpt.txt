@@ -487,3 +487,11 @@ D. Важное ограничение API
 - dashboard/style.css commit fc22dd40ea1d3e6e54e4889f81faafc4e8d7a5c0.
 - dashboard/index.html теперь подключает style.css?v=20261106-messages2 для сброса кэша; commit 85427dfdbd39d123f091016fb6900cafa0bd4e05. JS cache-busting app.js?v=20261106-messages1 добавлен ранее.
 - Нужно обновить на втором хостинге dashboard/style.css и dashboard/index.html, перезапустить Dashboard и выполнить Ctrl+F5. Реальную отправку сообщений ещё нужно протестировать.
+
+44. ДОРАБОТКА ПРЕДПРОСМОТРА СООБЩЕНИЙ: ОТПРАВИТЕЛЬ, КАНАЛ И ЦВЕТ EMBED (2026-11-06)
+- По запросу пользователя добавлено явное отображение в предпросмотре: отправитель WhiteGrief BOT и канал назначения. Название канала обновляется при переключении селектора каналов.
+- При изменении цвета Embed предпросмотр теперь меняет не только левую цветную полосу, но и лёгкий оттенок фона и внутреннюю подсветку карточки. В Discord Embed цвет по-прежнему задаёт цветовую полосу (Discord сам контролирует фон карточки).
+- dashboard/app.js commit b6b1eb4d16fc29c2447f8d3880e7b77ecf92b103.
+- dashboard/style.css commit b09425f50f0741fb9474e06964394c1a26c151ae.
+- dashboard/index.html обновлён для сброса кэша app.js/style.css на версии messages4; commit a251cc7d2d8aa4e3a330f7b936354e845b703d12.
+- Деплой на втором хостинге: обновить dashboard/app.js, dashboard/style.css, dashboard/index.html и перезапустить Dashboard; затем Ctrl+F5. Реальное поведение пока требует проверки на сайте.
