@@ -542,3 +542,10 @@ D. Важное ограничение API
 - dashboard/style.css: обновлены карточки входящих сообщений, аватары, hover и отдельные стили reply/forward.
 - Commits: backend 068cbd60ce292199095b09c8259cc1cae43b43bb; app.js 1dd5f264c9fe6793186c60d933ea881b77155a05; style.css 0a4a42ed737c3f57b46c43685134afa5154cda7c; index.html 9020d38d9f6f91ea02935c85eca3f7aca8c95476 (asset cache `inbox2`).
 - Требуется обновить на втором хостинге dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html; перезапустить Dashboard и Ctrl+F5. Проверить обычное сообщение, reply и forwarded message в Discord. Discord API может не вернуть referenced_message для удалённого/недоступного сообщения; в таком случае reply-плашка отсутствует.
+
+51. EMBED ATTRIBUTION (2026-11-06)
+- User clarified that sender attribution for panel-sent messages belongs at the very end of the Embed, not in the normal message content, and must use Discord's `-#` muted small-text syntax.
+- Updated `dashboard/backend/main.py` `/api/messages/send`: when an Embed exists, append `-# Отправитель: [Discord user mention] · WhiteGrief Control Panel` to the end of the Embed description. Do not put the mention in the message body. Removed duplicate Embed footer. `allowed_mentions.parse=[]` remains to prevent notification pings.
+- Without an Embed, attribution remains a muted-text fallback at the end of the ordinary message.
+- Backend commit: `246cd260c3e550c1e795a8ca1c175359086c4b62`.
+- Deploy: update `dashboard/backend/main.py` on the second (Dashboard) host and restart Dashboard. Verify the attribution appears inside the Embed, below its description, in muted small text.
