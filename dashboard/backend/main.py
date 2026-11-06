@@ -424,14 +424,17 @@ async def api_send_message(request: Request):
     sender_name = str(user.get("username") or user.get("discord_username") or "Администратор").strip()
     sender_tag = str(user.get("discord_username") or "").strip()
     attribution = f"— Отправитель: {sender_name}" + (f" (@{sender_tag})" if sender_tag and sender_tag.casefold() != sender_name.casefold() else "") + "\nОтправлено через WhiteGrief Control Panel"
-    if content and len(content) + len(attribution) + 2 > 2000:
+    has_embed = isinstance(embed_data, dict) and bool(str(embed_data.get("title", "")).strip() or str(embed_data.get("description", "")).strip())
+    if content and not has_embed and len(content) + len(attribution) + 2 > 2000:
         raise HTTPException(status_code=400, detail="Слишком длинный текст: оставь место для подписи отправителя (лимит Discord — 2000 символов).")
-    if content:
+    if content and not has_embed:
         content = content + "\n\n" + attribution
-    else:
+    elif not content and not has_embed and not image_data:
         content = attribution
 
-    payload: dict[str, Any] = {"allowed_mentions": {"parse": []}, "content": content}
+    payload: dict[str, Any] = {"allowed_mentions": {"parse": []}}
+    if content:
+        payload["content"] = content
     if embed_data is not None:
         if not isinstance(embed_data, dict):
             raise HTTPException(status_code=400, detail="Некорректный Embed.")
