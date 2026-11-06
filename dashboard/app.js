@@ -470,10 +470,10 @@ async function loadMessages(section){
           <label class="messages-label">Текст сообщения <span>необязательно; подпись отправителя добавится автоматически</span>
             <textarea id="messageContent" class="messages-control" rows="4" maxlength="1750" placeholder="Напиши сообщение от имени WhiteGrief…"></textarea>
           </label>
-          <label class="messages-label">Изображение <span>PNG, JPG, GIF или WEBP · до 8 МБ</span>
-            <input id="messageImage" class="messages-control messages-file-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
+          <label class="messages-label">Файлы <span>до 10 файлов · до 8 МБ каждый · общий размер до 25 МБ</span>
+            <input id="messageFiles" class="messages-control messages-file-input" type="file" multiple>
           </label>
-          <div id="messageImagePreview" class="messages-image-preview" hidden><img id="messageImagePreviewImg" alt="Предпросмотр изображения"><button id="removeMessageImage" type="button">Убрать изображение</button></div>
+          <div id="messageFilesPreview" class="messages-attachments-preview" hidden></div>
           <div class="messages-section-caption">EMBED-ПАНЕЛЬ <span>необязательно</span></div>
           <label class="messages-label">Заголовок Embed
             <input id="embedTitle" class="messages-control" maxlength="256" placeholder="Например: WHITEGRIEF • ОБЪЯВЛЕНИЕ">
@@ -492,7 +492,7 @@ async function loadMessages(section){
     channels.forEach(ch=>{
       const option=document.createElement("option");option.value=ch.id;option.textContent=(ch.parent_name?ch.parent_name+" / ":"")+ch.name;channelSelect.append(option);
     });
-    const content=root.querySelector("#messageContent"),title=root.querySelector("#embedTitle"),description=root.querySelector("#embedDescription"),color=root.querySelector("#embedColor"),imageInput=root.querySelector("#messageImage"),imagePreview=root.querySelector("#messageImagePreview"),imagePreviewImg=root.querySelector("#messageImagePreviewImg"),previewImageWrap=root.querySelector("#messagePreviewImageWrap"),previewImage=root.querySelector("#messagePreviewImage"),previewSender=root.querySelector("#messagePreviewSender"),attributionPreview=root.querySelector("#messagePreviewAttribution");
+    const content=root.querySelector("#messageContent"),title=root.querySelector("#embedTitle"),description=root.querySelector("#embedDescription"),color=root.querySelector("#embedColor"),filesInput=root.querySelector("#messageFiles"),filesPreview=root.querySelector("#messageFilesPreview"),previewSender=root.querySelector("#messagePreviewSender"),attributionPreview=root.querySelector("#messagePreviewAttribution");
     const previewContent=root.querySelector("#messagePreviewContent"),preview=root.querySelector("#embedPreview"),previewTitle=root.querySelector("#embedPreviewTitle"),previewDescription=root.querySelector("#embedPreviewDescription"),previewChannel=root.querySelector("#messagePreviewChannel"),status=root.querySelector("#messageStatus"),send=root.querySelector("#sendDiscordMessage"),colorText=root.querySelector("#embedColorText");
     const updatePreview=()=>{
       previewContent.textContent=content.value.trim()||"Текст сообщения появится здесь.";
@@ -510,8 +510,23 @@ async function loadMessages(section){
     };
     [content,title,description,color].forEach(el=>el.addEventListener("input",updatePreview));
     channelSelect.addEventListener("change",updatePreview);
-    imageInput.addEventListener("change",()=>{const file=imageInput.files?.[0];if(!file){imagePreview.hidden=true;previewImageWrap.hidden=true;return;}const url=URL.createObjectURL(file);imagePreviewImg.src=url;previewImage.src=url;imagePreview.hidden=false;previewImageWrap.hidden=false;});
-    root.querySelector("#removeMessageImage").addEventListener("click",()=>{imageInput.value="";imagePreview.hidden=true;previewImageWrap.hidden=true;});
+    const renderFilesPreview=()=>{
+      filesPreview.replaceChildren();
+      const selected=Array.from(filesInput.files||[]);
+      filesPreview.hidden=!selected.length;
+      selected.forEach((file,index)=>{
+        const row=document.createElement("div");row.className="messages-attachment-item";
+        const icon=document.createElement("span");icon.className="messages-attachment-icon";icon.textContent="▤";
+        const info=document.createElement("span");info.className="messages-attachment-info";
+        const name=document.createElement("strong");name.textContent=file.name;
+        const size=document.createElement("small");size.textContent=file.size<1024*1024?(file.size/1024).toFixed(1)+" КБ":(file.size/1024/1024).toFixed(2)+" МБ";
+        info.append(name,size);
+        const remove=document.createElement("button");remove.type="button";remove.className="messages-attachment-remove";remove.textContent="×";remove.title="Убрать файл";
+        remove.addEventListener("click",()=>{const transfer=new DataTransfer();Array.from(filesInput.files||[]).forEach((item,i)=>{if(i!==index)transfer.items.add(item);});filesInput.files=transfer.files;renderFilesPreview();});
+        row.append(icon,info,remove);filesPreview.append(row);
+      });
+    };
+    filesInput.addEventListener("change",renderFilesPreview);
     updatePreview();
     const incomingFeed=root.querySelector("#incomingMessagesFeed");
     const refreshIncoming=root.querySelector("#refreshIncomingMessages");
@@ -571,21 +586,26 @@ async function loadMessages(section){
     loadIncoming();
     const incomingPoll=window.setInterval(()=>{if(!section.isConnected){window.clearInterval(incomingPoll);return;}if(!document.hidden)loadIncoming();},10000);
     send.addEventListener("click",async()=>{
-      const body=content.value.trim(),embedTitle=title.value.trim(),embedDescription=description.value.trim(),file=imageInput.files?.[0]||null;
-      if(!body&&!embedTitle&&!embedDescription&&!file){status.textContent="Добавь текст, Embed или изображение.";status.className="messages-status error";return;}
-      if(file&&file.size>8*1024*1024){status.textContent="Изображение должно быть не больше 8 МБ.";status.className="messages-status error";return;}
-      send.disabled=true;send.textContent="Отправляем…";status.textContent="Связываемся с Discord…";status.className="messages-status";
+      const body=content.value.trim(),embedTitle=title.value.trim(),embedDescription=description.value.trim(),files=Array.from(filesInput.files||[]);
+      if(!body&&!embedTitle&&!embedDescription&&!files.length){status.textContent="Добавь текст, Embed или хотя бы один файл.";status.className="messages-status error";return;}
+      if(files.length>10){status.textContent="Можно прикрепить не больше 10 файлов.";status.className="messages-status error";return;}
+      if(files.some(file=>file.size>8*1024*1024)){status.textContent="Каждый файл должен быть не больше 8 МБ.";status.className="messages-status error";return;}
+      if(files.reduce((sum,file)=>sum+file.size,0)>25*1024*1024){status.textContent="Общий размер файлов не должен превышать 25 МБ.";status.className="messages-status error";return;}
+      send.disabled=true;send.textContent="Отправляем…";status.textContent="Загружаем сообщение и файлы в Discord…";status.className="messages-status";
       try{
-        let image=null;if(file){const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("Не удалось прочитать изображение."));reader.readAsDataURL(file);});image={name:file.name,mime:file.type,data:dataUrl};}
-        const response=await fetch("/api/messages/send",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel_id:channelSelect.value,content:body,embed:embedTitle||embedDescription?{title:embedTitle,description:embedDescription,color:color.value}:null,image})});
+        const form=new FormData();
+        form.append("payload_json",JSON.stringify({channel_id:channelSelect.value,content:body,embed:embedTitle||embedDescription?{title:embedTitle,description:embedDescription,color:color.value}:null}));
+        files.forEach(file=>form.append("files",file,file.name));
+        const response=await fetch("/api/messages/send",{method:"POST",credentials:"same-origin",body:form});
         const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ (HTTP "+response.status+").");}
         if(!response.ok)throw new Error(result.detail||"Не удалось отправить сообщение.");
-        status.textContent="✓ Сообщение отправлено в "+(channels.find(c=>c.id===channelSelect.value)?.name||"Discord");status.className="messages-status success";
+        status.textContent="✓ Сообщение отправлено в "+(channels.find(c=>c.id===channelSelect.value)?.name||"Discord")+(result.attachments?" · файлов: "+result.attachments:"");
+        status.className="messages-status success";
         if(typeof showToast==="function")showToast("Сообщение успешно отправлено в Discord.");
-        content.value="";imageInput.value="";imagePreview.hidden=true;previewImageWrap.hidden=true;updatePreview();
+        content.value="";filesInput.value="";renderFilesPreview();updatePreview();
       }catch(error){status.textContent=error.message;status.className="messages-status error";}
       finally{send.disabled=false;send.textContent="Отправить в Discord";}
-    });
+    });;
   }catch(error){root.innerHTML="";const box=document.createElement("div");box.className="empty-state";const title=document.createElement("strong");title.textContent="Не удалось загрузить каналы";const detail=document.createElement("p");detail.textContent=error.message;box.append(title,detail);root.append(box);}
   refresh?.addEventListener("click",()=>loadMessages(section));
 }
