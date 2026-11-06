@@ -392,7 +392,7 @@ async def api_shop(request: Request):
 
 @app.get("/api/messages/channels")
 async def api_message_channels(request: Request):
-    await require_access(request, "adm")
+    user = await require_access(request, "adm")
     channels = await discord_request("GET", f"/guilds/{GUILD_ID}/channels")
     items = []
     for channel in channels if isinstance(channels, list) else []:
