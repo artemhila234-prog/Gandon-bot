@@ -5,6 +5,7 @@ import aiohttp
 import sys
 import threading
 import shlex
+from collections import deque
 import uvicorn
 from discord import app_commands
 from discord.ext import commands
@@ -1968,8 +1969,21 @@ async def audit_voice_state(member, before, after):
         write_audit_log("ИЗМЕНЕНИЕ ГОЛОСОВОГО КАНАЛА", f"{audit_member_label(member)}\n{old_name} → {new_name}", member.guild.id)
 
 
+# Последние строки stdout/stderr первого хостинга для трансляции в Dashboard.
+CONSOLE_OUTPUT_LINES = deque(maxlen=1800)
+CONSOLE_OUTPUT_SEQ = 0
+
+def push_console_output(line):
+    global CONSOLE_OUTPUT_SEQ
+    CONSOLE_OUTPUT_SEQ += 1
+    CONSOLE_OUTPUT_LINES.append({
+        "id": CONSOLE_OUTPUT_SEQ,
+        "text": f"[{datetime.now(MSK).strftime('%Y-%m-%d %H:%M:%S')}] {str(line)}",
+    })
+
+
 class TimestampedTee:
-    """Пишет одновременно в консоль Bot-Hosting и в logs/latest.log, добавляя дату и время."""
+    """Дублирует stdout/stderr в Bot-Hosting, latest.log и буфер live-консоли сайта."""
     def __init__(self, console_stream, log_file, lock):
         self.console_stream = console_stream
         self.log_file = log_file
@@ -1986,6 +2000,7 @@ class TimestampedTee:
                 line, self.buffer = self.buffer.split("\n", 1)
                 stamp = datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S")
                 self.log_file.write(f"[{stamp}] {line}\n")
+                push_console_output(line)
             self.log_file.flush()
         return len(text)
 
@@ -1995,6 +2010,7 @@ class TimestampedTee:
             if self.buffer:
                 stamp = datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S")
                 self.log_file.write(f"[{stamp}] {self.buffer}\n")
+                push_console_output(self.buffer)
                 self.buffer = ""
             self.log_file.flush()
 
@@ -2074,50 +2090,50 @@ async def panel_sync_roles():
     raise RuntimeError("Доступный Discord-сервер не найден.")
 
 async def panel_console_command(command: str):
-    """Выполняет только ограниченный набор безопасных диагностических команд."""
-    raw = str(command or "").strip()
-    if not raw or len(raw) > 300:
-        raise RuntimeError("Команда пустая или слишком длинная (максимум 300 символов).")
+    """Выполняет введённую Full-команду через shell на первом хостинге."""
+    raw = str(command if command is not None else "")
+    if not raw.strip():
+        raise RuntimeError("Введи хотя бы один символ команды.")
+    if len(raw) > 2000:
+        raise RuntimeError("Команда слишком длинная (максимум 2000 символов).")
+    print(f"container~ {raw}", flush=True)
     try:
-        parts = shlex.split(raw)
-    except ValueError:
-        raise RuntimeError("Не удалось разобрать команду. Проверь кавычки.")
-    if not parts:
-        raise RuntimeError("Введи команду. Напиши help для списка.")
-    if parts == ["help"]:
-        return {"command": raw, "exit_code": 0, "output": "Доступные команды:\n  help — список команд\n  pwd — текущая папка\n  ls / ls -la — список файлов\n  python --version — версия Python\n  pip --version — версия pip\n  pip list — установленные пакеты\n  pip show ИМЯ — информация о пакете\n  df -h — место на диске\n  free -h — память\n  uptime — время работы хоста\n  ps aux — процессы\n  clear — очистить окно терминала\n  restart — перезапустить Discord-бота"}
-    fixed = {
-        ("pwd",): ["pwd"],
-        ("ls",): ["ls", "-la"],
-        ("ls", "-la"): ["ls", "-la"],
-        ("ls", "-l"): ["ls", "-l"],
-        ("python", "--version"): [sys.executable, "--version"],
-        ("python3", "--version"): [sys.executable, "--version"],
-        ("pip", "--version"): [sys.executable, "-m", "pip", "--version"],
-        ("pip3", "--version"): [sys.executable, "-m", "pip", "--version"],
-        ("pip", "list"): [sys.executable, "-m", "pip", "list"],
-        ("df", "-h"): ["df", "-h"],
-        ("free", "-h"): ["free", "-h"],
-        ("uptime",): ["uptime"],
-        ("ps", "aux"): ["ps", "aux"],
-    }
-    argv = fixed.get(tuple(parts))
-    if argv is None and len(parts) == 3 and parts[0] == "pip" and parts[1] == "show" and re.fullmatch(r"[A-Za-z0-9_.-]{1,80}", parts[2]):
-        argv = [sys.executable, "-m", "pip", "show", parts[2]]
-    if argv is None:
-        raise RuntimeError("Эта команда недоступна. Напиши help, чтобы увидеть разрешённые команды.")
-    try:
-        process = await asyncio.create_subprocess_exec(*argv, cwd=BASE_DIR, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT)
+        process = await asyncio.create_subprocess_shell(
+            raw,
+            cwd=BASE_DIR,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
         try:
-            output_bytes, _ = await asyncio.wait_for(process.communicate(), timeout=15)
+            output_bytes, _ = await asyncio.wait_for(process.communicate(), timeout=60)
         except asyncio.TimeoutError:
             process.kill()
             await process.communicate()
-            raise RuntimeError("Команда выполнялась дольше 15 секунд и была остановлена.")
+            raise RuntimeError("Команда выполнялась дольше 60 секунд и была остановлена.")
     except FileNotFoundError:
-        raise RuntimeError("Команда недоступна в окружении хостинга.")
-    output = output_bytes.decode("utf-8", errors="replace").strip()
-    return {"command": raw, "exit_code": int(process.returncode or 0), "output": (output or ("Команда выполнена без вывода." if process.returncode == 0 else "Команда завершилась с ошибкой."))[:14000]}
+        raise RuntimeError("Командная оболочка недоступна в окружении хостинга.")
+    output = output_bytes.decode("utf-8", errors="replace").rstrip()
+    if output:
+        for line in output.splitlines():
+            with console_output_lock:
+                push_console_output(line)
+    else:
+        output = "Команда выполнена без вывода." if process.returncode == 0 else "Команда завершилась с ошибкой."
+    return {
+        "command": raw,
+        "exit_code": int(process.returncode or 0),
+        "output": output[:20000],
+    }
+
+
+console_output_lock = threading.Lock()
+
+async def panel_console_output(after_id: int = 0, limit: int = 250):
+    """Возвращает новые строки реальной stdout/stderr-консоли процесса."""
+    with console_output_lock:
+        lines = [item.copy() for item in CONSOLE_OUTPUT_LINES if item["id"] > max(0, int(after_id))]
+        latest_id = CONSOLE_OUTPUT_SEQ
+    return {"lines": lines[-max(1, min(int(limit), 500)):], "latest_id": latest_id}
 
 async def panel_restart_bot():
     """Перезапускает текущий процесс тем же Python-интерпретатором и тем же startup-файлом."""
@@ -2155,6 +2171,7 @@ async def run_services():
     panel_app.state.bot_controller = {
         "status": panel_console_status,
         "command": panel_console_command,
+        "output": panel_console_output,
         "actions": {
             "sync_commands": panel_sync_commands,
             "sync_roles": panel_sync_roles,
