@@ -390,21 +390,27 @@ async function loadMessages(section){
           </label>
           <div class="messages-form-footer"><span id="messageStatus" class="messages-status">Отправка доступна уровням Adm и Full.</span><button id="sendDiscordMessage" class="messages-send-button" type="button">Отправить в Discord</button></div>
         </div>
-        <aside class="messages-preview-wrap"><div class="messages-preview-heading">ПРЕДПРОСМОТР</div><div class="discord-preview"><div class="discord-preview-avatar">W</div><div class="discord-preview-body"><strong>WhiteGrief <small>БОТ</small></strong><p id="messagePreviewContent" class="discord-preview-content">Текст сообщения появится здесь.</p><div id="embedPreview" class="discord-embed-preview" hidden><div id="embedPreviewTitle" class="discord-embed-title"></div><div id="embedPreviewDescription" class="discord-embed-description"></div></div></div></div><p class="messages-preview-note">Предпросмотр приблизительный. Итоговый вид зависит от клиента Discord.</p></aside>
+        <aside class="messages-preview-wrap"><div class="messages-preview-heading">ПРЕДПРОСМОТР</div><div class="messages-preview-meta"><span class="messages-meta-item"><small>ОТПРАВИТЕЛЬ</small><strong>WhiteGrief <em>BOT</em></strong></span><span class="messages-meta-arrow">→</span><span class="messages-meta-item"><small>КАНАЛ ПОЛУЧАТЕЛЬ</small><strong id="messagePreviewChannel">#общий-чат</strong></span></div><div class="discord-preview"><div class="discord-preview-avatar">W</div><div class="discord-preview-body"><strong>WhiteGrief <small>БОТ</small></strong><p id="messagePreviewContent" class="discord-preview-content">Текст сообщения появится здесь.</p><div id="embedPreview" class="discord-embed-preview" hidden><div id="embedPreviewTitle" class="discord-embed-title"></div><div id="embedPreviewDescription" class="discord-embed-description"></div></div></div></div><p class="messages-preview-note">Предпросмотр приблизительный. Итоговый вид зависит от клиента Discord.</p></aside>
       </div>`;
     const channelSelect=root.querySelector("#messageChannel");
     channels.forEach(ch=>{
       const option=document.createElement("option");option.value=ch.id;option.textContent=(ch.parent_name?ch.parent_name+" / ":"")+"#"+ch.name;channelSelect.append(option);
     });
     const content=root.querySelector("#messageContent"),title=root.querySelector("#embedTitle"),description=root.querySelector("#embedDescription"),color=root.querySelector("#embedColor");
-    const previewContent=root.querySelector("#messagePreviewContent"),preview=root.querySelector("#embedPreview"),previewTitle=root.querySelector("#embedPreviewTitle"),previewDescription=root.querySelector("#embedPreviewDescription"),status=root.querySelector("#messageStatus"),send=root.querySelector("#sendDiscordMessage"),colorText=root.querySelector("#embedColorText");
+    const previewContent=root.querySelector("#messagePreviewContent"),preview=root.querySelector("#embedPreview"),previewTitle=root.querySelector("#embedPreviewTitle"),previewDescription=root.querySelector("#embedPreviewDescription"),previewChannel=root.querySelector("#messagePreviewChannel"),status=root.querySelector("#messageStatus"),send=root.querySelector("#sendDiscordMessage"),colorText=root.querySelector("#embedColorText");
     const updatePreview=()=>{
       previewContent.textContent=content.value.trim()||"Текст сообщения появится здесь.";
       const hasEmbed=title.value.trim()||description.value.trim();
       preview.hidden=!hasEmbed;previewTitle.textContent=title.value;previewDescription.textContent=description.value;
-      preview.style.borderLeftColor=color.value;colorText.textContent=color.value.toUpperCase();
+      preview.style.borderLeftColor=color.value;
+      preview.style.backgroundColor=`color-mix(in srgb, ${color.value} 9%, #2b2d31)`;
+      preview.style.boxShadow=`inset 0 0 0 1px color-mix(in srgb, ${color.value} 22%, transparent), 0 5px 15px #0002`;
+      colorText.textContent=color.value.toUpperCase();
+      const selected=channelSelect.options[channelSelect.selectedIndex];
+      previewChannel.textContent=selected?"#"+selected.textContent.split(" / ").pop():"#канал";
     };
     [content,title,description,color].forEach(el=>el.addEventListener("input",updatePreview));
+    channelSelect.addEventListener("change",updatePreview);
     updatePreview();
     send.addEventListener("click",async()=>{
       const body=content.value.trim(),embedTitle=title.value.trim(),embedDescription=description.value.trim();
