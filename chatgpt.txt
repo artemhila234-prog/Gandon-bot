@@ -452,3 +452,10 @@ D. Важное ограничение API
 - Текущий OAuth код ранее проверен: TIKTOK_SCOPES = "user.info.basic,user.info.profile,video.list"; profile fields включают open_id, username, bio_description, profile_deep_link. Это согласуется с автоматическим базовым scope и дополнительным user.info.profile.
 - Источники: официальная TikTok Scopes Overview и User Info API Scope Migration. В текущем обращении код не менялся; обновлена только памятка.
 - Следующий шаг: удалить user.info.stats в Developer Portal, оставить user.info.profile и video.list; user.info.basic будет предоставляться Login Kit автоматически. Затем прислать скриншот итогового списка.
+
+37. TIKTOK APP REVIEW: ВЕРСИЯ WHITEGRIEF » МЕДИЯ ПЕРЕДАНА НА РАССМОТРЕНИЕ (2026-11-06)
+- Пользователь прислал экран TikTok Developer Portal с сообщением: "This version of WhiteGrief » Медия is in review. There may be a delay in the app review process due to a high volume of requests. We appreciate your patience as we work on reviewing your apps."
+- Это подтверждает, что текущая версия приложения успешно отправлена и находится на рассмотрении TikTok. Это не одобрение и не отказ; решение ещё не вынесено.
+- На этом этапе не нужно повторно отправлять ту же версию, менять scopes или перенастраивать OAuth без запроса TikTok. Следить за статусом в Developer Portal и за уведомлениями/почтой, связанной с приложением.
+- Если TikTok пришлёт замечания или запрос на доработку, сохранить точный текст/скриншот и исправлять только указанные пункты. После одобрения отдельно проверить Production доступ и реальный вход обычного пользователя; текущий статус "in review" не означает, что Production уже доступен.
+- В текущем обращении код бота и панели не менялся; обновлена только памятка.
