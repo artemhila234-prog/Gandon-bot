@@ -495,3 +495,13 @@ D. Важное ограничение API
 - dashboard/style.css commit b09425f50f0741fb9474e06964394c1a26c151ae.
 - dashboard/index.html обновлён для сброса кэша app.js/style.css на версии messages4; commit a251cc7d2d8aa4e3a330f7b936354e845b703d12.
 - Деплой на втором хостинге: обновить dashboard/app.js, dashboard/style.css, dashboard/index.html и перезапустить Dashboard; затем Ctrl+F5. Реальное поведение пока требует проверки на сайте.
+
+45. ДОРАБОТКА «СООБЩЕНИЯ»: ПОДПИСЬ ОТПРАВИТЕЛЯ, ФОТО И УБРАННЫЕ ХЭШТЕГИ (2026-11-06)
+- По уточнению пользователя речь не только о подписи в предпросмотре: каждое отправленное через панель сообщение должно показывать реального автора действия (Discord-аккаунт вошедшего в Control Panel). Backend берёт username/global_name и discord_username из сессии, добавляет в конец обычного сообщения строку «— Отправитель: ...» и подпись «Отправлено через WhiteGrief Control Panel». Для Embed подпись помещается в footer Embed, чтобы она была в самом низу и не дублировалась в тексте. Для сообщения только с картинкой подпись также добавляется.
+- Добавлен выбор одного изображения PNG/JPG/GIF/WEBP до 8 МБ, мини-предпросмотр и удаление выбранного файла. Frontend передаёт data URL в JSON; backend проверяет MIME, размер и сигнатуры PNG/JPG/GIF/WEBP, затем отправляет файл через Discord multipart (`files[0]` + `payload_json`).
+- Исправлены двойные/лишние # у канала: названия в выпадающем списке, предпросмотре и подтверждении отправки теперь без префикса #.
+- dashboard/backend/main.py commits: d2d263b0c7ffb7e4ffeaa6bd959edd836150de5e (image send + attribution), 0206851f5d70db02e07806bb5cbadc8ba4491522 (bind user in channel list), 5960817dae397e342622e43ab94a5fc70842e645 (escape fixes), b79ea91e53302013efe8c2a2785b1c69309c854d (embed footer behavior), deca876e21eae700d54a3f9201e1660901fbc118 (image-only attribution).
+- dashboard/app.js commits: b7d9a709be4b7a298b7e06fe57008819e01ae5ac (file picker, preview, sender metadata), 96defe76693f1b5bc8bd8c31b41154feb7bf3e78 (preview markup nesting), d46fde65a623c73eb2f40ad59716062e86e46fd1 (confirmation text without #).
+- dashboard/style.css commit df00397e3b863723db129193981a22ebc2ccecfa (file picker, preview, attribution styling).
+- dashboard/index.html cache-busting bumped to messages6; commit 6e13f3410d0e8bafd406c4b1c8746022445a8cf1.
+- ВАЖНО: не проверено реальной отправкой в Discord. Нужно обновить на втором хостинге dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html; перезапустить Dashboard; затем Ctrl+F5 и протестировать текст, Embed и фото в тестовом канале. Автор сообщения в Discord технически всё равно будет бот, а в тексте/футере будет указан Discord-ник администратора, который отправил сообщение через панель.
