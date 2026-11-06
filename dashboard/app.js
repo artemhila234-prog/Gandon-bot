@@ -406,8 +406,7 @@ async function loadMessages(section){
       previewContent.textContent=content.value.trim()||"Текст сообщения появится здесь.";
       const hasEmbed=title.value.trim()||description.value.trim();
       preview.hidden=!hasEmbed;previewTitle.textContent=title.value;previewDescription.textContent=description.value;
-      preview.style.setProperty("border-left",`4px solid ${color.value}`,"important");
-      preview.style.borderColor="transparent";
+      preview.style.setProperty("--embed-preview-color",color.value);
       preview.style.backgroundColor="#2b2d31";
       preview.style.boxShadow="none";
       colorText.textContent=color.value.toUpperCase();
