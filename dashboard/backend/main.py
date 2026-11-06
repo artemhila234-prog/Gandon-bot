@@ -423,11 +423,11 @@ async def api_send_message(request: Request):
 
     sender_name = str(user.get("username") or user.get("discord_username") or "Администратор").strip()
     sender_tag = str(user.get("discord_username") or "").strip()
-    attribution = f"— Отправитель: {sender_name}" + (f" (@{sender_tag})" if sender_tag and sender_tag.casefold() != sender_name.casefold() else "") + "\\nОтправлено через WhiteGrief Control Panel"
+    attribution = f"— Отправитель: {sender_name}" + (f" (@{sender_tag})" if sender_tag and sender_tag.casefold() != sender_name.casefold() else "") + "\nОтправлено через WhiteGrief Control Panel"
     if content and len(content) + len(attribution) + 2 > 2000:
         raise HTTPException(status_code=400, detail="Слишком длинный текст: оставь место для подписи отправителя (лимит Discord — 2000 символов).")
     if content:
-        content = content + "\\n\\n" + attribution
+        content = content + "\n\n" + attribution
     else:
         content = attribution
 
@@ -460,7 +460,7 @@ async def api_send_message(request: Request):
     image_mime = ""
     if image_data:
         image_mime = str(image_data.get("mime", "")).lower()
-        image_name = str(image_data.get("name", "image")).replace("/", "_").replace("\\\\", "_")[:100]
+        image_name = str(image_data.get("name", "image")).replace("/", "_").replace("\\", "_")[:100]
         encoded = str(image_data.get("data", ""))
         if image_mime not in {"image/png", "image/jpeg", "image/gif", "image/webp"}:
             raise HTTPException(status_code=400, detail="Поддерживаются только PNG, JPG, GIF и WEBP.")
@@ -474,9 +474,9 @@ async def api_send_message(request: Request):
             raise HTTPException(status_code=400, detail="Выбранный файл пуст.")
         if len(image_bytes) > 8 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="Изображение должно быть не больше 8 МБ.")
-        if image_mime == "image/png" and not image_bytes.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+        if image_mime == "image/png" and not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
             raise HTTPException(status_code=400, detail="Файл не похож на PNG-изображение.")
-        if image_mime == "image/jpeg" and not image_bytes.startswith(b"\\xff\\xd8\\xff"):
+        if image_mime == "image/jpeg" and not image_bytes.startswith(b"\xff\xd8\xff"):
             raise HTTPException(status_code=400, detail="Файл не похож на JPG-изображение.")
         if image_mime == "image/gif" and not image_bytes.startswith((b"GIF87a", b"GIF89a")):
             raise HTTPException(status_code=400, detail="Файл не похож на GIF-изображение.")
