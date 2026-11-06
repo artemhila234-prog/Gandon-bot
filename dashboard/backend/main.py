@@ -387,6 +387,63 @@ async def api_shop(request: Request):
     await require_access(request, "media")
     return {"items": SHOP_ITEMS_PANEL}
 
+
+@app.get("/api/messages/channels")
+async def api_message_channels(request: Request):
+    await require_access(request, "adm")
+    channels = await discord_request("GET", f"/guilds/{GUILD_ID}/channels")
+    items = []
+    for channel in channels if isinstance(channels, list) else []:
+        if channel.get("type") in (0, 5) and str(channel.get("guild_id", GUILD_ID)) == GUILD_ID:
+            items.append({
+                "id": str(channel.get("id", "")),
+                "name": str(channel.get("name", "")),
+                "parent_name": str(channel.get("parent_name") or ""),
+            })
+    items.sort(key=lambda item: (item["parent_name"].casefold(), item["name"].casefold()))
+    return {"channels": items}
+
+
+@app.post("/api/messages/send")
+async def api_send_message(request: Request):
+    await require_access(request, "adm")
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+    channel_id = str(data.get("channel_id", "")).strip()
+    content = str(data.get("content", "")).strip()
+    embed_data = data.get("embed")
+    if not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Выбери текстовый канал Discord.")
+    if len(content) > 2000:
+        raise HTTPException(status_code=400, detail="Сообщение превышает лимит 2000 символов.")
+    payload: dict[str, Any] = {"allowed_mentions": {"parse": []}}
+    if content:
+        payload["content"] = content
+    if embed_data is not None:
+        if not isinstance(embed_data, dict):
+            raise HTTPException(status_code=400, detail="Некорректный Embed.")
+        title = str(embed_data.get("title", "")).strip()
+        description = str(embed_data.get("description", "")).strip()
+        if len(title) > 256 or len(description) > 4096:
+            raise HTTPException(status_code=400, detail="Embed превышает допустимую длину.")
+        if title or description:
+            try:
+                color = int(str(embed_data.get("color", "#8b6bd6")).lstrip("#"), 16)
+                if not 0 <= color <= 0xFFFFFF:
+                    raise ValueError()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Некорректный цвет Embed.")
+            payload["embeds"] = [{"title": title or None, "description": description or None, "color": color}]
+    if not content and not payload.get("embeds"):
+        raise HTTPException(status_code=400, detail="Добавь текст сообщения или Embed.")
+    channel = await discord_request("GET", f"/channels/{channel_id}")
+    if str(channel.get("guild_id", "")) != GUILD_ID or channel.get("type") not in (0, 5):
+        raise HTTPException(status_code=400, detail="Можно отправлять только в текстовые каналы WhiteGrief.")
+    sent = await discord_request("POST", f"/channels/{channel_id}/messages", payload=payload)
+    return {"ok": True, "message_id": str(sent.get("id", ""))}
+
 SHOP_ITEMS_PANEL = [
     {"name": "PVP", "price": 1000, "type": "kit"}, {"name": "CYBER", "price": 1500, "type": "kit"},
     {"name": "RICH", "price": 2000, "type": "kit"}, {"name": "TOPER", "price": 2500, "type": "kit"},
