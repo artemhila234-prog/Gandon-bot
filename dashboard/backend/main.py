@@ -487,14 +487,14 @@ async def api_message_history(request: Request, channel_id: str):
 async def api_send_message(request: Request):
     user = await require_access(request, "adm")
     try:
-        data = await request.json()
+        form = await request.form()
+        data = json.loads(str(form.get("payload_json") or "{}"))
     except Exception:
-        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+        raise HTTPException(status_code=400, detail="Некорректный запрос или не удалось прочитать вложения.")
 
     channel_id = str(data.get("channel_id", "")).strip()
     content = str(data.get("content", "")).strip()
     embed_data = data.get("embed")
-    image_data = data.get("image")
     if not channel_id.isdigit():
         raise HTTPException(status_code=400, detail="Выбери текстовый канал Discord.")
 
@@ -506,14 +506,12 @@ async def api_send_message(request: Request):
     attribution = f"-# Отправитель: {sender_mention} · WhiteGrief Control Panel"
     has_embed = isinstance(embed_data, dict) and bool(str(embed_data.get("title", "")).strip() or str(embed_data.get("description", "")).strip())
     if has_embed:
-        # Put the sender mention at the end of the Embed in Discord muted subtext.
         embed_description = str(embed_data.get("description", "")).strip()
         final_description = (embed_description + "\n\n" if embed_description else "") + attribution
         if len(final_description) > 4096:
             raise HTTPException(status_code=400, detail="Описание Embed слишком длинное вместе с подписью отправителя.")
         embed_data = {**embed_data, "description": final_description}
     else:
-        # Without an Embed, keep the attribution as muted subtext in the message body.
         if content and len(content) + len(attribution) + 2 > 2000:
             raise HTTPException(status_code=400, detail="Слишком длинный текст: оставь место для подписи отправителя (лимит Discord — 2000 символов).")
         content = (content + "\n\n" if content else "") + attribution
@@ -535,64 +533,53 @@ async def api_send_message(request: Request):
                     raise ValueError()
             except ValueError:
                 raise HTTPException(status_code=400, detail="Некорректный цвет Embed.")
-            payload["embeds"] = [{
-                "title": title or None,
-                "description": description or None,
-                "color": color,
-            }]
+            payload["embeds"] = [{"title": title or None, "description": description or None, "color": color}]
 
-    if image_data is not None and not isinstance(image_data, dict):
-        raise HTTPException(status_code=400, detail="Некорректное изображение.")
-    image_bytes = None
-    image_name = ""
-    image_mime = ""
-    if image_data:
-        image_mime = str(image_data.get("mime", "")).lower()
-        image_name = str(image_data.get("name", "image")).replace("/", "_").replace("\\", "_")[:100]
-        encoded = str(image_data.get("data", ""))
-        if image_mime not in {"image/png", "image/jpeg", "image/gif", "image/webp"}:
-            raise HTTPException(status_code=400, detail="Поддерживаются только PNG, JPG, GIF и WEBP.")
-        if "," in encoded and encoded.startswith("data:"):
-            encoded = encoded.split(",", 1)[1]
-        try:
-            image_bytes = base64.b64decode(encoded, validate=True)
-        except (binascii.Error, ValueError):
-            raise HTTPException(status_code=400, detail="Не удалось прочитать изображение.")
-        if not image_bytes:
-            raise HTTPException(status_code=400, detail="Выбранный файл пуст.")
-        if len(image_bytes) > 8 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="Изображение должно быть не больше 8 МБ.")
-        if image_mime == "image/png" and not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-            raise HTTPException(status_code=400, detail="Файл не похож на PNG-изображение.")
-        if image_mime == "image/jpeg" and not image_bytes.startswith(b"\xff\xd8\xff"):
-            raise HTTPException(status_code=400, detail="Файл не похож на JPG-изображение.")
-        if image_mime == "image/gif" and not image_bytes.startswith((b"GIF87a", b"GIF89a")):
-            raise HTTPException(status_code=400, detail="Файл не похож на GIF-изображение.")
-        if image_mime == "image/webp" and not (image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP"):
-            raise HTTPException(status_code=400, detail="Файл не похож на WEBP-изображение.")
+    uploads = [item for item in form.getlist("files") if hasattr(item, "read")]
+    if len(uploads) > 10:
+        raise HTTPException(status_code=400, detail="За одно сообщение можно прикрепить не больше 10 файлов.")
+    discord_files = []
+    total_size = 0
+    for upload in uploads:
+        raw_name = str(getattr(upload, "filename", "") or "file").replace("\\", "/").split("/")[-1]
+        filename = raw_name.strip()[:100] or "file"
+        file_bytes = await upload.read()
+        if not file_bytes:
+            continue
+        if len(file_bytes) > 8 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail=f"Файл «{filename}» больше 8 МБ.")
+        total_size += len(file_bytes)
+        if total_size > 25 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Общий размер вложений не должен превышать 25 МБ.")
+        mime = str(getattr(upload, "content_type", "") or "application/octet-stream")[:120]
+        discord_files.append((filename, file_bytes, mime))
 
-    if not content and not payload.get("embeds") and not image_bytes:
-        raise HTTPException(status_code=400, detail="Добавь текст, Embed или изображение.")
+    if not content and not payload.get("embeds") and not discord_files:
+        raise HTTPException(status_code=400, detail="Добавь текст, Embed или хотя бы один файл.")
     channel = await discord_request("GET", f"/channels/{channel_id}")
     if str(channel.get("guild_id", "")) != GUILD_ID or channel.get("type") not in (0, 5):
         raise HTTPException(status_code=400, detail="Можно отправлять только в текстовые каналы WhiteGrief.")
 
-    if image_bytes:
-        if len(payload.get("embeds", [])) and payload["embeds"][0].get("image"):
-            payload["embeds"][0]["image"] = {"url": f"attachment://{image_name}"}
-        async with httpx.AsyncClient(timeout=30) as client:
+    if discord_files:
+        files_payload = {f"files[{index}]": item for index, item in enumerate(discord_files)}
+        async with httpx.AsyncClient(timeout=60) as client:
             response = await client.post(
                 f"{DISCORD_API}/channels/{channel_id}/messages",
                 headers={"Authorization": f"Bot {BOT_TOKEN}"},
                 data={"payload_json": json.dumps(payload, ensure_ascii=False)},
-                files={"files[0]": (image_name, image_bytes, image_mime)},
+                files=files_payload,
             )
         if response.status_code >= 400:
-            raise HTTPException(status_code=502, detail=f"Discord не принял изображение (HTTP {response.status_code}). Проверь размер и права бота.")
+            detail = "Discord не принял вложения (HTTP " + str(response.status_code) + "). Проверь лимит размера и права бота."
+            try:
+                detail += " " + str(response.json().get("message", ""))[:250]
+            except Exception:
+                pass
+            raise HTTPException(status_code=502, detail=detail)
         sent = response.json()
     else:
         sent = await discord_request("POST", f"/channels/{channel_id}/messages", payload=payload)
-    return {"ok": True, "message_id": str(sent.get("id", ""))}
+    return {"ok": True, "message_id": str(sent.get("id", "")), "attachments": len(discord_files)}
 
 SHOP_ITEMS_PANEL = [
     {"name": "PVP", "price": 1000, "type": "kit"}, {"name": "CYBER", "price": 1500, "type": "kit"},
