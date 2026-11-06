@@ -652,6 +652,20 @@ async def api_log_file(request: Request):
     return await bot_api_request("GET", "/api/internal/data/log-file?" + urlencode({"name": name}))
 
 
+@app.get("/api/console")
+async def api_console(request: Request):
+    await require_access(request, "adm")
+    return await bot_api_request("GET", "/api/internal/console")
+
+@app.post("/api/console/action")
+async def api_console_action(request: Request):
+    await require_access(request, "full")
+    payload = await request.json()
+    action = str(payload.get("action", "")).strip()
+    if action not in {"sync_commands", "sync_roles", "refresh_presence"}:
+        raise HTTPException(status_code=400, detail="Неизвестное действие консоли.")
+    return await bot_api_request("POST", "/api/internal/console/action", payload={"action": action})
+
 @app.get("/api/players")
 async def api_players(request: Request):
     await require_access(request, "media")
@@ -848,6 +862,50 @@ async def internal_data_log_file(request: Request):
     except OSError as exc:
         raise HTTPException(status_code=500, detail=f"Не удалось прочитать лог: {exc}")
 
+
+@app.get("/api/internal/console")
+async def internal_console(request: Request):
+    require_bot_data_secret(request)
+    from pathlib import Path
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller:
+        return {"status": {"online": False, "bot_name": "WhiteGrief", "guild_name": "Нет подключения к процессу бота", "guild_count": 0, "latency_ms": None}, "lines": [], "available": False}
+    try:
+        status = await controller["status"]()
+    except Exception as error:
+        raise HTTPException(status_code=503, detail=f"Не удалось получить статус бота: {error}")
+    log_path = Path(os.path.dirname(BASE_DIR)) / "logs" / "latest.log"
+    lines = []
+    available = False
+    if log_path.is_file():
+        try:
+            with log_path.open("r", encoding="utf-8", errors="replace") as stream:
+                lines = [line.rstrip("\r\n") for line in stream.readlines()[-300:]]
+            available = True
+        except OSError:
+            pass
+    return {"status": status, "lines": lines, "available": available, "updated_at": datetime.now(timezone.utc).isoformat()}
+
+@app.post("/api/internal/console/action")
+async def internal_console_action(request: Request):
+    require_bot_data_secret(request)
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller:
+        raise HTTPException(status_code=503, detail="Управление доступно только на хостинге Discord-бота.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+    action = str(payload.get("action", "")).strip()
+    handler = controller.get("actions", {}).get(action)
+    if handler is None:
+        raise HTTPException(status_code=400, detail="Неизвестное действие консоли.")
+    try:
+        result = await handler()
+        return {"ok": True, **(result if isinstance(result, dict) else {"message": "Готово."})}
+    except Exception as error:
+        print(f"❌ [ПАНЕЛЬ] Ошибка действия {action}: {error}", flush=True)
+        raise HTTPException(status_code=500, detail=f"Действие не выполнено: {error}")
 
 @app.get("/api/internal/data/players")
 async def internal_data_players(request: Request):
