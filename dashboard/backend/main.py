@@ -503,18 +503,20 @@ async def api_send_message(request: Request):
     if not sender_id.isdigit():
         raise HTTPException(status_code=400, detail="Не удалось определить Discord ID отправителя. Перезайди в панель.")
     sender_mention = f"<@{sender_id}>"
-    attribution = f"— Отправитель: {sender_mention}\nОтправлено через WhiteGrief Control Panel"
+    attribution = f"-# Отправитель: {sender_mention} · WhiteGrief Control Panel"
     has_embed = isinstance(embed_data, dict) and bool(str(embed_data.get("title", "")).strip() or str(embed_data.get("description", "")).strip())
-    if content and not has_embed and len(content) + len(attribution) + 2 > 2000:
-        raise HTTPException(status_code=400, detail="Слишком длинный текст: оставь место для подписи отправителя (лимит Discord — 2000 символов).")
-    if content and not has_embed:
-        content = content + "\n\n" + attribution
-    elif not has_embed:
-        content = attribution
-    elif has_embed:
-        # Discord embed footers are rendered in small muted text but do not resolve mentions.
-        # Put the real, non-notifying mention in message content.
-        content = (content + "\n\n" if content else "") + sender_mention
+    if has_embed:
+        # Put the sender mention at the end of the Embed in Discord muted subtext.
+        embed_description = str(embed_data.get("description", "")).strip()
+        final_description = (embed_description + "\n\n" if embed_description else "") + attribution
+        if len(final_description) > 4096:
+            raise HTTPException(status_code=400, detail="Описание Embed слишком длинное вместе с подписью отправителя.")
+        embed_data = {**embed_data, "description": final_description}
+    else:
+        # Without an Embed, keep the attribution as muted subtext in the message body.
+        if content and len(content) + len(attribution) + 2 > 2000:
+            raise HTTPException(status_code=400, detail="Слишком длинный текст: оставь место для подписи отправителя (лимит Discord — 2000 символов).")
+        content = (content + "\n\n" if content else "") + attribution
 
     payload: dict[str, Any] = {"allowed_mentions": {"parse": []}}
     if content:
@@ -537,7 +539,6 @@ async def api_send_message(request: Request):
                 "title": title or None,
                 "description": description or None,
                 "color": color,
-                "footer": {"text": "Отправлено через WhiteGrief Control Panel"},
             }]
 
     if image_data is not None and not isinstance(image_data, dict):
