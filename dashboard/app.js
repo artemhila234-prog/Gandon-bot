@@ -375,9 +375,13 @@ async function loadMessages(section){
           <label class="messages-label">Канал Discord
             <select id="messageChannel" class="messages-control"></select>
           </label>
-          <label class="messages-label">Текст сообщения <span>необязательно, до 2000 символов</span>
-            <textarea id="messageContent" class="messages-control" rows="4" maxlength="2000" placeholder="Напиши сообщение от имени WhiteGrief…"></textarea>
+          <label class="messages-label">Текст сообщения <span>необязательно; подпись отправителя добавится автоматически</span>
+            <textarea id="messageContent" class="messages-control" rows="4" maxlength="1750" placeholder="Напиши сообщение от имени WhiteGrief…"></textarea>
           </label>
+          <label class="messages-label">Изображение <span>PNG, JPG, GIF или WEBP · до 8 МБ</span>
+            <input id="messageImage" class="messages-control messages-file-input" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
+          </label>
+          <div id="messageImagePreview" class="messages-image-preview" hidden><img id="messageImagePreviewImg" alt="Предпросмотр изображения"><button id="removeMessageImage" type="button">Убрать изображение</button></div>
           <div class="messages-section-caption">EMBED-ПАНЕЛЬ <span>необязательно</span></div>
           <label class="messages-label">Заголовок Embed
             <input id="embedTitle" class="messages-control" maxlength="256" placeholder="Например: WHITEGRIEF • ОБЪЯВЛЕНИЕ">
@@ -390,13 +394,13 @@ async function loadMessages(section){
           </label>
           <div class="messages-form-footer"><span id="messageStatus" class="messages-status">Отправка доступна уровням Adm и Full.</span><button id="sendDiscordMessage" class="messages-send-button" type="button">Отправить в Discord</button></div>
         </div>
-        <aside class="messages-preview-wrap"><div class="messages-preview-heading">ПРЕДПРОСМОТР</div><div class="messages-preview-meta"><span class="messages-meta-item"><small>ОТПРАВИТЕЛЬ</small><strong>WhiteGrief <em>BOT</em></strong></span><span class="messages-meta-arrow">→</span><span class="messages-meta-item"><small>КАНАЛ ПОЛУЧАТЕЛЬ</small><strong id="messagePreviewChannel">#общий-чат</strong></span></div><div class="discord-preview"><div class="discord-preview-avatar">W</div><div class="discord-preview-body"><strong>WhiteGrief <small>БОТ</small></strong><p id="messagePreviewContent" class="discord-preview-content">Текст сообщения появится здесь.</p><div id="embedPreview" class="discord-embed-preview" hidden><div id="embedPreviewTitle" class="discord-embed-title"></div><div id="embedPreviewDescription" class="discord-embed-description"></div></div></div></div><p class="messages-preview-note">Предпросмотр приблизительный. Итоговый вид зависит от клиента Discord.</p></aside>
+        <aside class="messages-preview-wrap"><div class="messages-preview-heading">ПРЕДПРОСМОТР</div><div class="messages-preview-meta"><span class="messages-meta-item"><small>ОТПРАВИТЕЛЬ ПАНЕЛИ</small><strong id="messagePreviewSender">Администратор</strong></span><span class="messages-meta-arrow">→</span><span class="messages-meta-item"><small>КАНАЛ ПОЛУЧАТЕЛЬ</small><strong id="messagePreviewChannel">общий-чат</strong></span></div><div class="discord-preview"><div class="discord-preview-avatar">W</div><div class="discord-preview-body"><strong>WhiteGrief <small>БОТ</small></strong><p id="messagePreviewContent" class="discord-preview-content">Текст сообщения появится здесь.</p><div id="embedPreview" class="discord-embed-preview" hidden><div id="embedPreviewTitle" class="discord-embed-title"></div><div id="embedPreviewDescription" class="discord-embed-description"></div></div></div><div id="messagePreviewImageWrap" class="discord-image-preview" hidden><img id="messagePreviewImage" alt="Изображение к сообщению"></div><div id="messagePreviewAttribution" class="discord-attribution-preview">— Отправитель: Администратор<br>Отправлено через WhiteGrief Control Panel</div></div><p class="messages-preview-note">Внизу сообщения автоматически появится подпись отправителя.</p></aside>
       </div>`;
     const channelSelect=root.querySelector("#messageChannel");
     channels.forEach(ch=>{
-      const option=document.createElement("option");option.value=ch.id;option.textContent=(ch.parent_name?ch.parent_name+" / ":"")+"#"+ch.name;channelSelect.append(option);
+      const option=document.createElement("option");option.value=ch.id;option.textContent=(ch.parent_name?ch.parent_name+" / ":"")+ch.name;channelSelect.append(option);
     });
-    const content=root.querySelector("#messageContent"),title=root.querySelector("#embedTitle"),description=root.querySelector("#embedDescription"),color=root.querySelector("#embedColor");
+    const content=root.querySelector("#messageContent"),title=root.querySelector("#embedTitle"),description=root.querySelector("#embedDescription"),color=root.querySelector("#embedColor"),imageInput=root.querySelector("#messageImage"),imagePreview=root.querySelector("#messageImagePreview"),imagePreviewImg=root.querySelector("#messageImagePreviewImg"),previewImageWrap=root.querySelector("#messagePreviewImageWrap"),previewImage=root.querySelector("#messagePreviewImage"),previewSender=root.querySelector("#messagePreviewSender"),attributionPreview=root.querySelector("#messagePreviewAttribution");
     const previewContent=root.querySelector("#messagePreviewContent"),preview=root.querySelector("#embedPreview"),previewTitle=root.querySelector("#embedPreviewTitle"),previewDescription=root.querySelector("#embedPreviewDescription"),previewChannel=root.querySelector("#messagePreviewChannel"),status=root.querySelector("#messageStatus"),send=root.querySelector("#sendDiscordMessage"),colorText=root.querySelector("#embedColorText");
     const updatePreview=()=>{
       previewContent.textContent=content.value.trim()||"Текст сообщения появится здесь.";
@@ -407,22 +411,29 @@ async function loadMessages(section){
       preview.style.boxShadow=`inset 0 0 0 1px color-mix(in srgb, ${color.value} 22%, transparent), 0 5px 15px #0002`;
       colorText.textContent=color.value.toUpperCase();
       const selected=channelSelect.options[channelSelect.selectedIndex];
-      previewChannel.textContent=selected?"#"+selected.textContent.split(" / ").pop():"#канал";
+      previewChannel.textContent=selected?selected.textContent.split(" / ").pop():"канал";
+      const senderLabel=data.sender?.username||"Администратор";
+      previewSender.textContent=senderLabel;
+      attributionPreview.innerHTML="— Отправитель: "+senderLabel.replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]))+"<br>Отправлено через WhiteGrief Control Panel";
     };
     [content,title,description,color].forEach(el=>el.addEventListener("input",updatePreview));
     channelSelect.addEventListener("change",updatePreview);
+    imageInput.addEventListener("change",()=>{const file=imageInput.files?.[0];if(!file){imagePreview.hidden=true;previewImageWrap.hidden=true;return;}const url=URL.createObjectURL(file);imagePreviewImg.src=url;previewImage.src=url;imagePreview.hidden=false;previewImageWrap.hidden=false;});
+    root.querySelector("#removeMessageImage").addEventListener("click",()=>{imageInput.value="";imagePreview.hidden=true;previewImageWrap.hidden=true;});
     updatePreview();
     send.addEventListener("click",async()=>{
-      const body=content.value.trim(),embedTitle=title.value.trim(),embedDescription=description.value.trim();
-      if(!body&&!embedTitle&&!embedDescription){status.textContent="Добавь текст сообщения или Embed.";status.className="messages-status error";return;}
+      const body=content.value.trim(),embedTitle=title.value.trim(),embedDescription=description.value.trim(),file=imageInput.files?.[0]||null;
+      if(!body&&!embedTitle&&!embedDescription&&!file){status.textContent="Добавь текст, Embed или изображение.";status.className="messages-status error";return;}
+      if(file&&file.size>8*1024*1024){status.textContent="Изображение должно быть не больше 8 МБ.";status.className="messages-status error";return;}
       send.disabled=true;send.textContent="Отправляем…";status.textContent="Связываемся с Discord…";status.className="messages-status";
       try{
-        const response=await fetch("/api/messages/send",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel_id:channelSelect.value,content:body,embed:embedTitle||embedDescription?{title:embedTitle,description:embedDescription,color:color.value}:null})});
+        let image=null;if(file){const dataUrl=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error("Не удалось прочитать изображение."));reader.readAsDataURL(file);});image={name:file.name,mime:file.type,data:dataUrl};}
+        const response=await fetch("/api/messages/send",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel_id:channelSelect.value,content:body,embed:embedTitle||embedDescription?{title:embedTitle,description:embedDescription,color:color.value}:null,image})});
         const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ (HTTP "+response.status+").");}
         if(!response.ok)throw new Error(result.detail||"Не удалось отправить сообщение.");
         status.textContent="✓ Сообщение отправлено в #"+(channels.find(c=>c.id===channelSelect.value)?.name||"Discord");status.className="messages-status success";
         if(typeof showToast==="function")showToast("Сообщение успешно отправлено в Discord.");
-        content.value="";updatePreview();
+        content.value="";imageInput.value="";imagePreview.hidden=true;previewImageWrap.hidden=true;updatePreview();
       }catch(error){status.textContent=error.message;status.className="messages-status error";}
       finally{send.disabled=false;send.textContent="Отправить в Discord";}
     });
