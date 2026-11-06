@@ -2039,7 +2039,6 @@ async def panel_console_status():
         "guild_name": guild.name if guild else "Сервер не найден",
         "guild_count": len(bot.guilds),
         "latency_ms": round(bot.latency * 1000) if bot.is_ready() else None,
-        "started_at": datetime.now(MSK).strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 async def panel_sync_commands():
