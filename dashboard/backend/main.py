@@ -777,6 +777,7 @@ async def internal_data_logs(request: Request):
 async def internal_data_log_files(request: Request):
     require_bot_data_secret(request)
     from pathlib import Path
+    from datetime import datetime
     logs_dir = Path(os.path.dirname(BASE_DIR)) / "logs"
     if not logs_dir.is_dir():
         return {"available": False, "files": []}
@@ -798,6 +799,7 @@ async def internal_data_log_files(request: Request):
 async def internal_data_log_file(request: Request):
     require_bot_data_secret(request)
     from pathlib import Path
+    from datetime import datetime
     filename = (request.query_params.get("name") or "").strip()
     if not filename or Path(filename).name != filename or not filename.lower().endswith(".log"):
         raise HTTPException(status_code=400, detail="Некорректное имя файла.")
