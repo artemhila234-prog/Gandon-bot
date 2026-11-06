@@ -659,7 +659,9 @@ async def api_console(request: Request):
 
 @app.post("/api/console/action")
 async def api_console_action(request: Request):
-    await require_access(request, "full")
+    # Adm может выполнять только заранее определённые действия, включая рестарт.
+    # Произвольный ввод команд ниже остаётся доступен исключительно Full.
+    await require_access(request, "adm")
     payload = await request.json()
     action = str(payload.get("action", "")).strip()
     if action not in {"sync_commands", "sync_roles", "refresh_presence", "restart"}:
