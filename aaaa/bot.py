@@ -4,7 +4,6 @@ import asyncio
 import aiohttp
 import sys
 import threading
-import shlex
 from collections import deque
 import uvicorn
 from discord import app_commands
@@ -2115,10 +2114,7 @@ async def panel_console_command(command: str):
     except FileNotFoundError:
         raise RuntimeError("Командная оболочка недоступна в окружении хостинга.")
     output = output_bytes.decode("utf-8", errors="replace").rstrip()
-    if output:
-        for line in output.splitlines():
-            push_console_output(line)
-    else:
+    if not output:
         output = "Команда выполнена без вывода." if process.returncode == 0 else "Команда завершилась с ошибкой."
     return {
         "command": raw,
