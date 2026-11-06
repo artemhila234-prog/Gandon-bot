@@ -713,7 +713,7 @@ async def internal_data_logs(request: Request):
         reverse=True,
     )
     entries = []
-    timestamp_pattern = re.compile(r"^\\[(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})\\]\\s*(.*)$")
+    timestamp_pattern = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]\s*(.*)$")
     for file_path in files:
         try:
             with file_path.open("r", encoding="utf-8", errors="replace") as log_file:
