@@ -687,6 +687,78 @@ def require_bot_data_secret(request: Request) -> None:
         raise HTTPException(status_code=403, detail="Недействительный ключ доступа к данным бота.")
 
 
+@app.get("/api/internal/data/logs")
+async def internal_data_logs(request: Request):
+    require_bot_data_secret(request)
+    from pathlib import Path
+    from datetime import datetime
+    import re
+
+    kind = (request.query_params.get("kind") or "system").lower()
+    level_filter = (request.query_params.get("level") or "all").upper()
+    query = (request.query_params.get("q") or "").strip().casefold()[:200]
+    try:
+        limit = max(1, min(500, int(request.query_params.get("limit", "250"))))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Некорректный лимит логов.")
+    if kind not in {"system", "audit"}:
+        raise HTTPException(status_code=400, detail="Неизвестный тип журнала.")
+    logs_dir = Path(os.path.dirname(BASE_DIR)) / "logs"
+    if not logs_dir.is_dir():
+        return {"entries": [], "count": 0, "available": False, "files": []}
+
+    files = sorted(
+        [path for path in logs_dir.glob("*.log") if path.is_file()],
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    entries = []
+    timestamp_pattern = re.compile(r"^\\[(\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2})\\]\\s*(.*)$")
+    for file_path in files:
+        try:
+            with file_path.open("r", encoding="utf-8", errors="replace") as log_file:
+                for line_number, raw_line in enumerate(log_file, 1):
+                    line = raw_line.rstrip("\\r\\n")
+                    if not line.strip():
+                        continue
+                    match = timestamp_pattern.match(line)
+                    timestamp = match.group(1) if match else ""
+                    message = match.group(2) if match else line
+                    is_audit = "[AUDIT]" in message.upper()
+                    if (kind == "audit") != is_audit:
+                        continue
+                    upper = message.upper()
+                    if "ERROR" in upper or "TRACEBACK" in upper or "EXCEPTION" in upper or "ОШИБКА" in upper:
+                        level = "ERROR"
+                    elif "WARNING" in upper or "WARN" in upper or "ПРЕДУПРЕЖД" in upper:
+                        level = "WARNING"
+                    elif is_audit:
+                        level = "AUDIT"
+                    else:
+                        level = "INFO"
+                    if level_filter != "ALL" and level != level_filter:
+                        continue
+                    if query and query not in message.casefold() and query not in file_path.name.casefold():
+                        continue
+                    entries.append({
+                        "timestamp": timestamp,
+                        "level": level,
+                        "message": message[:4000],
+                        "file": file_path.name,
+                        "line": line_number,
+                    })
+        except OSError:
+            continue
+    entries.sort(key=lambda item: item["timestamp"], reverse=True)
+    return {
+        "entries": entries[:limit],
+        "count": min(len(entries), limit),
+        "total": len(entries),
+        "available": True,
+        "files": [path.name for path in files[:30]],
+    }
+
+
 @app.get("/api/internal/data/players")
 async def internal_data_players(request: Request):
     require_bot_data_secret(request)
