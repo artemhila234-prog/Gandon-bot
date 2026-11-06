@@ -574,3 +574,8 @@ html,body,button,input,textarea,select{font-family:'Inter',Arial,sans-serif}
 .messages-attachment-info small{color:#8e899f;font-size:9px}
 .messages-attachment-remove{border:0;background:transparent;color:#a9a1b9;font-size:19px;cursor:pointer}
 .messages-attachment-remove:hover{color:#ff8290}
+
+/* Make the opened log viewer use the full width of the logs area */
+.logs-file-grid.log-viewer-mode{display:block;width:100%;max-width:none;max-height:none;overflow:visible;padding:0}
+.logs-file-grid.log-viewer-mode>.log-viewer{display:flex;width:100%;max-width:none;min-width:0}
+.logs-file-grid.log-viewer-mode .log-file-content{display:block;width:100%;box-sizing:border-box;min-height:420px;max-height:calc(100vh - 300px)}
