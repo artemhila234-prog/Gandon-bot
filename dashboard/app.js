@@ -149,7 +149,7 @@ async function loadLogs(section){
 }
 async function openLogFile(section,filename){
   const result=section.querySelector("#logsResult"),summary=section.querySelector("#logsSummary");
-  result.innerHTML='<div class="empty-state">Открываем '+escapeHtml(filename)+'…</div>';
+  result.replaceChildren();const loading=document.createElement("div");loading.className="empty-state";loading.textContent="Открываем "+filename+"…";result.append(loading);
   try{
     const response=await fetch("/api/log-file?name="+encodeURIComponent(filename),{credentials:"same-origin"});
     const data=await response.json();
