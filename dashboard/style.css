@@ -636,3 +636,6 @@ html,body,button,input,textarea,select{font-family:'Inter',Arial,sans-serif}
 #consoleRestartModal .action-modal-confirm{border:1px solid #c6536b;background:linear-gradient(135deg,#a93650,#74263d);color:#fff0f3;box-shadow:0 4px 14px #c43c5a26}
 #consoleRestartModal .action-modal-confirm:hover{border-color:#ed8295;background:linear-gradient(135deg,#c04460,#8d2d47);box-shadow:0 6px 18px #c43c5a40}
 #consoleRestartModal .action-modal-confirm:disabled{opacity:.55;cursor:wait}
+
+
+.console-output-live{color:#aeb7c9;white-space:pre-wrap;overflow-wrap:anywhere}
