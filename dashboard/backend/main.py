@@ -657,6 +657,18 @@ async def api_console(request: Request):
     await require_access(request, "adm")
     return await bot_api_request("GET", "/api/internal/console")
 
+
+@app.get("/api/console/output")
+async def api_console_output(request: Request):
+    await require_access(request, "adm")
+    from urllib.parse import urlencode
+    try:
+        after_id = max(0, int(request.query_params.get("after_id", "0")))
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Некорректный курсор консоли.")
+    return await bot_api_request("GET", "/api/internal/console/output?" + urlencode({"after_id": after_id}))
+
+
 @app.post("/api/console/action")
 async def api_console_action(request: Request):
     # Adm может выполнять только заранее определённые действия, включая рестарт.
@@ -673,9 +685,9 @@ async def api_console_action(request: Request):
 async def api_console_command(request: Request):
     await require_access(request, "full")
     payload = await request.json()
-    command = str(payload.get("command", "")).strip()
-    if not command or len(command) > 300:
-        raise HTTPException(status_code=400, detail="Введи команду длиной до 300 символов.")
+    command = str(payload.get("command", ""))
+    if not command.strip() or len(command) > 2000:
+        raise HTTPException(status_code=400, detail="Введи команду длиной до 2000 символов.")
     return await bot_api_request("POST", "/api/internal/console/command", payload={"command": command})
 
 @app.get("/api/players")
@@ -887,6 +899,20 @@ async def internal_console(request: Request):
         raise HTTPException(status_code=503, detail=f"Не удалось получить статус бота: {error}")
     return {"status": status, "available": True, "updated_at": datetime.now(timezone.utc).isoformat()}
 
+
+@app.get("/api/internal/console/output")
+async def internal_console_output(request: Request):
+    require_bot_data_secret(request)
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller or not controller.get("output"):
+        raise HTTPException(status_code=503, detail="Буфер вывода консоли не подключён.")
+    try:
+        after_id = max(0, int(request.query_params.get("after_id", "0")))
+        return await controller["output"](after_id=after_id, limit=500)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Некорректный курсор консоли.")
+
+
 @app.post("/api/internal/console/action")
 async def internal_console_action(request: Request):
     require_bot_data_secret(request)
@@ -918,7 +944,7 @@ async def internal_console_command(request: Request):
         payload = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Некорректный запрос.")
-    command = str(payload.get("command", "")).strip()
+    command = str(payload.get("command", ""))
     try:
         return await controller["command"](command)
     except Exception as error:
