@@ -629,6 +629,20 @@ async def api_logs(request: Request):
     return await bot_api_request("GET", f"/api/internal/data/logs?{params}")
 
 
+@app.get("/api/log-files")
+async def api_log_files(request: Request):
+    await require_access(request, "adm")
+    return await bot_api_request("GET", "/api/internal/data/log-files")
+
+
+@app.get("/api/log-file")
+async def api_log_file(request: Request):
+    await require_access(request, "adm")
+    from urllib.parse import urlencode
+    name = (request.query_params.get("name") or "").strip()
+    return await bot_api_request("GET", "/api/internal/data/log-file?" + urlencode({"name": name}))
+
+
 @app.get("/api/players")
 async def api_players(request: Request):
     await require_access(request, "media")
