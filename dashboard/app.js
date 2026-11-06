@@ -25,6 +25,9 @@ function showPage(page){
     } else if(page==="shop"){
       section.innerHTML='<div class="panel-heading"><div><h2>Магазин</h2><p>Каталог, доступный в API · только просмотр</p></div><button class="text-button" id="refreshShop">Обновить</button></div><div id="shopResult" class="empty-state">Загрузка каталога…</div>';
       loadShop(section);
+    } else if(page==="messages"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Сообщения Discord</h2><p>Отправка обычных сообщений и Embed от имени WhiteGrief</p></div><button class="text-button" id="refreshMessageChannels">Обновить каналы</button></div><div id="messagesResult" class="messages-workspace"><div class="empty-state">Загружаем каналы Discord…</div></div>';
+      loadMessages(section);
     }
     content.appendChild(section);
   }else{
@@ -354,4 +357,69 @@ function showShopDetails(item,icon,category){
   const done=document.createElement("button");done.className="shop-buy-button";done.type="button";done.textContent="Понятно";
   const dismiss=()=>modal.remove();close.addEventListener("click",dismiss);done.addEventListener("click",dismiss);modal.addEventListener("click",e=>{if(e.target===modal)dismiss();});
   dialog.append(close,symbol,tag,title,price,note,done);modal.append(dialog);document.body.append(modal);done.focus();
+}
+
+
+async function loadMessages(section){
+  const root=section.querySelector("#messagesResult");
+  const refresh=section.querySelector("#refreshMessageChannels");
+  if(!root)return;
+  root.innerHTML='<div class="empty-state">Загружаем текстовые каналы…</div>';
+  try{
+    const data=await apiGet("/api/messages/channels");
+    const channels=data.channels||[];
+    if(!channels.length){root.innerHTML='<div class="empty-state"><strong>Нет доступных каналов</strong><p>Бот не видит текстовые каналы сервера или у него нет прав на просмотр каналов.</p></div>';return;}
+    root.innerHTML=`
+      <div class="messages-compose">
+        <div class="messages-form">
+          <label class="messages-label">Канал Discord
+            <select id="messageChannel" class="messages-control"></select>
+          </label>
+          <label class="messages-label">Текст сообщения <span>необязательно, до 2000 символов</span>
+            <textarea id="messageContent" class="messages-control" rows="4" maxlength="2000" placeholder="Напиши сообщение от имени WhiteGrief…"></textarea>
+          </label>
+          <div class="messages-section-caption">EMBED-ПАНЕЛЬ <span>необязательно</span></div>
+          <label class="messages-label">Заголовок Embed
+            <input id="embedTitle" class="messages-control" maxlength="256" placeholder="Например: WHITEGRIEF • ОБЪЯВЛЕНИЕ">
+          </label>
+          <label class="messages-label">Описание Embed
+            <textarea id="embedDescription" class="messages-control" rows="5" maxlength="4096" placeholder="Текст внутри Embed…"></textarea>
+          </label>
+          <label class="messages-label">Цвет Embed
+            <div class="messages-color-row"><input id="embedColor" type="color" value="#8b6bd6"><code id="embedColorText">#8B6BD6</code></div>
+          </label>
+          <div class="messages-form-footer"><span id="messageStatus" class="messages-status">Отправка доступна уровням Adm и Full.</span><button id="sendDiscordMessage" class="messages-send-button" type="button">Отправить в Discord</button></div>
+        </div>
+        <aside class="messages-preview-wrap"><div class="messages-preview-heading">ПРЕДПРОСМОТР</div><div class="discord-preview"><div class="discord-preview-avatar">W</div><div class="discord-preview-body"><strong>WhiteGrief <small>БОТ</small></strong><p id="messagePreviewContent" class="discord-preview-content">Текст сообщения появится здесь.</p><div id="embedPreview" class="discord-embed-preview" hidden><div id="embedPreviewTitle" class="discord-embed-title"></div><div id="embedPreviewDescription" class="discord-embed-description"></div></div></div></div><p class="messages-preview-note">Предпросмотр приблизительный. Итоговый вид зависит от клиента Discord.</p></aside>
+      </div>`;
+    const channelSelect=root.querySelector("#messageChannel");
+    channels.forEach(ch=>{
+      const option=document.createElement("option");option.value=ch.id;option.textContent=(ch.parent_name?ch.parent_name+" / ":"")+"#"+ch.name;channelSelect.append(option);
+    });
+    const content=root.querySelector("#messageContent"),title=root.querySelector("#embedTitle"),description=root.querySelector("#embedDescription"),color=root.querySelector("#embedColor");
+    const previewContent=root.querySelector("#messagePreviewContent"),preview=root.querySelector("#embedPreview"),previewTitle=root.querySelector("#embedPreviewTitle"),previewDescription=root.querySelector("#embedPreviewDescription"),status=root.querySelector("#messageStatus"),send=root.querySelector("#sendDiscordMessage"),colorText=root.querySelector("#embedColorText");
+    const updatePreview=()=>{
+      previewContent.textContent=content.value.trim()||"Текст сообщения появится здесь.";
+      const hasEmbed=title.value.trim()||description.value.trim();
+      preview.hidden=!hasEmbed;previewTitle.textContent=title.value;previewDescription.textContent=description.value;
+      preview.style.borderLeftColor=color.value;colorText.textContent=color.value.toUpperCase();
+    };
+    [content,title,description,color].forEach(el=>el.addEventListener("input",updatePreview));
+    updatePreview();
+    send.addEventListener("click",async()=>{
+      const body=content.value.trim(),embedTitle=title.value.trim(),embedDescription=description.value.trim();
+      if(!body&&!embedTitle&&!embedDescription){status.textContent="Добавь текст сообщения или Embed.";status.className="messages-status error";return;}
+      send.disabled=true;send.textContent="Отправляем…";status.textContent="Связываемся с Discord…";status.className="messages-status";
+      try{
+        const response=await fetch("/api/messages/send",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel_id:channelSelect.value,content:body,embed:embedTitle||embedDescription?{title:embedTitle,description:embedDescription,color:color.value}:null})});
+        const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ (HTTP "+response.status+").");}
+        if(!response.ok)throw new Error(result.detail||"Не удалось отправить сообщение.");
+        status.textContent="✓ Сообщение отправлено в #"+(channels.find(c=>c.id===channelSelect.value)?.name||"Discord");status.className="messages-status success";
+        if(typeof showToast==="function")showToast("Сообщение успешно отправлено в Discord.");
+        content.value="";updatePreview();
+      }catch(error){status.textContent=error.message;status.className="messages-status error";}
+      finally{send.disabled=false;send.textContent="Отправить в Discord";}
+    });
+  }catch(error){root.innerHTML="";const box=document.createElement("div");box.className="empty-state";const title=document.createElement("strong");title.textContent="Не удалось загрузить каналы";const detail=document.createElement("p");detail.textContent=error.message;box.append(title,detail);root.append(box);}
+  refresh?.addEventListener("click",()=>loadMessages(section));
 }
