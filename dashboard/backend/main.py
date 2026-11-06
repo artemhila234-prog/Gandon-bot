@@ -773,6 +773,57 @@ async def internal_data_logs(request: Request):
     }
 
 
+@app.get("/api/internal/data/log-files")
+async def internal_data_log_files(request: Request):
+    require_bot_data_secret(request)
+    from pathlib import Path
+    logs_dir = Path(os.path.dirname(BASE_DIR)) / "logs"
+    if not logs_dir.is_dir():
+        return {"available": False, "files": []}
+    files = []
+    for path in sorted((p for p in logs_dir.iterdir() if p.is_file() and p.suffix.lower() == ".log"), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            stat = path.stat()
+            files.append({
+                "name": path.name,
+                "size": stat.st_size,
+                "modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+            })
+        except OSError:
+            continue
+    return {"available": True, "directory": "logs/", "files": files}
+
+
+@app.get("/api/internal/data/log-file")
+async def internal_data_log_file(request: Request):
+    require_bot_data_secret(request)
+    from pathlib import Path
+    filename = (request.query_params.get("name") or "").strip()
+    if not filename or Path(filename).name != filename or not filename.lower().endswith(".log"):
+        raise HTTPException(status_code=400, detail="Некорректное имя файла.")
+    logs_dir = Path(os.path.dirname(BASE_DIR)) / "logs"
+    path = logs_dir / filename
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Файл лога не найден.")
+    try:
+        with path.open("r", encoding="utf-8", errors="replace") as log_file:
+            lines = log_file.readlines()
+        max_lines = 5000
+        truncated = len(lines) > max_lines
+        selected = lines[-max_lines:]
+        return {
+            "name": path.name,
+            "lines": [line.rstrip("\\r\\n") for line in selected],
+            "total_lines": len(lines),
+            "shown_lines": len(selected),
+            "truncated": truncated,
+            "size": path.stat().st_size,
+            "modified": datetime.fromtimestamp(path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+        }
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Не удалось прочитать лог: {exc}")
+
+
 @app.get("/api/internal/data/players")
 async def internal_data_players(request: Request):
     require_bot_data_secret(request)
