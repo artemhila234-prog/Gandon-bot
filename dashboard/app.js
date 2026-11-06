@@ -431,7 +431,7 @@ async function loadMessages(section){
         const response=await fetch("/api/messages/send",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({channel_id:channelSelect.value,content:body,embed:embedTitle||embedDescription?{title:embedTitle,description:embedDescription,color:color.value}:null,image})});
         const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ (HTTP "+response.status+").");}
         if(!response.ok)throw new Error(result.detail||"Не удалось отправить сообщение.");
-        status.textContent="✓ Сообщение отправлено в #"+(channels.find(c=>c.id===channelSelect.value)?.name||"Discord");status.className="messages-status success";
+        status.textContent="✓ Сообщение отправлено в "+(channels.find(c=>c.id===channelSelect.value)?.name||"Discord");status.className="messages-status success";
         if(typeof showToast==="function")showToast("Сообщение успешно отправлено в Discord.");
         content.value="";imageInput.value="";imagePreview.hidden=true;previewImageWrap.hidden=true;updatePreview();
       }catch(error){status.textContent=error.message;status.className="messages-status error";}
