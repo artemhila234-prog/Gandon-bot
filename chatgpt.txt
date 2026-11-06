@@ -534,3 +534,11 @@ D. Важное ограничение API
 - dashboard/style.css: добавлены стили ленты входящих сообщений.
 - Commits: backend e6f2a813ad429ab9c60b853e6fbb731efbba162c; app.js bc5ca0f37b09f90a12cdae548323717530237944; style.css 5898ab473663687c110f5859cad78802843859b6; index.html 35e45bc3b61be725855c640ed346c4bbd035e3aa (asset cache `inbox1`).
 - Требуется обновить на втором Dashboard-хостинге четыре файла: dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html; перезапустить Dashboard, Ctrl+F5, выбрать канал с сообщениями игроков. Реальная работа Discord API и прав бота ещё не проверена в хостинге.
+
+50. ДИЗАЙН ВХОДЯЩИХ СООБЩЕНИЙ: АВАТАРЫ, REPLY И FORWARD (2026-11-06)
+- Пользователь попросил сделать ленту входящих сообщений похожей на Discord: добавить иконку/аватар автора и показывать контекст ответов/пересылок.
+- dashboard/backend/main.py: history endpoint теперь возвращает avatar URL, объект `reply` из Discord `referenced_message`, а также `forwarded` из `message_snapshots`; для пересылок пытается сопоставить channel_id с названием канала гильдии.
+- dashboard/app.js: отрисовывает круглый аватар с fallback-буквой, имя и метку канала, дату, reply-плашку «Ответ на [автор] — [фрагмент]», forward-плашку «Переслано из #канал · автор — фрагмент», текст, изображения/вложения и Embed. Все текстовые поля создаются через textContent.
+- dashboard/style.css: обновлены карточки входящих сообщений, аватары, hover и отдельные стили reply/forward.
+- Commits: backend 068cbd60ce292199095b09c8259cc1cae43b43bb; app.js 1dd5f264c9fe6793186c60d933ea881b77155a05; style.css 0a4a42ed737c3f57b46c43685134afa5154cda7c; index.html 9020d38d9f6f91ea02935c85eca3f7aca8c95476 (asset cache `inbox2`).
+- Требуется обновить на втором хостинге dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html; перезапустить Dashboard и Ctrl+F5. Проверить обычное сообщение, reply и forwarded message в Discord. Discord API может не вернуть referenced_message для удалённого/недоступного сообщения; в таком случае reply-плашка отсутствует.
