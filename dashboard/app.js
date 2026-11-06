@@ -136,10 +136,42 @@ async function loadConsole(section){
       const cancel=document.createElement("button");cancel.type="button";cancel.className="action-modal-cancel";cancel.textContent="Отмена";
       const confirm=document.createElement("button");confirm.type="button";confirm.className="action-modal-confirm";confirm.textContent="Да, перезапустить";
       const dismiss=()=>modal.remove();close.addEventListener("click",dismiss);cancel.addEventListener("click",dismiss);modal.addEventListener("click",event=>{if(event.target===modal)dismiss();});
+      const waitForRestart=async()=>{
+        let sawDisconnect=false;
+        const deadline=Date.now()+45000;
+        while(Date.now()<deadline){
+          await new Promise(resolve=>setTimeout(resolve,1500));
+          try{
+            const check=await fetch("/api/console",{credentials:"same-origin",cache:"no-store"});
+            if(!check.ok){sawDisconnect=true;continue;}
+            const state=await check.json();
+            const online=Boolean(state.status&&state.status.online);
+            if(!online){sawDisconnect=true;continue;}
+            if(sawDisconnect)return true;
+          }catch(_error){sawDisconnect=true;}
+        }
+        return false;
+      };
       confirm.addEventListener("click",async()=>{
-        confirm.disabled=true;cancel.disabled=true;close.disabled=true;confirm.textContent="Отправка запроса…";restart.disabled=true;restart.textContent="Перезапуск…";
-        try{const response=await fetch("/api/console/action",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"restart"})});const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось перезапустить бота.");note.textContent=result.message||"Запрос на перезапуск принят.";note.classList.remove("error");confirm.textContent="Запрос принят";append(output,result.message||"Перезапуск запрошен.","system");setTimeout(dismiss,1800);}
-        catch(error){note.textContent=error.message||"Не удалось перезапустить бота.";note.classList.add("error");confirm.disabled=false;cancel.disabled=false;close.disabled=false;confirm.textContent="Повторить";restart.disabled=false;restart.textContent="↻ Перезапустить бота";append(output,"Ошибка: "+(error.message||"Перезапуск не выполнен."),"error");}
+        confirm.disabled=true;cancel.disabled=true;close.disabled=true;confirm.textContent="Отправка…";restart.disabled=true;restart.textContent="Перезапуск…";
+        try{
+          const response=await fetch("/api/console/action",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"restart"})});
+          const result=await response.json();
+          if(!response.ok)throw new Error(result.detail||"Не удалось отправить команду перезапуска.");
+          note.textContent="Команда принята. Проверяем отключение и повторное подключение бота…";
+          note.classList.remove("error");confirm.textContent="Ожидание…";
+          append(output,"Команда перезапуска отправлена. Ожидаем переподключения…","system");
+          const restarted=await waitForRestart();
+          if(!restarted)throw new Error("За 45 секунд не удалось подтвердить перезапуск. Проверь консоль первого хостинга: там должна появиться запись «Выполняю os.execv…» или ошибка перезапуска.");
+          note.textContent="Бот отключился и успешно подключился заново. Перезапуск подтверждён.";
+          confirm.textContent="Перезапуск подтверждён";append(output,"Бот снова в сети. Перезапуск подтверждён.","success");
+          setTimeout(dismiss,2200);
+        }catch(error){
+          note.textContent=error.message||"Не удалось подтвердить перезапуск.";
+          note.classList.add("error");confirm.disabled=false;cancel.disabled=false;close.disabled=false;
+          confirm.textContent="Повторить";restart.disabled=false;restart.textContent="↻ Перезапустить бота";
+          append(output,"Ошибка: "+(error.message||"Перезапуск не подтверждён."),"error");
+        }
       });
       footer.append(cancel,confirm);dialog.append(close,icon,eyebrow,title,description,note,footer);modal.append(dialog);document.body.append(modal);confirm.focus();
     });restartRow.append(restartHint,restart);
