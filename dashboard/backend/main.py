@@ -829,7 +829,7 @@ async def internal_data_log_file(request: Request):
         selected = lines[-max_lines:]
         return {
             "name": path.name,
-            "lines": [line.rstrip("\\r\\n") for line in selected],
+            "lines": [line.rstrip("\r\n") for line in selected],
             "total_lines": len(lines),
             "shown_lines": len(selected),
             "truncated": truncated,
