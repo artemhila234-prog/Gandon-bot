@@ -732,7 +732,7 @@ async def internal_data_logs(request: Request):
         try:
             with file_path.open("r", encoding="utf-8", errors="replace") as log_file:
                 for line_number, raw_line in enumerate(log_file, 1):
-                    line = raw_line.rstrip("\\r\\n")
+                    line = raw_line.rstrip("\r\n")
                     if not line.strip():
                         continue
                     match = timestamp_pattern.match(line)
