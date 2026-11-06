@@ -1972,14 +1972,16 @@ async def audit_voice_state(member, before, after):
 # Последние строки stdout/stderr первого хостинга для трансляции в Dashboard.
 CONSOLE_OUTPUT_LINES = deque(maxlen=1800)
 CONSOLE_OUTPUT_SEQ = 0
+console_output_lock = threading.Lock()
 
 def push_console_output(line):
     global CONSOLE_OUTPUT_SEQ
-    CONSOLE_OUTPUT_SEQ += 1
-    CONSOLE_OUTPUT_LINES.append({
-        "id": CONSOLE_OUTPUT_SEQ,
-        "text": f"[{datetime.now(MSK).strftime('%Y-%m-%d %H:%M:%S')}] {str(line)}",
-    })
+    with console_output_lock:
+        CONSOLE_OUTPUT_SEQ += 1
+        CONSOLE_OUTPUT_LINES.append({
+            "id": CONSOLE_OUTPUT_SEQ,
+            "text": f"[{datetime.now(MSK).strftime('%Y-%m-%d %H:%M:%S')}] {str(line)}",
+        })
 
 
 class TimestampedTee:
@@ -2115,8 +2117,7 @@ async def panel_console_command(command: str):
     output = output_bytes.decode("utf-8", errors="replace").rstrip()
     if output:
         for line in output.splitlines():
-            with console_output_lock:
-                push_console_output(line)
+            push_console_output(line)
     else:
         output = "Команда выполнена без вывода." if process.returncode == 0 else "Команда завершилась с ошибкой."
     return {
@@ -2125,8 +2126,6 @@ async def panel_console_command(command: str):
         "output": output[:20000],
     }
 
-
-console_output_lock = threading.Lock()
 
 async def panel_console_output(after_id: int = 0, limit: int = 250):
     """Возвращает новые строки реальной stdout/stderr-консоли процесса."""
