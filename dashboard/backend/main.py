@@ -662,9 +662,19 @@ async def api_console_action(request: Request):
     await require_access(request, "full")
     payload = await request.json()
     action = str(payload.get("action", "")).strip()
-    if action not in {"sync_commands", "sync_roles", "refresh_presence"}:
+    if action not in {"sync_commands", "sync_roles", "refresh_presence", "restart"}:
         raise HTTPException(status_code=400, detail="Неизвестное действие консоли.")
     return await bot_api_request("POST", "/api/internal/console/action", payload={"action": action})
+
+
+@app.post("/api/console/command")
+async def api_console_command(request: Request):
+    await require_access(request, "full")
+    payload = await request.json()
+    command = str(payload.get("command", "")).strip()
+    if not command or len(command) > 300:
+        raise HTTPException(status_code=400, detail="Введи команду длиной до 300 символов.")
+    return await bot_api_request("POST", "/api/internal/console/command", payload={"command": command})
 
 @app.get("/api/players")
 async def api_players(request: Request):
@@ -866,29 +876,14 @@ async def internal_data_log_file(request: Request):
 @app.get("/api/internal/console")
 async def internal_console(request: Request):
     require_bot_data_secret(request)
-    from pathlib import Path
     controller = getattr(app.state, "bot_controller", None)
     if not controller:
-        return {"status": {"online": False, "bot_name": "WhiteGrief", "guild_name": "Нет подключения к процессу бота", "guild_count": 0, "latency_ms": None}, "lines": [], "available": False}
+        return {"status": {"online": False, "bot_name": "WhiteGrief", "guild_name": "Нет подключения к процессу бота", "guild_count": 0, "latency_ms": None}, "available": False}
     try:
         status = await controller["status"]()
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"Не удалось получить статус бота: {error}")
-    log_path = Path(os.path.dirname(BASE_DIR)) / "logs" / "latest.log"
-    lines = []
-    available = False
-    if log_path.is_file():
-        try:
-            with log_path.open("rb") as stream:
-                stream.seek(0, os.SEEK_END)
-                end = stream.tell()
-                stream.seek(max(0, end - 128 * 1024))
-                chunk = stream.read().decode("utf-8", errors="replace")
-                lines = chunk.splitlines()[-300:]
-            available = True
-        except OSError:
-            pass
-    return {"status": status, "lines": lines, "available": available, "updated_at": datetime.now(timezone.utc).isoformat()}
+    return {"status": status, "available": True, "updated_at": datetime.now(timezone.utc).isoformat()}
 
 @app.post("/api/internal/console/action")
 async def internal_console_action(request: Request):
@@ -910,6 +905,23 @@ async def internal_console_action(request: Request):
     except Exception as error:
         print(f"❌ [ПАНЕЛЬ] Ошибка действия {action}: {error}", flush=True)
         raise HTTPException(status_code=500, detail=f"Действие не выполнено: {error}")
+
+@app.post("/api/internal/console/command")
+async def internal_console_command(request: Request):
+    require_bot_data_secret(request)
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller or not controller.get("command"):
+        raise HTTPException(status_code=503, detail="Терминал не подключён к процессу бота.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+    command = str(payload.get("command", "")).strip()
+    try:
+        return await controller["command"](command)
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
 
 @app.get("/api/internal/data/players")
 async def internal_data_players(request: Request):
