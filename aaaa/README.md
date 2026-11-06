@@ -1,2 +1,0 @@
-# Gandon-bot
-Gandon-bot
