@@ -520,3 +520,9 @@ D. Важное ограничение API
 - Для обычных сообщений подпись в конце использует `<@user_id>` вместо текстового ника, затем строку «Отправлено через WhiteGrief Control Panel».
 - `allowed_mentions: {parse: []}` сохранён: упоминание отображается, но не вызывает push/ping уведомление.
 - dashboard/backend/main.py commit a8df25fa77eab959d83d45eb3d95a12037ba0f2c. Требуется обновить файл на втором хостинге и перезапустить Dashboard. Реальное отображение проверить в Discord.
+
+48. ФИНАЛЬНАЯ КОРРЕКЦИЯ ЦВЕТА ПОЛОСЫ EMBED (2026-11-06)
+- Пользователь показал сравнение: текущий предпросмотр имел фиолетовую левую полосу и цветную обводку, а ожидается поведение как в Discord — только левая вертикальная полоса меняет цвет.
+- Исправлено: app.js устанавливает CSS custom property `--embed-preview-color` из input color; style.css задаёт `border:0!important`, `border-left:4px solid var(--embed-preview-color, #8b6bd6)!important`, обычный Discord-серый фон и отключённую тень. Цветная обводка карточки полностью убрана.
+- app.js commit c4cfc490852bc18e60e0150e283d133f581f1917; style.css commit ac5a0af08b254044906e429df3fe70171a007320; index.html commit 5aef787dacbdd2f438223acd70c76c158c9f066d (cache messages8).
+- Обновить на dashboard-хостинге `dashboard/app.js`, `dashboard/style.css`, `dashboard/index.html`, перезапустить Dashboard и выполнить Ctrl+F5. Проверить, что при выборе красного меняется только левая полоса.
