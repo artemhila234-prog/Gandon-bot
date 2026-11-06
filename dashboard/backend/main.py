@@ -403,7 +403,7 @@ async def api_message_channels(request: Request):
                 "parent_name": str(channel.get("parent_name") or ""),
             })
     items.sort(key=lambda item: (item["parent_name"].casefold(), item["name"].casefold()))
-    return {"channels": items}
+    return {"channels": items, "sender": {"username": user.get("username", "Администратор"), "discord_username": user.get("discord_username", "")}}
 
 
 @app.post("/api/messages/send")
