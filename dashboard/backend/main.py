@@ -421,16 +421,23 @@ async def api_send_message(request: Request):
     if not channel_id.isdigit():
         raise HTTPException(status_code=400, detail="Выбери текстовый канал Discord.")
 
-    sender_name = str(user.get("username") or user.get("discord_username") or "Администратор").strip()
-    sender_tag = str(user.get("discord_username") or "").strip()
-    attribution = f"— Отправитель: {sender_name}" + (f" (@{sender_tag})" if sender_tag and sender_tag.casefold() != sender_name.casefold() else "") + "\nОтправлено через WhiteGrief Control Panel"
+    sender_name = str(user.get("global_name") or user.get("username") or user.get("discord_username") or "Администратор").strip()
+    sender_id = str(user.get("id") or "").strip()
+    if not sender_id.isdigit():
+        raise HTTPException(status_code=400, detail="Не удалось определить Discord ID отправителя. Перезайди в панель.")
+    sender_mention = f"<@{sender_id}>"
+    attribution = f"— Отправитель: {sender_mention}\nОтправлено через WhiteGrief Control Panel"
     has_embed = isinstance(embed_data, dict) and bool(str(embed_data.get("title", "")).strip() or str(embed_data.get("description", "")).strip())
     if content and not has_embed and len(content) + len(attribution) + 2 > 2000:
         raise HTTPException(status_code=400, detail="Слишком длинный текст: оставь место для подписи отправителя (лимит Discord — 2000 символов).")
     if content and not has_embed:
         content = content + "\n\n" + attribution
-    elif not content and not has_embed:
+    elif not has_embed:
         content = attribution
+    elif has_embed:
+        # Discord embed footers are rendered in small muted text but do not resolve mentions.
+        # Put the real, non-notifying mention in message content.
+        content = (content + "\n\n" if content else "") + sender_mention
 
     payload: dict[str, Any] = {"allowed_mentions": {"parse": []}}
     if content:
@@ -453,7 +460,7 @@ async def api_send_message(request: Request):
                 "title": title or None,
                 "description": description or None,
                 "color": color,
-                "footer": {"text": f"Отправитель: {sender_name} · WhiteGrief Control Panel"},
+                "footer": {"text": "Отправлено через WhiteGrief Control Panel"},
             }]
 
     if image_data is not None and not isinstance(image_data, dict):
