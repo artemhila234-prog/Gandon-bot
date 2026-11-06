@@ -395,7 +395,7 @@ async function loadMessages(section){
           <div class="messages-form-footer"><span id="messageStatus" class="messages-status">Отправка доступна уровням Adm и Full.</span><button id="sendDiscordMessage" class="messages-send-button" type="button">Отправить в Discord</button></div>
         </div>
         <aside class="messages-preview-wrap"><div class="messages-preview-heading">ПРЕДПРОСМОТР</div><div class="messages-preview-meta"><span class="messages-meta-item"><small>ОТПРАВИТЕЛЬ ПАНЕЛИ</small><strong id="messagePreviewSender">Администратор</strong></span><span class="messages-meta-arrow">→</span><span class="messages-meta-item"><small>КАНАЛ ПОЛУЧАТЕЛЬ</small><strong id="messagePreviewChannel">общий-чат</strong></span></div><div class="discord-preview"><div class="discord-preview-avatar">W</div><div class="discord-preview-body"><strong>WhiteGrief <small>БОТ</small></strong><p id="messagePreviewContent" class="discord-preview-content">Текст сообщения появится здесь.</p><div id="embedPreview" class="discord-embed-preview" hidden><div id="embedPreviewTitle" class="discord-embed-title"></div><div id="embedPreviewDescription" class="discord-embed-description"></div></div></div></div><div id="messagePreviewImageWrap" class="discord-image-preview" hidden><img id="messagePreviewImage" alt="Изображение к сообщению"></div><div id="messagePreviewAttribution" class="discord-attribution-preview">— Отправитель: Администратор<br>Отправлено через WhiteGrief Control Panel</div></div><p class="messages-preview-note">Внизу сообщения автоматически появится подпись отправителя.</p></aside>
-      </div>`;
+      </div><section class="messages-incoming"><div class="messages-incoming-head"><div><h3>Сообщения игроков</h3><p>Входящие сообщения из выбранного Discord-канала</p></div><button id="refreshIncomingMessages" class="text-button" type="button">Обновить</button></div><div id="incomingMessagesFeed" class="messages-incoming-feed"><div class="empty-state">Загружаем сообщения…</div></div></section>`;
     const channelSelect=root.querySelector("#messageChannel");
     channels.forEach(ch=>{
       const option=document.createElement("option");option.value=ch.id;option.textContent=(ch.parent_name?ch.parent_name+" / ":"")+ch.name;channelSelect.append(option);
@@ -421,6 +421,39 @@ async function loadMessages(section){
     imageInput.addEventListener("change",()=>{const file=imageInput.files?.[0];if(!file){imagePreview.hidden=true;previewImageWrap.hidden=true;return;}const url=URL.createObjectURL(file);imagePreviewImg.src=url;previewImage.src=url;imagePreview.hidden=false;previewImageWrap.hidden=false;});
     root.querySelector("#removeMessageImage").addEventListener("click",()=>{imageInput.value="";imagePreview.hidden=true;previewImageWrap.hidden=true;});
     updatePreview();
+    const incomingFeed=root.querySelector("#incomingMessagesFeed");
+    const refreshIncoming=root.querySelector("#refreshIncomingMessages");
+    let incomingBusy=false;
+    const loadIncoming=async()=>{
+      if(incomingBusy||!channelSelect.value)return;
+      incomingBusy=true;
+      try{
+        const result=await apiGet("/api/messages/history?channel_id="+encodeURIComponent(channelSelect.value));
+        const messages=result.messages||[];
+        incomingFeed.replaceChildren();
+        if(!messages.length){const empty=document.createElement("div");empty.className="empty-state";empty.textContent="Пока нет сообщений от игроков в этом канале.";incomingFeed.append(empty);return;}
+        messages.forEach(message=>{
+          const card=document.createElement("article");card.className="incoming-message";
+          const head=document.createElement("div");head.className="incoming-message-head";
+          const author=document.createElement("strong");author.textContent=message.author||"Игрок";
+          const time=document.createElement("time");
+          const date=new Date(message.timestamp);time.textContent=Number.isNaN(date.getTime())?"":date.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+          head.append(author,time);card.append(head);
+          if(message.content){const body=document.createElement("p");body.className="incoming-message-content";body.textContent=message.content;card.append(body);}
+          (message.attachments||[]).forEach(file=>{
+            const link=document.createElement("a");link.className="incoming-message-attachment";link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.name;card.append(link);
+            if(/\.(png|jpe?g|gif|webp)(\?|$)/i.test(file.url)){const img=document.createElement("img");img.className="incoming-message-image";img.src=file.url;img.alt=file.name;img.loading="lazy";card.append(img);}
+          });
+          (message.embeds||[]).forEach(embed=>{const box=document.createElement("div");box.className="incoming-message-embed";if(embed.title){const t=document.createElement("strong");t.textContent=embed.title;box.append(t);}if(embed.description){const d=document.createElement("p");d.textContent=embed.description;box.append(d);}card.append(box);});
+          incomingFeed.append(card);
+        });
+      }catch(error){incomingFeed.replaceChildren();const empty=document.createElement("div");empty.className="empty-state";empty.textContent="Не удалось загрузить сообщения: "+error.message;incomingFeed.append(empty);}
+      finally{incomingBusy=false;}
+    };
+    refreshIncoming.addEventListener("click",loadIncoming);
+    channelSelect.addEventListener("change",loadIncoming);
+    loadIncoming();
+    const incomingPoll=window.setInterval(()=>{if(!section.isConnected){window.clearInterval(incomingPoll);return;}if(!document.hidden)loadIncoming();},10000);
     send.addEventListener("click",async()=>{
       const body=content.value.trim(),embedTitle=title.value.trim(),embedDescription=description.value.trim(),file=imageInput.files?.[0]||null;
       if(!body&&!embedTitle&&!embedDescription&&!file){status.textContent="Добавь текст, Embed или изображение.";status.className="messages-status error";return;}
