@@ -415,15 +415,41 @@ async def api_message_history(request: Request, channel_id: str):
     channel = await discord_request("GET", f"/channels/{channel_id}")
     if str(channel.get("guild_id", "")) != GUILD_ID:
         raise HTTPException(status_code=403, detail="Этот канал не принадлежит серверу WhiteGrief.")
-    messages = await discord_request("GET", f"/channels/{channel_id}/messages?limit=50")
-    items = []
-    for message in messages if isinstance(messages, list) else []:
+    raw_messages = await discord_request("GET", f"/channels/{channel_id}/messages?limit=50")
+    channel_names = {}
+    try:
+        guild_channels = await discord_request("GET", f"/guilds/{GUILD_ID}/channels")
+        if isinstance(guild_channels, list):
+            channel_names = {str(c.get("id")): str(c.get("name") or "канал") for c in guild_channels}
+    except Exception:
+        pass
+
+    def compact_message(message):
+        if not isinstance(message, dict):
+            return None
         author = message.get("author") or {}
         member = message.get("member") or {}
-        if author.get("bot"):
-            continue
+        return {
+            "id": str(message.get("id", "")),
+            "author": str(member.get("nick") or author.get("global_name") or author.get("username") or "Игрок"),
+            "content": str(message.get("content") or "")[:350],
+            "timestamp": str(message.get("timestamp") or ""),
+        }
+
+    items = []
+    for message in raw_messages if isinstance(raw_messages, list) else []:
+        author = message.get("author") or {}
+        member = message.get("member") or {}
+        avatar_hash = author.get("avatar")
+        author_id = str(author.get("id") or "")
+        avatar = (
+            f"https://cdn.discordapp.com/avatars/{author_id}/{avatar_hash}.png"
+            if avatar_hash and author_id else
+            f"https://cdn.discordapp.com/embed/avatars/{int(author.get('discriminator') or '0') % 5}.png"
+            if str(author.get("discriminator") or "").isdigit() else ""
+        )
         attachments = [
-            {"name": str(a.get("filename") or "Файл"), "url": str(a.get("url") or "")}
+            {"name": str(a.get("filename") or "Файл"), "url": str(a.get("url") or ""), "content_type": str(a.get("content_type") or "")}
             for a in message.get("attachments", []) if a.get("url")
         ]
         embeds = [
@@ -431,15 +457,28 @@ async def api_message_history(request: Request, channel_id: str):
             for e in message.get("embeds", [])[:3]
             if e.get("title") or e.get("description")
         ]
+        reference = message.get("referenced_message")
+        message_reference = message.get("message_reference") or {}
+        reply = compact_message(reference) if reference else None
+        forwarded = []
+        snapshots = message.get("message_snapshots") or []
+        for snapshot in snapshots[:3]:
+            snap_message = snapshot.get("message") if isinstance(snapshot, dict) else None
+            snap = compact_message(snap_message)
+            if snap:
+                snap["channel_name"] = channel_names.get(str(message_reference.get("channel_id") or ""), "другого канала")
+                forwarded.append(snap)
         items.append({
             "id": str(message.get("id", "")),
-            "author_id": str(author.get("id", "")),
+            "author_id": author_id,
             "author": str(member.get("nick") or author.get("global_name") or author.get("username") or "Игрок"),
-            "avatar": f"https://cdn.discordapp.com/avatars/{author.get('id')}/{author.get('avatar')}.png" if author.get("avatar") else "",
+            "avatar": avatar,
             "content": str(message.get("content") or ""),
             "timestamp": str(message.get("timestamp") or ""),
             "attachments": attachments,
             "embeds": embeds,
+            "reply": reply,
+            "forwarded": forwarded,
         })
     return {"messages": items}
 
