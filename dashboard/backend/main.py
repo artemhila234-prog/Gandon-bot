@@ -879,8 +879,12 @@ async def internal_console(request: Request):
     available = False
     if log_path.is_file():
         try:
-            with log_path.open("r", encoding="utf-8", errors="replace") as stream:
-                lines = [line.rstrip("\r\n") for line in stream.readlines()[-300:]]
+            with log_path.open("rb") as stream:
+                stream.seek(0, os.SEEK_END)
+                end = stream.tell()
+                stream.seek(max(0, end - 128 * 1024))
+                chunk = stream.read().decode("utf-8", errors="replace")
+                lines = chunk.splitlines()[-300:]
             available = True
         except OSError:
             pass
