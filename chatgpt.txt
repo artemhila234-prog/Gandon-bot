@@ -649,3 +649,13 @@ D. Важное ограничение API
 - Перезапуск реализован через os.execv, а не через API провайдера Bot-Hosting. Это заменяет текущий Python-процесс новым; фактическое поведение нужно проверить на хостинге. Не утверждать, что перезапуск уже протестирован.
 - Для деплоя: на первом (Discord bot) хостинге обновить корневой bot.py содержимым aaaa/bot.py и dashboard/backend/main.py; на втором (Dashboard) хостинге обновить dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html. Перезапустить оба сервиса и проверить help, python --version и кнопку перезапуска.
 - Runtime и синтаксис пока не проверены. Commits: aaaa/bot.py d1ce35cf7976b83d792a8c6f446cf610a36f891d; dashboard/backend/main.py 353f009f6a0313f0a82ce2f4cd2a2a5a4940f2bb; dashboard/app.js 3b3013d41b59a9631ebd3b28fc5723f93c828b56; dashboard/style.css fe556409e4db80ba59e0417411356107f72bef3a; dashboard/index.html 7d27fcd437422d3dc3741c3ab082efa9d8415a41.
+
+
+62. ПОВТОРНОЕ ЧТЕНИЕ ПАМЯТКИ И ФИКСАЦИЯ ПОСЛЕДНЕГО ОТВЕТА (2026-11-06)
+- По просьбе пользователя заново прочитан актуальный корневой файл chatgpt.txt в репозитории artemhila234-prog/Gandon-bot.
+- Подтверждено: последний ответ ассистента о настоящем терминале уже отражён в разделе 61, включая ввод команд, help, историю команд, clear, безопасный allowlist, ограничение доступа уровнем Full и перезапуск процесса через os.execv.
+- В разделе 61 зафиксированы commit SHA изменений кода: aaaa/bot.py d1ce35cf7976b83d792a8c6f446cf610a36f891d; dashboard/backend/main.py 353f009f6a0313f0a82ce2f4cd2a2a5a4940f2bb; dashboard/app.js 3b3013d41b59a9631ebd3b28fc5723f93c828b56; dashboard/style.css fe556409e4db80ba59e0417411356107f72bef3a; dashboard/index.html 7d27fcd437422d3dc3741c3ab082efa9d8415a41.
+- Предыдущий ответ сообщил, что памятка уже обновлена; текущая проверка подтверждает, что соответствующая запись действительно присутствует в GitHub. В этой записи новых изменений кода не заявляется.
+- Статус остаётся прежним: код в GitHub, но синтаксис, подключение к первому хостингу, выполнение команд и реальный перезапуск процесса ещё не подтверждены на хостингах.
+- Следующая проверка после деплоя: на первом хостинге обновить root bot.py из aaaa/bot.py и dashboard/backend/main.py; на втором — dashboard/backend/main.py, app.js, style.css и index.html; перезапустить оба сервиса и проверить help, python --version и рестарт.
+- Секреты и значения переменных окружения не записывать.
