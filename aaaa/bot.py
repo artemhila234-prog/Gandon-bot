@@ -1442,119 +1442,132 @@ async def on_raw_reaction_add(payload):
 # ================== КОНСОЛЬ BOT-HOSTING ==================
 _console_reader_started = False
 
-async def console_input_loop():
-    """Читает команды из stdin панели Bot-Hosting, не регистрируя их в Discord."""
-    print("🖥️ Консольное управление включено. Введите /help для списка команд.", flush=True)
+async def execute_application_console_command(raw: str) -> str:
+    """Выполняет ввод именно как команду приложения WhiteGrief."""
+    line = str(raw if raw is not None else "").strip()
+    if not line:
+        return "❌ Введи хотя бы один символ."
+    if len(line) > 2000:
+        return "❌ Команда слишком длинная (максимум 2000 символов)."
 
+    parts = line.split(maxsplit=2)
+    command = parts[0].lower()
+
+    if command == "/help":
+        return (
+            "Команды приложения WhiteGrief:\n"
+            "/text <ID канала> <сообщение> — отправить сообщение\n"
+            "/channels — список текстовых каналов и их ID\n"
+            "/delete pending_requests — удалить все ожидающие заявки\n"
+            "/restart pending_requests — пересоздать таблицу заявок (удалит записи)\n"
+            "/help — показать эту подсказку"
+        )
+
+    if command == "/text":
+        if len(parts) < 3:
+            return "❌ Формат: /text <ID канала> <сообщение>"
+        try:
+            channel_id = int(parts[1])
+        except ValueError:
+            return "❌ ID канала должен состоять из цифр."
+        channel = bot.get_channel(channel_id)
+        if channel is None:
+            try:
+                channel = await bot.fetch_channel(channel_id)
+            except discord.NotFound:
+                return "❌ Канал с таким ID не найден."
+            except discord.Forbidden:
+                return "❌ У бота нет доступа к этому каналу."
+        if not hasattr(channel, "send"):
+            return "❌ В этот тип канала нельзя отправить обычное сообщение."
+        try:
+            await channel.send(parts[2])
+            return f"✅ Сообщение отправлено в #{getattr(channel, 'name', 'канал')} ({channel_id})."
+        except discord.Forbidden:
+            return "❌ Нет прав на отправку сообщений в этот канал."
+        except discord.HTTPException as error:
+            return f"❌ Discord не принял сообщение: {error}"
+
+    if command == "/channels":
+        lines = ["📚 Текстовые каналы доступных серверов:"]
+        found = False
+        for guild_id in ALLOWED_GUILDS:
+            guild = bot.get_guild(guild_id)
+            if guild is None:
+                continue
+            for channel in guild.text_channels:
+                lines.append(f"#{channel.name} — ID: {channel.id}")
+                found = True
+        if not found:
+            lines.append("Каналы пока не найдены. Проверь подключение бота и права.")
+        return "\n".join(lines)
+
+    if command == "/delete":
+        if len(parts) != 2 or parts[1].lower() != "pending_requests":
+            return "❌ Формат: /delete pending_requests"
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            deleted_count = conn.execute("DELETE FROM pending_requests").rowcount
+            conn.commit()
+            return f"✅ Таблица pending_requests очищена. Удалено заявок: {deleted_count}. Остальные таблицы не затронуты."
+        except sqlite3.Error as error:
+            conn.rollback()
+            return f"❌ Не удалось очистить pending_requests: {error}"
+
+    if command == "/restart":
+        if len(parts) != 2 or parts[1].lower() != "pending_requests":
+            return "❌ Формат: /restart pending_requests"
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute("DROP TABLE IF EXISTS pending_requests")
+            conn.execute("""CREATE TABLE pending_requests (
+                request_type TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                message_id INTEGER,
+                data TEXT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (request_type, user_id)
+            )""")
+            conn.commit()
+            pending_apps.clear()
+            return "✅ Таблица pending_requests пересоздана. Все ожидающие заявки удалены; остальные таблицы не затронуты."
+        except sqlite3.Error as error:
+            conn.rollback()
+            return f"❌ Не удалось пересоздать pending_requests: {error}"
+
+    return f"❓ Неизвестная команда приложения: {line}\nВведи /help для списка доступных команд."
+
+
+async def panel_application_command(command: str):
+    """Обрабатывает ввод из вкладки «Ввод в приложение»."""
+    raw = str(command if command is not None else "")
+    if not raw.strip():
+        raise RuntimeError("Введи хотя бы один символ.")
+    if len(raw) > 2000:
+        raise RuntimeError("Команда слишком длинная (максимум 2000 символов).")
+    print(f"[APP INPUT] {raw}", flush=True)
+    output = await execute_application_console_command(raw)
+    print(output, flush=True)
+    return {
+        "command": raw,
+        "exit_code": 0 if not output.startswith(("❌", "❓")) else 1,
+        "output": output[:20000],
+    }
+
+
+async def console_input_loop():
+    """Читает stdin-хостинга и передаёт ввод в обработчик приложения."""
+    print("🖥️ Консольное управление включено. Введите /help для списка команд.", flush=True)
     while not bot.is_closed():
         try:
             raw = await asyncio.to_thread(sys.stdin.readline)
             if not raw:
                 await asyncio.sleep(1)
                 continue
-
-            line = raw.strip()
-            if not line:
+            if not raw.strip():
                 continue
-
-            parts = line.split(maxsplit=2)
-            command = parts[0].lower()
-
-            if command == "/help":
-                print(
-                    "Команды консоли:\n"
-                    "/text <ID канала> <сообщение> — отправить сообщение\n"
-                    "/channels — список текстовых каналов и их ID\n"
-                    "/delete pending_requests — удалить все ожидающие заявки\n"
-                    "/restart pending_requests — пересоздать таблицу заявок (удалит записи)\n"
-                    "/help — показать эту подсказку",
-                    flush=True
-                )
-
-            elif command == "/text":
-                if len(parts) < 3:
-                    print("❌ Формат: /text <ID канала> <сообщение>", flush=True)
-                    continue
-                try:
-                    channel_id = int(parts[1])
-                except ValueError:
-                    print("❌ ID канала должен состоять из цифр.", flush=True)
-                    continue
-
-                channel = bot.get_channel(channel_id)
-                if channel is None:
-                    try:
-                        channel = await bot.fetch_channel(channel_id)
-                    except discord.NotFound:
-                        print("❌ Канал с таким ID не найден.", flush=True)
-                        continue
-                    except discord.Forbidden:
-                        print("❌ У бота нет доступа к этому каналу.", flush=True)
-                        continue
-
-                if not hasattr(channel, "send"):
-                    print("❌ В этот тип канала нельзя отправить обычное сообщение.", flush=True)
-                    continue
-
-                try:
-                    await channel.send(parts[2])
-                    print(f"✅ Сообщение отправлено в #{getattr(channel, 'name', 'канал')} ({channel_id}).", flush=True)
-                except discord.Forbidden:
-                    print("❌ Нет прав на отправку сообщений в этот канал.", flush=True)
-                except discord.HTTPException as error:
-                    print(f"❌ Discord не принял сообщение: {error}", flush=True)
-
-            elif command == "/delete":
-                if len(parts) != 2 or parts[1].lower() != "pending_requests":
-                    print("❌ Формат: /delete pending_requests", flush=True)
-                    continue
-                try:
-                    conn.execute("BEGIN IMMEDIATE")
-                    deleted_count = conn.execute("DELETE FROM pending_requests").rowcount
-                    conn.commit()
-                    print(f"✅ Таблица pending_requests очищена. Удалено заявок: {deleted_count}. Остальные таблицы не затронуты.", flush=True)
-                except sqlite3.Error as error:
-                    conn.rollback()
-                    print(f"❌ Не удалось очистить pending_requests: {error}", flush=True)
-
-            elif command == "/restart":
-                if len(parts) != 2 or parts[1].lower() != "pending_requests":
-                    print("❌ Формат: /restart pending_requests", flush=True)
-                    continue
-                try:
-                    conn.execute("BEGIN IMMEDIATE")
-                    conn.execute("DROP TABLE IF EXISTS pending_requests")
-                    conn.execute("""CREATE TABLE pending_requests (
-                        request_type TEXT NOT NULL,
-                        user_id INTEGER NOT NULL,
-                        message_id INTEGER,
-                        data TEXT NOT NULL,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        PRIMARY KEY (request_type, user_id)
-                    )""")
-                    conn.commit()
-                    pending_apps.clear()
-                    print("✅ Таблица pending_requests пересоздана. Все ожидающие заявки удалены; остальные таблицы не затронуты.", flush=True)
-                except sqlite3.Error as error:
-                    conn.rollback()
-                    print(f"❌ Не удалось пересоздать pending_requests: {error}", flush=True)
-
-            elif command == "/channels":
-                print("📚 Текстовые каналы доступных серверов:", flush=True)
-                found = False
-                for guild_id in ALLOWED_GUILDS:
-                    guild = bot.get_guild(guild_id)
-                    if guild is None:
-                        continue
-                    for channel in guild.text_channels:
-                        print(f"#{channel.name} — ID: {channel.id}", flush=True)
-                        found = True
-                if not found:
-                    print("Каналы пока не найдены. Проверь подключение бота и права.", flush=True)
-
-            else:
-                print("❓ Неизвестная команда. Введите /help.", flush=True)
-
+            output = await execute_application_console_command(raw)
+            print(output, flush=True)
         except Exception as error:
             print(f"❌ Ошибка консольного обработчика: {error}", flush=True)
 
@@ -2166,6 +2179,7 @@ async def run_services():
     panel_app.state.bot_controller = {
         "status": panel_console_status,
         "command": panel_console_command,
+        "app_command": panel_application_command,
         "output": panel_console_output,
         "actions": {
             "sync_commands": panel_sync_commands,
