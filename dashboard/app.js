@@ -87,11 +87,21 @@ const sideUserAccess=document.getElementById("sideUserAccess");
 const topAvatar=document.getElementById("topAvatar");
 const sideAvatar=document.getElementById("sideAvatar");
 let currentSessionUser=null;
-function setConnectionStatus(connected){
+function setConnectionStatus(connected,message){
   const line=document.querySelector(".connection-line span:last-child");
   const pulse=document.querySelector(".connection-line .pulse");
-  if(line)line.textContent=connected?"Панель подключена":"Нет соединения с API";
+  if(line)line.textContent=message||(connected?"Бот подключён":"Нет соединения с API бота");
   if(pulse){pulse.classList.toggle("is-online",connected);pulse.classList.toggle("is-offline",!connected);}
+}
+async function refreshBotConnectionStatus(){
+  try{
+    const response=await fetch("/api/status",{credentials:"same-origin",cache:"no-store"});
+    if(!response.ok)throw new Error("Status API unavailable");
+    const data=await response.json();
+    setConnectionStatus(data.bot_api===true,data.message||"Нет соединения с API бота");
+  }catch(error){
+    setConnectionStatus(false,"Нет соединения с API бота");
+  }
 }
 function openOwnProfile(){
   if(!currentSessionUser)return;
@@ -134,7 +144,6 @@ async function loadSession(){
     const data=await response.json();
     if(!data.authenticated){
       currentSessionUser=null;
-      setConnectionStatus(true);
       authBadge.textContent="НЕ АВТОРИЗОВАН";
       sideUserName.textContent="Гость";
       sideUserAccess.textContent="Вход не выполнен";
@@ -144,7 +153,6 @@ async function loadSession(){
     }
     const user=data.user;
     currentSessionUser=user;
-    setConnectionStatus(true);
     isAuthenticated=true;
     currentAccessLevel=user.access_level||"none";
     applyAccessNavigation();
@@ -168,7 +176,6 @@ async function loadSession(){
       notice.textContent="Discord: "+user.discord_username+" · "+mediaText+". Ваш класс доступа: "+(accessLabels[user.access_level]||"не назначен")+". Роли: "+roleText+".";
     }
   }catch(error){
-    setConnectionStatus(false);
     authBadge.textContent="API НЕДОСТУПЕН";
   }
 }
@@ -185,6 +192,8 @@ if(profileCard){
   profileCard.addEventListener("click",openOwnProfile);
   profileCard.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openOwnProfile()}});
 }
+refreshBotConnectionStatus();
+setInterval(refreshBotConnectionStatus,30000);
 loadSession();
 
 
