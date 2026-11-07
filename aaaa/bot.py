@@ -487,7 +487,7 @@ TICKET_PANEL_CUSTOM_ID = "whitegrief:tickets:create"
 
 def ticket_is_staff(member):
     ids = {r.id for r in getattr(member, "roles", [])}
-    staff_ids = set(STAFF_ROLES) | set(MOD_ROLE_IDS) | {1546125455633944598,1546125498340614195,1546125469093732372,1546125465482174484,1547654044263252038,1546125472897961984,1546125480321749053,1550200782177968178}
+    staff_ids = set(STAFF_ROLES) | set(MOD_ROLE_IDS) | {1546125455633944598,1546125498340614195,1546125469093732372,1546125465482174484,1547654044263252038,1546125472897961984,1546125480321749053,1550200782177968178,1567181454947917864,1567181456059535380,1567181457212833822}
     return bool(ids.intersection(staff_ids))
 
 def ticket_embed_panel():
@@ -513,7 +513,7 @@ class TicketCreateModal(discord.ui.Modal, title="Новое обращение")
         if category is None: category = await guild.create_category(TICKET_CATEGORY_NAME, reason="Категория тикетов WhiteGrief")
         overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False), interaction.user: discord.PermissionOverwrite(view_channel=True,send_messages=True,read_message_history=True,attach_files=True,embed_links=True)}
         if guild.me: overwrites[guild.me] = discord.PermissionOverwrite(view_channel=True,send_messages=True,manage_channels=True,read_message_history=True)
-        for role_id in set(STAFF_ROLES)|set(MOD_ROLE_IDS):
+        for role_id in set(STAFF_ROLES)|set(MOD_ROLE_IDS)|{1567181454947917864,1567181456059535380,1567181457212833822}:
             role = guild.get_role(role_id)
             if role: overwrites[role] = discord.PermissionOverwrite(view_channel=True,send_messages=True,read_message_history=True)
         slug = re.sub(r"[^a-z0-9-]+","-",interaction.user.name.lower()).strip("-")[:35] or "user"
@@ -1360,7 +1360,7 @@ async def on_message(message):
         content = message.content.strip()
         border = "╔" + "═" * 68 + "╗"
         bottom = "╚" + "═" * 68 + "╝"
-        print(f"\\n{cyan}{border}{reset}", flush=True)
+        print(f"\n{cyan}{border}{reset}", flush=True)
         print(f"{cyan}║{reset} {purple}WHITEGRIEF • LIVE CHAT{reset} {gray}{timestamp}{reset}", flush=True)
         print(f"{cyan}╠" + "═" * 68 + f"╣{reset}", flush=True)
         print(f"{cyan}║{reset} Канал: {green}#{channel_name}{reset} <#{message.channel.id}>  {gray}(ID: {message.channel.id}){reset}", flush=True)
