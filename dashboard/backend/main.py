@@ -3,6 +3,7 @@ import base64
 import binascii
 from datetime import datetime, timezone
 import os
+import asyncio
 import secrets
 from typing import Any
 
@@ -347,6 +348,85 @@ async def discord_request(method: str, path: str, *, payload: dict[str, Any] | N
     if response.status_code >= 400:
         raise HTTPException(status_code=502, detail=f"Ошибка Discord API ({response.status_code}).")
     return response.json() if response.content else None
+
+
+@app.get("/api/access/members")
+async def api_access_members(request: Request):
+    """Полный список участников сервера для вкладки «Доступ» (только Adm/Full)."""
+    await require_access(request, "adm")
+    roles = await discord_request("GET", f"/guilds/{GUILD_ID}/roles")
+    role_by_id = {
+        str(role.get("id")): {
+            "id": str(role.get("id")),
+            "name": str(role.get("name") or "Без названия"),
+            "color": int(role.get("color") or 0),
+            "position": int(role.get("position") or 0),
+            "managed": bool(role.get("managed")),
+        }
+        for role in roles if isinstance(role, dict) and role.get("id")
+    }
+
+    members = []
+    after = "0"
+    async with httpx.AsyncClient(timeout=30) as client:
+        while True:
+            response = await client.get(
+                f"{DISCORD_API}/guilds/{GUILD_ID}/members",
+                params={"limit": 1000, "after": after},
+                headers={"Authorization": f"Bot {BOT_TOKEN}"},
+            )
+            if response.status_code == 429:
+                try:
+                    retry_after = min(float(response.json().get("retry_after", 1)), 10)
+                except Exception:
+                    retry_after = 1
+                await asyncio.sleep(max(0.5, retry_after))
+                continue
+            if response.status_code == 403:
+                raise HTTPException(status_code=502, detail="Discord запретил чтение списка участников. Проверь включённый Server Members Intent и права бота.")
+            if response.status_code >= 400:
+                raise HTTPException(status_code=502, detail=f"Не удалось загрузить участников Discord (HTTP {response.status_code}).")
+            batch = response.json()
+            if not isinstance(batch, list):
+                raise HTTPException(status_code=502, detail="Discord вернул некорректный список участников.")
+            for member in batch:
+                user = member.get("user") or {}
+                user_id = str(user.get("id") or "")
+                if not user_id:
+                    continue
+                member_role_ids = [str(role_id) for role_id in member.get("roles", [])]
+                members.append({
+                    "id": user_id,
+                    "username": str(user.get("username") or "unknown"),
+                    "display_name": str(member.get("nick") or user.get("global_name") or user.get("username") or "Игрок"),
+                    "global_name": str(user.get("global_name") or ""),
+                    "avatar": (
+                        f"https://cdn.discordapp.com/avatars/{user_id}/{user.get('avatar')}.png?size=64"
+                        if user.get("avatar") else ""
+                    ),
+                    "bot": bool(user.get("bot")),
+                    "role_ids": member_role_ids,
+                    "roles": [
+                        {"id": rid, "name": role_by_id[rid]["name"], "color": role_by_id[rid]["color"]}
+                        for rid in member_role_ids if rid in role_by_id
+                    ],
+                })
+            if len(batch) < 1000:
+                break
+            next_after = str((batch[-1].get("user") or {}).get("id") or "")
+            if not next_after or next_after == after:
+                break
+            after = next_after
+
+    members.sort(key=lambda item: (item["display_name"].casefold(), item["username"].casefold()))
+    role_items = sorted(role_by_id.values(), key=lambda role: (role["position"], role["name"].casefold()), reverse=True)
+    return {
+        "members": members,
+        "roles": role_items,
+        "total_members": len(members),
+        "total_roles": len(role_items),
+        "guild_name": "WhiteGrief",
+    }
 
 
 @app.get("/api/settings")
