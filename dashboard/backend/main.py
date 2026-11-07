@@ -414,12 +414,14 @@ async def api_save_preferences(request: Request):
         payload = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Ожидался объект настроек.")
     theme = payload.get("theme", "system")
     accent = payload.get("accent", "purple")
     compact_mode = payload.get("compact_mode", False)
-    if theme not in {"system", "dark", "light"}:
+    if not isinstance(theme, str) or theme not in {"system", "dark", "light"}:
         raise HTTPException(status_code=400, detail="Неизвестная тема оформления.")
-    if accent not in {"purple", "blue", "green", "red"}:
+    if not isinstance(accent, str) or accent not in {"purple", "blue", "green", "red"}:
         raise HTTPException(status_code=400, detail="Неизвестный цвет акцента.")
     if not isinstance(compact_mode, bool):
         raise HTTPException(status_code=400, detail="compact_mode должен быть true или false.")
@@ -451,7 +453,7 @@ async def api_save_admin_settings(request: Request):
         raise HTTPException(status_code=400, detail="announcement_enabled должен быть true или false.")
     if not isinstance(announcement_text, str) or len(announcement_text) > 350:
         raise HTTPException(status_code=400, detail="Текст уведомления должен быть не длиннее 350 символов.")
-    if default_theme not in {"dark", "light"}:
+    if not isinstance(default_theme, str) or default_theme not in {"dark", "light"}:
         raise HTTPException(status_code=400, detail="Неизвестная тема по умолчанию.")
     values = {
         "announcement_enabled": "true" if announcement_enabled else "false",
