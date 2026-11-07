@@ -1007,3 +1007,37 @@ body{
   color:var(--wg-palette-ink-1)!important;
 }
 @media(prefers-reduced-motion:reduce){body,.main-area,.topbar{animation:none!important}}
+
+
+/* Palette background layer: stays behind the whole app, independent of card backgrounds */
+html,body{min-height:100%;background:#0b0c12!important}
+body{position:relative;isolation:isolate;background:transparent!important}
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at 12% 12%,color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 42%,transparent),transparent 48%),
+    radial-gradient(ellipse at 88% 24%,color-mix(in srgb,var(--wg-palette-2,#ec4899) 36%,transparent),transparent 46%),
+    radial-gradient(ellipse at 54% 92%,color-mix(in srgb,var(--wg-palette-3,#38bdf8) 34%,transparent),transparent 49%),
+    linear-gradient(130deg,#0b0c12 0%,color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 13%,#0b0c12) 42%,color-mix(in srgb,var(--wg-palette-2,#ec4899) 11%,#0b0c12) 72%,#0b0c12 100%);
+  background-size:160% 160%;
+  animation:wgFullCanvasFlow 22s ease-in-out infinite alternate;
+}
+.app-shell{position:relative;z-index:1;background:transparent!important}
+.main-area,.page-content{background-color:transparent!important}
+@keyframes wgFullCanvasFlow{
+  0%{background-position:0% 0%}
+  50%{background-position:100% 45%}
+  100%{background-position:25% 100%}
+}
+:root[data-theme="light"] body::before{
+  background:
+    radial-gradient(ellipse at 12% 12%,color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 24%,transparent),transparent 48%),
+    radial-gradient(ellipse at 88% 24%,color-mix(in srgb,var(--wg-palette-2,#ec4899) 21%,transparent),transparent 46%),
+    radial-gradient(ellipse at 54% 92%,color-mix(in srgb,var(--wg-palette-3,#38bdf8) 20%,transparent),transparent 49%),
+    linear-gradient(130deg,#f7f7fb 0%,color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 8%,#f7f7fb) 48%,#f7f7fb 100%);
+}
+@media(prefers-reduced-motion:reduce){body::before{animation:none}}
