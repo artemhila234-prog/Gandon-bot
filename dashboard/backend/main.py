@@ -813,6 +813,21 @@ async def api_tickets(request: Request):
     return await bot_api_request("GET", "/api/internal/tickets")
 
 
+@app.get("/api/tickets/acceptance")
+async def api_ticket_acceptance(request: Request):
+    await require_access(request, "adm")
+    return await bot_api_request("GET", "/api/internal/tickets/acceptance")
+
+
+@app.post("/api/tickets/acceptance")
+async def api_set_ticket_acceptance(request: Request):
+    await require_access(request, "adm")
+    payload = await request.json()
+    if not isinstance(payload.get("accepting"), bool):
+        raise HTTPException(status_code=400, detail="Ожидается логическое значение accepting.")
+    return await bot_api_request("POST", "/api/internal/tickets/acceptance", payload={"accepting": payload["accepting"]})
+
+
 @app.post("/api/tickets/{channel_id}/status")
 async def api_ticket_status(channel_id: str, request: Request):
     actor = await require_access(request, "adm")
@@ -1397,6 +1412,30 @@ async def internal_tickets(request: Request):
     if not controller or not controller.get("tickets"):
         raise HTTPException(status_code=503, detail="Система тикетов не подключена к процессу бота.")
     return await controller["tickets"]()
+
+
+@app.get("/api/internal/tickets/acceptance")
+async def internal_ticket_acceptance(request: Request):
+    require_bot_data_secret(request)
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller or not controller.get("ticket_acceptance"):
+        raise HTTPException(status_code=503, detail="Управление приёмом тикетов не подключено.")
+    return await controller["ticket_acceptance"]()
+
+
+@app.post("/api/internal/tickets/acceptance")
+async def internal_set_ticket_acceptance(request: Request):
+    require_bot_data_secret(request)
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller or not controller.get("set_ticket_acceptance"):
+        raise HTTPException(status_code=503, detail="Управление приёмом тикетов не подключено.")
+    payload = await request.json()
+    if not isinstance(payload.get("accepting"), bool):
+        raise HTTPException(status_code=400, detail="Ожидается логическое значение accepting.")
+    try:
+        return await controller["set_ticket_acceptance"](payload["accepting"])
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @app.post("/api/internal/tickets/{channel_id}/status")
