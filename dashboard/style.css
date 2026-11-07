@@ -1041,3 +1041,39 @@ body::before{
     linear-gradient(130deg,#f7f7fb 0%,color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 8%,#f7f7fb) 48%,#f7f7fb 100%);
 }
 @media(prefers-reduced-motion:reduce){body::before{animation:none}}
+
+
+/* Sidebar identity card and own Discord profile */
+.user-card{min-width:0;cursor:pointer;transition:border-color .18s,background .18s,transform .18s}
+.user-card:hover{border-color:color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 55%,var(--line));background:color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 10%,var(--panel));transform:translateY(-1px)}
+.user-card:focus-visible{outline:2px solid var(--wg-palette-1,#8b5cf6);outline-offset:3px}
+.user-card-info{min-width:0;flex:1;display:grid;gap:4px}
+.user-card-info strong,.user-card-info small{display:block;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-card-info strong{font-size:10px;line-height:1.35}
+.user-card-info small{font-size:10px;line-height:1.3}
+.user-card .more{flex:0 0 auto;margin-left:auto;letter-spacing:1px}
+.user-avatar{flex:0 0 31px;overflow:hidden}
+.connection-line .pulse.is-online{background:var(--green);box-shadow:0 0 9px #43d69a88}
+.connection-line .pulse.is-offline{background:#ff647c;box-shadow:0 0 9px #ff647c88}
+.wg-profile-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:#05060bd9;backdrop-filter:blur(12px);animation:wgProfileFade .18s ease}
+.wg-profile-dialog{width:min(100%,440px);padding:22px;border:1px solid color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 40%,var(--line));border-radius:22px;background:linear-gradient(145deg,color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 12%,var(--panel)),color-mix(in srgb,var(--wg-palette-2,#ec4899) 8%,var(--panel)) 55%,var(--panel));box-shadow:0 28px 100px #0009;color:var(--text)}
+.wg-profile-head{display:flex;align-items:center;gap:14px;padding-bottom:20px;border-bottom:1px solid var(--line)}
+.wg-profile-avatar{width:66px;height:66px;flex:0 0 66px;border-radius:50%;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,var(--wg-palette-1,#8b5cf6),var(--wg-palette-2,#ec4899),var(--wg-palette-3,#38bdf8));font-size:25px;font-weight:800;color:var(--wg-palette-ink-1,#fff)}
+.wg-profile-avatar img{width:100%;height:100%;object-fit:cover}
+.wg-profile-identity{min-width:0;flex:1;display:grid;gap:5px}
+.wg-profile-identity strong{font-size:17px;overflow-wrap:anywhere}
+.wg-profile-identity span{font-size:12px;color:var(--muted)}
+.wg-profile-close{width:34px;height:34px;border:0;border-radius:10px;background:var(--panel2);color:var(--text);font-size:23px;cursor:pointer}
+.wg-profile-details{display:grid;gap:9px;padding:18px 0}
+.wg-profile-detail{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:color-mix(in srgb,var(--panel2) 75%,transparent)}
+.wg-profile-detail span,.wg-profile-roles>span{font-size:11px;color:var(--muted)}
+.wg-profile-detail strong{font-size:11px;text-align:right;overflow-wrap:anywhere}
+.wg-profile-detail strong.copyable{cursor:pointer}
+.wg-profile-roles{display:grid;gap:10px}
+.wg-profile-role-list{display:flex;flex-wrap:wrap;gap:7px}
+.wg-profile-role-list span{padding:7px 10px;border:1px solid color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 28%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 12%,var(--panel));font-size:10px}
+.wg-profile-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px}
+.wg-profile-footer>span{font-size:10px;color:var(--muted)}
+.wg-profile-done{border:0;border-radius:10px;padding:10px 17px;background:var(--wg-palette-1,#8b5cf6);color:var(--wg-palette-ink-1,#fff);font-weight:700;cursor:pointer}
+@keyframes wgProfileFade{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:520px){.wg-profile-dialog{padding:17px;border-radius:18px}.wg-profile-footer{align-items:flex-start;flex-direction:column}.wg-profile-done{width:100%}}
