@@ -1099,3 +1099,15 @@ body::before{
 .shop-modal-status{min-height:18px;margin:8px 0;color:var(--muted);font-size:12px;text-align:center}
 .shop-modal-cancel{width:100%;margin-top:8px;padding:11px 16px;border:1px solid var(--line);border-radius:11px;background:var(--panel2);color:var(--text);font-weight:700;cursor:pointer}
 .shop-buy-button:disabled,.shop-modal-cancel:disabled{opacity:.55;cursor:not-allowed}
+
+/* Shop purchase modal: keep the category chip clear of the close control */
+.shop-modal-card{padding:30px 28px 28px}
+.shop-modal-close{z-index:4;right:14px;top:12px;width:34px;height:34px;display:grid;place-items:center;border:1px solid #ffffff20;border-radius:10px;background:#11121dcc;color:#fff;font-size:26px;line-height:1}
+.shop-modal .shop-category{position:absolute;z-index:2;top:28px;right:58px;max-width:calc(100% - 112px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shop-modal-icon{margin-top:18px}
+.shop-nick-label{display:flex;flex-direction:column;gap:8px;width:100%;margin:8px 0 12px;text-align:left;color:#e9e3f4;font-size:12px;font-weight:800}
+.shop-nick-input{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #7252ad;border-radius:11px;background:#10111c;color:#fff;font:600 14px inherit;outline:none;transition:border-color .18s,box-shadow .18s}
+.shop-nick-input::placeholder{color:#858397}
+.shop-nick-input:focus{border-color:#b78aff;box-shadow:0 0 0 3px #8b5cf633}
+.shop-modal-note{margin:8px 0 14px}
+@media(max-width:480px){.shop-modal{padding:12px}.shop-modal-card{padding:28px 18px 20px}.shop-modal .shop-category{top:22px;right:54px}}
