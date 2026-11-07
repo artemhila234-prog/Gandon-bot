@@ -177,8 +177,11 @@ async function refreshWhiteGriefLiveSettings(){
     const response=await fetch("/api/settings/live",{credentials:"same-origin",cache:"no-store"});
     if(!response.ok)return;
     const data=await response.json();
+    const paletteControlFocused=[1,2,3].some(index=>document.activeElement===document.getElementById("wgPaletteColor"+index));
+    const localPalette=wgPreferences.palette;
     wgGlobalSettings=data.global_settings||wgGlobalSettings;
     wgPreferences=data.preferences||wgPreferences;
+    if(paletteControlFocused&&localPalette)wgPreferences.palette=localPalette;
     applyWhiteGriefAppearance();
     renderGlobalAnnouncement();
     const liveTheme=document.getElementById("wgPersonalTheme");
