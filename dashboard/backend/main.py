@@ -353,7 +353,7 @@ async def discord_request(method: str, path: str, *, payload: dict[str, Any] | N
 @app.get("/api/access/members")
 async def api_access_members(request: Request):
     """Полный список участников сервера для вкладки «Доступ» (только Adm/Full)."""
-    await require_access(request, "adm")
+    actor = await require_access(request, "adm")
     roles = await discord_request("GET", f"/guilds/{GUILD_ID}/roles")
     role_by_id = {
         str(role.get("id")): {
@@ -435,7 +435,7 @@ async def api_access_members(request: Request):
         and role["position"] < bot_top_position
         and not (
             access_map.get(role["id"], "none") == "full"
-            and (await_actor_level := "full") != "full"
+            and actor.get("access_level") != "full"
         )
     ]
     return {
