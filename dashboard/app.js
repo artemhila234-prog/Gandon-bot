@@ -113,7 +113,7 @@ function openOwnProfile(){
   dialog.className="wg-profile-dialog";dialog.setAttribute("role","dialog");dialog.setAttribute("aria-modal","true");dialog.setAttribute("aria-labelledby","wgProfileTitle");
   const head=document.createElement("div");head.className="wg-profile-head";
   const avatar=document.createElement("div");avatar.className="wg-profile-avatar";
-  if(user.avatar){const image=document.createElement("img");image.src="https://cdn.discordapp.com/avatars/"+encodeURIComponent(user.id)+"/"+encodeURIComponent(user.avatar)+".png?size=128";image.alt="";avatar.append(image)}else avatar.textContent=avatarLetter(user.username);
+  renderDiscordAvatar(avatar,user,128);
   const identity=document.createElement("div");identity.className="wg-profile-identity";
   const title=document.createElement("strong");title.id="wgProfileTitle";title.textContent=user.username||"Discord user";
   const handle=document.createElement("span");handle.textContent="@"+(user.discord_username||"unknown");
@@ -138,6 +138,22 @@ function openOwnProfile(){
 }
 const accessLabels={none:"Нет доступа",media:"Media",co_adm:"Co.Adm — управление персоналом",adm:"Adm — управление ботом",full:"Full — полный доступ"};
 function avatarLetter(name){return (name||"?").trim().slice(0,1).toUpperCase()}
+function discordAvatarUrl(user,size=128){
+  if(!user?.id||!user?.avatar)return "";
+  const animated=String(user.avatar).startsWith("a_");
+  return "https://cdn.discordapp.com/avatars/"+encodeURIComponent(user.id)+"/"+encodeURIComponent(user.avatar)+"."+(animated?"gif":"png")+"?size="+size;
+}
+function renderDiscordAvatar(element,user,size=128){
+  if(!element)return;
+  const url=discordAvatarUrl(user,size);
+  element.replaceChildren();
+  if(url){
+    const image=document.createElement("img");
+    image.src=url;image.alt="Discord avatar";image.loading="lazy";
+    image.onerror=()=>{element.replaceChildren(document.createTextNode(avatarLetter(user?.username)))};
+    element.append(image);
+  }else element.textContent=avatarLetter(user?.username);
+}
 async function loadSession(){
   try{
     const response=await fetch("/api/me",{credentials:"same-origin"});
@@ -179,8 +195,8 @@ async function loadSession(){
     logoutButton.hidden=false;
     sideUserName.textContent=user.username;
     sideUserAccess.textContent=accessLabels[user.access_level]||"Нет доступа";
-    topAvatar.textContent=letter;
-    sideAvatar.textContent=letter;
+    renderDiscordAvatar(topAvatar,user,96);
+    renderDiscordAvatar(sideAvatar,user,96);
     const mediaText=user.access_level==="none"?"доступ не выдан":"доступ подтверждён";
     const setupTag=document.getElementById("setupTag");
     if(setupTag)setupTag.textContent=user.access_level==="none"?"NO ACCESS":"ACCESS VERIFIED";
