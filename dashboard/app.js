@@ -46,7 +46,7 @@ function showPage(page){
       section.innerHTML='<div class="panel-heading"><div><h2>Магазин</h2><p>Каталог, доступный в API · только просмотр</p></div><button class="text-button" id="refreshShop">Обновить</button></div><div id="shopResult" class="empty-state">Загрузка каталога…</div>';
       loadShop(section);
     } else if(page==="tickets"){
-      section.innerHTML='<div class="panel-heading"><div><h2>Тикеты поддержки</h2><p>Обращения игроков из Discord · управление статусами</p></div><button class="text-button" id="refreshTickets">↻ Обновить</button></div><div id="ticketsResult" class="tickets-list"><div class="empty-state">Загружаем тикеты…</div></div>';
+      section.innerHTML='<div class="panel-heading"><div><h2>Тикеты поддержки</h2><p>Обращения игроков из Discord · управление статусами</p></div><button class="text-button" id="refreshTickets">↻ Обновить</button></div><div class="ticket-toolbar"><div><strong id="ticketAcceptanceState">Проверяем приём…</strong><p>Закрытие приёма блокирует только создание новых обращений. Текущие тикеты продолжат работать.</p></div><button class="ticket-action-button" id="toggleTicketAcceptance" type="button" disabled>Загрузка…</button></div><div id="ticketsResult" class="tickets-list"><div class="empty-state">Загружаем тикеты…</div></div>';
       loadTickets(section);
     } else if(page==="messages"){
       section.innerHTML='<div class="panel-heading"><div><h2>Сообщения Discord</h2><p>Отправка обычных сообщений и Embed от имени WhiteGrief</p></div><button class="text-button" id="refreshMessageChannels">Обновить каналы</button></div><div id="messagesResult" class="messages-workspace"><div class="empty-state">Загружаем каналы Discord…</div></div>';
@@ -1205,11 +1205,36 @@ function showShopDetails(item,icon,category){
 
 async function loadTickets(section){
   const root=section.querySelector("#ticketsResult"),refresh=section.querySelector("#refreshTickets");
+  const acceptanceState=section.querySelector("#ticketAcceptanceState"),toggle=section.querySelector("#toggleTicketAcceptance");
   if(!root)return;
+  let accepting=true;
+  const syncAcceptance=async()=>{
+    if(!acceptanceState||!toggle)return;
+    toggle.disabled=true;
+    try{
+      const state=await apiGet("/api/tickets/acceptance");accepting=!!state.accepting;
+      acceptanceState.textContent=accepting?"Приём новых тикетов открыт":"Приём новых тикетов закрыт";
+      acceptanceState.dataset.state=accepting?"open":"closed";
+      toggle.textContent=accepting?"Закрыть приём":"Открыть приём";toggle.disabled=false;
+    }catch(error){acceptanceState.textContent="Не удалось получить состояние приёма";toggle.textContent="Повторить";toggle.disabled=false;throw error;}
+  };
+  toggle?.addEventListener("click",async()=>{
+    toggle.disabled=true;
+    try{
+      const result=await apiPost("/api/tickets/acceptance",{accepting:!accepting});
+      accepting=!!result.accepting;
+      acceptanceState.textContent=accepting?"Приём новых тикетов открыт":"Приём новых тикетов закрыт";
+      acceptanceState.dataset.state=accepting?"open":"closed";
+      toggle.textContent=accepting?"Закрыть приём":"Открыть приём";
+      showToast(accepting?"Приём новых тикетов открыт.":"Приём новых тикетов закрыт.","success");
+    }catch(error){showToast(error.message||"Не удалось изменить приём тикетов.","error");}
+    finally{toggle.disabled=false;}
+  });
   const load=async()=>{
     refresh.disabled=true;root.innerHTML='<div class="empty-state">Загружаем тикеты…</div>';
     try{
       const data=await apiGet("/api/tickets"),tickets=data.tickets||[];
+      await syncAcceptance();
       root.replaceChildren();
       if(!tickets.length){const empty=document.createElement("div");empty.className="empty-state";empty.innerHTML="<strong>Тикетов пока нет</strong><p>Новые обращения появятся здесь после создания тикета в Discord.</p>";root.append(empty);return;}
       tickets.forEach(ticket=>{
