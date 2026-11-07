@@ -807,6 +807,26 @@ async def api_shop(request: Request):
     return {"items": SHOP_ITEMS_PANEL}
 
 
+@app.get("/api/tickets")
+async def api_tickets(request: Request):
+    await require_access(request, "adm")
+    return await bot_api_request("GET", "/api/internal/tickets")
+
+
+@app.post("/api/tickets/{channel_id}/status")
+async def api_ticket_status(channel_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID тикета.")
+    payload = await request.json()
+    status = str(payload.get("status", "")).strip().lower()
+    if status not in {"open", "closed", "resolved"}:
+        raise HTTPException(status_code=400, detail="Неизвестный статус тикета.")
+    return await bot_api_request("POST", f"/api/internal/tickets/{channel_id}/status", payload={
+        "status": status, "actor": str(actor.get("username") or actor.get("discord_username") or "Adm")
+    })
+
+
 @app.get("/api/messages/channels")
 async def api_message_channels(request: Request):
     user = await require_access(request, "adm")
@@ -1368,6 +1388,33 @@ async def internal_console(request: Request):
     except Exception as error:
         raise HTTPException(status_code=503, detail=f"Не удалось получить статус бота: {error}")
     return {"status": status, "available": True, "updated_at": datetime.now(timezone.utc).isoformat()}
+
+
+@app.get("/api/internal/tickets")
+async def internal_tickets(request: Request):
+    require_bot_data_secret(request)
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller or not controller.get("tickets"):
+        raise HTTPException(status_code=503, detail="Система тикетов не подключена к процессу бота.")
+    return await controller["tickets"]()
+
+
+@app.post("/api/internal/tickets/{channel_id}/status")
+async def internal_ticket_status(channel_id: str, request: Request):
+    require_bot_data_secret(request)
+    if not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID тикета.")
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller or not controller.get("ticket_status"):
+        raise HTTPException(status_code=503, detail="Управление тикетами не подключено к процессу бота.")
+    payload = await request.json()
+    status = str(payload.get("status", "")).strip().lower()
+    if status not in {"open", "closed", "resolved"}:
+        raise HTTPException(status_code=400, detail="Неизвестный статус тикета.")
+    try:
+        return await controller["ticket_status"](channel_id, status, str(payload.get("actor", "Dashboard"))[:100])
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @app.get("/api/internal/console/output")
