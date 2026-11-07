@@ -1179,6 +1179,24 @@ async def api_players(request: Request):
         raise HTTPException(status_code=502, detail="Не удалось получить полный список участников Discord. Проверь права бота и Server Members Intent.")
 
 
+@app.get("/api/status")
+async def api_status():
+    """Проверяет именно API процесса Discord-бота, а не доступность самого Dashboard."""
+    if not BOT_API_URL:
+        return {"ok": False, "bot_api": False, "status": "not_configured", "message": "API бота не настроено"}
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{BOT_API_URL}/health")
+        if response.status_code != 200:
+            return {"ok": True, "bot_api": False, "status": "offline", "message": f"Бот API ответил HTTP {response.status_code}"}
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get("ok") is not True:
+            return {"ok": True, "bot_api": False, "status": "offline", "message": "Бот API не подтвердил готовность"}
+        return {"ok": True, "bot_api": True, "status": "online", "message": "Бот подключён"}
+    except (httpx.HTTPError, ValueError):
+        return {"ok": True, "bot_api": False, "status": "offline", "message": "Нет соединения с API бота"}
+
+
 @app.get("/health")
 async def health():
     return {"ok": True, "service": "whitegrief-control-panel"}
