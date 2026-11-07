@@ -1218,7 +1218,7 @@ async function loadMessages(section){
           <label class="messages-label">Текст сообщения <span>необязательно; подпись отправителя добавится автоматически</span>
             <textarea id="messageContent" class="messages-control" rows="4" maxlength="1750" placeholder="Напиши сообщение от имени WhiteGrief…"></textarea>
           </label>
-          <label class="messages-label">Файлы <span>до 10 файлов · до 8 МБ каждый · общий размер до 25 МБ</span>
+          <label class="messages-label">Файлы <span>можно добавлять по несколько раз — файлы объединяются; до 10 файлов, до 8 МБ каждый, всего до 25 МБ</span>
             <input id="messageFiles" class="messages-control messages-file-input" type="file" multiple>
           </label>
           <div id="messageFilesPreview" class="messages-attachments-preview" hidden></div>
@@ -1258,9 +1258,15 @@ async function loadMessages(section){
     };
     [content,title,description,color].forEach(el=>el.addEventListener("input",updatePreview));
     channelSelect.addEventListener("change",updatePreview);
+    let selectedMessageFiles=[];
+    const syncMessageFiles=()=>{
+      const transfer=new DataTransfer();
+      selectedMessageFiles.forEach(file=>transfer.items.add(file));
+      filesInput.files=transfer.files;
+    };
     const renderFilesPreview=()=>{
       filesPreview.replaceChildren();
-      const selected=Array.from(filesInput.files||[]);
+      const selected=selectedMessageFiles;
       filesPreview.hidden=!selected.length;
       selected.forEach((file,index)=>{
         const row=document.createElement("div");row.className="messages-attachment-item";
@@ -1270,11 +1276,21 @@ async function loadMessages(section){
         const size=document.createElement("small");size.textContent=file.size<1024*1024?(file.size/1024).toFixed(1)+" КБ":(file.size/1024/1024).toFixed(2)+" МБ";
         info.append(name,size);
         const remove=document.createElement("button");remove.type="button";remove.className="messages-attachment-remove";remove.textContent="×";remove.title="Убрать файл";
-        remove.addEventListener("click",()=>{const transfer=new DataTransfer();Array.from(filesInput.files||[]).forEach((item,i)=>{if(i!==index)transfer.items.add(item);});filesInput.files=transfer.files;renderFilesPreview();});
+        remove.addEventListener("click",()=>{selectedMessageFiles=selectedMessageFiles.filter((item,i)=>i!==index);syncMessageFiles();renderFilesPreview();});
         row.append(icon,info,remove);filesPreview.append(row);
       });
     };
-    filesInput.addEventListener("change",renderFilesPreview);
+    filesInput.addEventListener("change",()=>{
+      const incoming=Array.from(filesInput.files||[]);
+      const existing=selectedMessageFiles.slice();
+      const merged=existing.slice();
+      incoming.forEach(file=>{
+        if(!merged.some(item=>item.name===file.name&&item.size===file.size&&item.lastModified===file.lastModified))merged.push(file);
+      });
+      if(merged.length>10){status.textContent="Можно прикрепить не больше 10 файлов. Лишние файлы не добавлены.";status.className="messages-status error";selectedMessageFiles=merged.slice(0,10);}
+      else selectedMessageFiles=merged;
+      syncMessageFiles();renderFilesPreview();
+    });
     updatePreview();
     const incomingFeed=root.querySelector("#incomingMessagesFeed");
     const refreshIncoming=root.querySelector("#refreshIncomingMessages");
@@ -1334,7 +1350,7 @@ async function loadMessages(section){
     loadIncoming();
     const incomingPoll=window.setInterval(()=>{if(!section.isConnected){window.clearInterval(incomingPoll);return;}if(!document.hidden)loadIncoming();},10000);
     send.addEventListener("click",async()=>{
-      const body=content.value.trim(),embedTitle=title.value.trim(),embedDescription=description.value.trim(),files=Array.from(filesInput.files||[]);
+      const body=content.value.trim(),embedTitle=title.value.trim(),embedDescription=description.value.trim(),files=selectedMessageFiles.slice();
       if(!body&&!embedTitle&&!embedDescription&&!files.length){status.textContent="Добавь текст, Embed или хотя бы один файл.";status.className="messages-status error";return;}
       if(files.length>10){status.textContent="Можно прикрепить не больше 10 файлов.";status.className="messages-status error";return;}
       if(files.some(file=>file.size>8*1024*1024)){status.textContent="Каждый файл должен быть не больше 8 МБ.";status.className="messages-status error";return;}
@@ -1350,7 +1366,7 @@ async function loadMessages(section){
         status.textContent="✓ Сообщение отправлено в "+(channels.find(c=>c.id===channelSelect.value)?.name||"Discord")+(result.attachments?" · файлов: "+result.attachments:"");
         status.className="messages-status success";
         if(typeof showToast==="function")showToast("Сообщение успешно отправлено в Discord.");
-        content.value="";filesInput.value="";renderFilesPreview();updatePreview();
+        content.value="";selectedMessageFiles=[];filesInput.value="";renderFilesPreview();updatePreview();
       }catch(error){status.textContent=error.message;status.className="messages-status error";}
       finally{send.disabled=false;send.textContent="Отправить в Discord";}
     });;
