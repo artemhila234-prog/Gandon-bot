@@ -1,10 +1,10 @@
-const pageNames={dashboard:"Главная",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",logs:"Логи",console:"Консоль",access:"Доступ",settings:"Настройки"};
+const pageNames={dashboard:"Главная",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",settings:"Настройки"};
 const content=document.getElementById("pageContent");
 const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
 const overlay=document.getElementById("overlay");
 let currentAccessLevel="none";
-const pageMinimumAccess={dashboard:"none",players:"media",shop:"media",requests:"co_adm",messages:"adm",logs:"adm",console:"adm",access:"adm",settings:"none"};
+const pageMinimumAccess={dashboard:"none",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",settings:"none"};
 const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
 function canOpenPage(page){
   return !!pageNames[page] && (page==="dashboard" || (isAuthenticated && (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"])));
@@ -28,7 +28,7 @@ function showPage(page){
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
   breadcrumb.textContent=pageNames[page];
   if(page!=="dashboard"){
-    const descriptions={players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям."};
+    const descriptions={players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",tickets:"Обращения игроков по ошибкам сайта и Discord-бота.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям."};
     const existing=document.getElementById("comingPage");
     if(existing) existing.remove();
     const section=document.createElement("section");
@@ -45,6 +45,9 @@ function showPage(page){
     } else if(page==="shop"){
       section.innerHTML='<div class="panel-heading"><div><h2>Магазин</h2><p>Каталог, доступный в API · только просмотр</p></div><button class="text-button" id="refreshShop">Обновить</button></div><div id="shopResult" class="empty-state">Загрузка каталога…</div>';
       loadShop(section);
+    } else if(page==="tickets"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Тикеты поддержки</h2><p>Обращения игроков из Discord · управление статусами</p></div><button class="text-button" id="refreshTickets">↻ Обновить</button></div><div id="ticketsResult" class="tickets-list"><div class="empty-state">Загружаем тикеты…</div></div>';
+      loadTickets(section);
     } else if(page==="messages"){
       section.innerHTML='<div class="panel-heading"><div><h2>Сообщения Discord</h2><p>Отправка обычных сообщений и Embed от имени WhiteGrief</p></div><button class="text-button" id="refreshMessageChannels">Обновить каналы</button></div><div id="messagesResult" class="messages-workspace"><div class="empty-state">Загружаем каналы Discord…</div></div>';
       loadMessages(section);
@@ -1199,6 +1202,38 @@ function showShopDetails(item,icon,category){
   close.focus();
 }
 
+
+async function loadTickets(section){
+  const root=section.querySelector("#ticketsResult"),refresh=section.querySelector("#refreshTickets");
+  if(!root)return;
+  const load=async()=>{
+    refresh.disabled=true;root.innerHTML='<div class="empty-state">Загружаем тикеты…</div>';
+    try{
+      const data=await apiGet("/api/tickets"),tickets=data.tickets||[];
+      root.replaceChildren();
+      if(!tickets.length){const empty=document.createElement("div");empty.className="empty-state";empty.innerHTML="<strong>Тикетов пока нет</strong><p>Новые обращения появятся здесь после создания тикета в Discord.</p>";root.append(empty);return;}
+      tickets.forEach(ticket=>{
+        const card=document.createElement("article");card.className="ticket-card";
+        const head=document.createElement("div");head.className="ticket-card-head";
+        const title=document.createElement("strong");title.textContent=ticket.subject||"Без темы";
+        const status=document.createElement("span");status.className="ticket-status "+ticket.status;status.textContent=({open:"Открыт",closed:"Закрыт",resolved:"Решено"})[ticket.status]||ticket.status;head.append(title,status);
+        const meta=document.createElement("div");meta.className="ticket-meta";meta.textContent=(ticket.username||"Участник")+" · Discord ID "+ticket.user_id+" · "+(ticket.created_at||"");
+        const desc=document.createElement("p");desc.className="ticket-description";desc.textContent=ticket.description||"Описание отсутствует.";
+        const actions=document.createElement("div");actions.className="ticket-actions";
+        const link=document.createElement("a");link.href="https://discord.com/channels/1546125037545988207/"+encodeURIComponent(ticket.channel_id);link.target="_blank";link.rel="noopener noreferrer";link.className="ticket-open-link";link.textContent="Открыть канал Discord";actions.append(link);
+        [["open","Переоткрыть"],["closed","Закрыть"],["resolved","Решено"]].forEach(([value,label])=>{
+          if(ticket.status===value)return;
+          const button=document.createElement("button");button.type="button";button.className="ticket-action-button";button.textContent=label;
+          button.addEventListener("click",async()=>{button.disabled=true;try{await apiPost("/api/tickets/"+encodeURIComponent(ticket.channel_id)+"/status",{status:value});await load();}catch(error){showToast(error.message||"Не удалось изменить тикет.","error");button.disabled=false;}});
+          actions.append(button);
+        });
+        card.append(head,meta,desc,actions);root.append(card);
+      });
+    }catch(error){root.innerHTML="";const empty=document.createElement("div");empty.className="empty-state";empty.textContent=error.message||"Не удалось загрузить тикеты.";root.append(empty);}
+    finally{refresh.disabled=false;}
+  };
+  refresh?.addEventListener("click",load);await load();
+}
 
 async function loadMessages(section){
   const root=section.querySelector("#messagesResult");
