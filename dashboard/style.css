@@ -1239,13 +1239,16 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .ticket-card{padding:17px;border:1px solid var(--line);border-radius:13px;background:var(--panel);display:grid;gap:10px}
 .ticket-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .ticket-card-head strong{font-size:13px}
-.ticket-status{font-size:9px;padding:5px 9px;border-radius:20px;background:#292b38;color:#b8bac8;white-space:nowrap}
-.ticket-status.open{background:#17382d;color:#75e0ad}
-.ticket-status.closed{background:#3a3030;color:#e6a0a0}
-.ticket-status.resolved{background:#25364a;color:#9bc9ff}
+.ticket-status,.ticket-status.open,.ticket-status.closed,.ticket-status.resolved{font-size:9px;padding:5px 9px;border-radius:20px;background:var(--surface-2,var(--panel));color:var(--text);border:1px solid var(--line);white-space:nowrap}
+.ticket-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:16px;padding:15px 17px;border:1px solid var(--line);border-radius:12px;background:var(--surface-1,var(--panel))}
+.ticket-toolbar strong{font-size:12px;color:var(--text)}
+.ticket-toolbar p{margin:5px 0 0;color:var(--muted);font-size:10px;line-height:1.5}
+.ticket-acceptance-state[data-state="closed"]{text-decoration:underline;text-decoration-color:var(--muted);text-underline-offset:4px}
 .ticket-meta{font-size:10px;color:var(--muted)}
 .ticket-description{font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}
 .ticket-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ticket-open-link,.ticket-action-button{border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:600 10px Inter,system-ui,sans-serif;text-decoration:none;color:var(--text);background:var(--panel);cursor:pointer}
-.ticket-action-button:hover,.ticket-open-link:hover{border-color:var(--wg-palette-1,#8b5cf6)}
+.ticket-action-button:hover,.ticket-open-link:hover{border-color:var(--text)}
+.ticket-action-button:focus-visible,.ticket-open-link:focus-visible{outline:2px solid var(--text);outline-offset:2px}
+@media(max-width:600px){.ticket-toolbar{align-items:stretch;flex-direction:column}.ticket-toolbar .ticket-action-button{width:100%}}
 .ticket-action-button:disabled{opacity:.55;cursor:wait}
