@@ -156,6 +156,8 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS tiktok_videos (
     points INTEGER NOT NULL, rewarded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 )""")
 cursor.execute("DELETE FROM pending_requests WHERE request_type = 'points'")
+cursor.execute("""CREATE TABLE IF NOT EXISTS support_tickets (channel_id TEXT PRIMARY KEY,guild_id TEXT NOT NULL,user_id TEXT NOT NULL,username TEXT NOT NULL,subject TEXT NOT NULL,description TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,closed_by TEXT)""")
+cursor.execute("""CREATE TABLE IF NOT EXISTS support_ticket_config (guild_id TEXT PRIMARY KEY,category_id TEXT,panel_channel_id TEXT,panel_message_id TEXT)""")
 conn.commit()
 
 print(f"🗄️ База WhiteGrief: {os.path.abspath(DB_PATH)}", flush=True)
@@ -475,6 +477,116 @@ async def tiktok_link_command(interaction: discord.Interaction, profile_url: str
         "3. Вернись сюда и нажми Проверить.\n\nСсылка и код действуют 15 минут.",
         view=TikTokVerifyView(interaction.user.id, connect_url), ephemeral=True
     )
+
+
+
+# ================== SUPPORT TICKETS ==================
+TICKET_CATEGORY_NAME = "📌› бот"
+TICKET_PANEL_CHANNEL_NAME = "❗・тикет-баги"
+TICKET_PANEL_CUSTOM_ID = "whitegrief:tickets:create"
+
+def ticket_is_staff(member):
+    ids = {r.id for r in getattr(member, "roles", [])}
+    staff_ids = set(STAFF_ROLES) | set(MOD_ROLE_IDS) | {1546125455633944598,1546125498340614195,1546125469093732372,1546125465482174484,1547654044263252038,1546125472897961984,1546125480321749053,1550200782177968178}
+    return bool(ids.intersection(staff_ids))
+
+def ticket_embed_panel():
+    embed = discord.Embed(title="❗ Поддержка WhiteGrief", description="Нашёл баг или ошибку в Discord-боте либо на сайте WhiteGrief?\n\nНажми **«Создать тикет»** ниже и опиши проблему — команда поддержки увидит обращение и поможет разобраться.\n\nУкажи, что произошло и как повторить ошибку. При необходимости приложи скриншоты. Для каждой проблемы создавай отдельный тикет.", color=0xF2C94C)
+    embed.set_footer(text="WhiteGrief • Служба поддержки")
+    return embed
+
+class TicketCreateModal(discord.ui.Modal, title="Новое обращение"):
+    subject = discord.ui.TextInput(label="Кратко опиши проблему", placeholder="Например: ошибка при покупке", max_length=100, required=True)
+    description = discord.ui.TextInput(label="Подробности", placeholder="Что произошло и как повторить ошибку?", style=discord.TextStyle.paragraph, max_length=1800, required=True)
+    async def on_submit(self, interaction):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        guild = interaction.guild
+        if guild is None or guild.id not in ALLOWED_GUILDS:
+            await interaction.followup.send("Тикеты доступны только на сервере WhiteGrief.", ephemeral=True); return
+        old = conn.execute("SELECT channel_id FROM support_tickets WHERE guild_id=? AND user_id=? AND status='open'", (str(guild.id),str(interaction.user.id))).fetchone()
+        if old:
+            old_channel = guild.get_channel(int(old[0]))
+            if old_channel:
+                await interaction.followup.send(f"У тебя уже есть открытый тикет: {old_channel.mention}", ephemeral=True); return
+            conn.execute("UPDATE support_tickets SET status='closed' WHERE channel_id=?", (str(old[0]),)); conn.commit()
+        category = discord.utils.get(guild.categories, name=TICKET_CATEGORY_NAME)
+        if category is None: category = await guild.create_category(TICKET_CATEGORY_NAME, reason="Категория тикетов WhiteGrief")
+        overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False), interaction.user: discord.PermissionOverwrite(view_channel=True,send_messages=True,read_message_history=True,attach_files=True,embed_links=True)}
+        if guild.me: overwrites[guild.me] = discord.PermissionOverwrite(view_channel=True,send_messages=True,manage_channels=True,read_message_history=True)
+        for role_id in set(STAFF_ROLES)|set(MOD_ROLE_IDS):
+            role = guild.get_role(role_id)
+            if role: overwrites[role] = discord.PermissionOverwrite(view_channel=True,send_messages=True,read_message_history=True)
+        slug = re.sub(r"[^a-z0-9-]+","-",interaction.user.name.lower()).strip("-")[:35] or "user"
+        channel = await guild.create_text_channel(name=f"📌・тикет-{slug}",category=category,topic=f"WhiteGrief ticket | user_id={interaction.user.id} | status=open",overwrites=overwrites,reason=f"Тикет от {interaction.user}")
+        conn.execute("INSERT INTO support_tickets(channel_id,guild_id,user_id,username,subject,description,status) VALUES(?,?,?,?,?,?,'open')",(str(channel.id),str(guild.id),str(interaction.user.id),str(interaction.user),str(self.subject.value),str(self.description.value))); conn.commit()
+        embed = discord.Embed(title=f"🎫 {self.subject.value}",description=self.description.value,color=0x8B5CF6)
+        embed.add_field(name="Автор",value=f"{interaction.user.mention}\nID: {interaction.user.id}",inline=True)
+        embed.add_field(name="Статус",value="🟢 Открыт",inline=True)
+        embed.set_footer(text="WhiteGrief • Тикет поддержки")
+        await channel.send(content=f"{interaction.user.mention} · команда поддержки",embed=embed,view=TicketControlView())
+        await interaction.followup.send(f"✅ Тикет создан: {channel.mention}",ephemeral=True)
+
+class TicketPanelView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        button = discord.ui.Button(label="Создать тикет",style=discord.ButtonStyle.primary,emoji="🎫",custom_id=TICKET_PANEL_CUSTOM_ID)
+        button.callback = self.create
+        self.add_item(button)
+    async def create(self, interaction): await interaction.response.send_modal(TicketCreateModal())
+
+class TicketControlView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        for label,style,emoji,cid,status in (("Закрыть",discord.ButtonStyle.secondary,"🔒","whitegrief:tickets:close","closed"),("Переоткрыть",discord.ButtonStyle.success,"🔓","whitegrief:tickets:reopen","open"),("Решено",discord.ButtonStyle.primary,"✅","whitegrief:tickets:resolve","resolved")):
+            button=discord.ui.Button(label=label,style=style,emoji=emoji,custom_id=cid)
+            button.callback=self.make_callback(status)
+            self.add_item(button)
+    def make_callback(self,status):
+        async def callback(interaction):
+            row=conn.execute("SELECT user_id FROM support_tickets WHERE channel_id=?",(str(interaction.channel_id),)).fetchone()
+            if not row: await interaction.response.send_message("Тикет не найден.",ephemeral=True); return
+            if str(interaction.user.id)!=str(row[0]) and not ticket_is_staff(interaction.user):
+                await interaction.response.send_message("Недостаточно прав.",ephemeral=True); return
+            try: await set_ticket_status(str(interaction.channel_id),status,str(interaction.user))
+            except Exception as error: await interaction.response.send_message(f"Ошибка: {str(error)[:200]}",ephemeral=True); return
+            await interaction.response.send_message({"open":"🟢 Тикет переоткрыт.","closed":"🔒 Тикет закрыт.","resolved":"✅ Отмечен как решённый."}[status],ephemeral=True)
+        return callback
+
+async def set_ticket_status(channel_id,status,actor="Dashboard"):
+    if status not in {"open","closed","resolved"}: raise ValueError("Неизвестный статус.")
+    row=conn.execute("SELECT guild_id,user_id FROM support_tickets WHERE channel_id=?",(str(channel_id),)).fetchone()
+    if not row: raise ValueError("Тикет не найден.")
+    guild=bot.get_guild(int(row[0])); channel=guild.get_channel(int(channel_id)) if guild else None
+    if channel is None: raise ValueError("Канал тикета не найден.")
+    member=guild.get_member(int(row[1]))
+    if member: await channel.set_permissions(member,view_channel=True,send_messages=(status=="open"),read_message_history=True,attach_files=(status=="open"))
+    await channel.edit(topic=f"WhiteGrief ticket | user_id={row[1]} | status={status}")
+    conn.execute("UPDATE support_tickets SET status=?,updated_at=CURRENT_TIMESTAMP,closed_by=? WHERE channel_id=?",(status,None if status=="open" else str(actor)[:100],str(channel_id))); conn.commit()
+    return {"channel_id":str(channel_id),"status":status}
+
+async def ensure_ticket_system(guild):
+    category=discord.utils.get(guild.categories,name=TICKET_CATEGORY_NAME)
+    if category is None: category=await guild.create_category(TICKET_CATEGORY_NAME,reason="Категория тикетов WhiteGrief")
+    overwrites={guild.default_role:discord.PermissionOverwrite(view_channel=True,send_messages=False,read_message_history=True)}
+    if guild.me: overwrites[guild.me]=discord.PermissionOverwrite(view_channel=True,send_messages=True,manage_channels=True,read_message_history=True)
+    panel=discord.utils.get(guild.text_channels,name=TICKET_PANEL_CHANNEL_NAME)
+    if panel is None: panel=await guild.create_text_channel(TICKET_PANEL_CHANNEL_NAME,category=category,overwrites=overwrites,reason="Панель тикетов WhiteGrief")
+    else:
+        if panel.category_id!=category.id: await panel.edit(category=category)
+        await panel.edit(overwrites=overwrites)
+    conn.execute("INSERT INTO support_ticket_config(guild_id,category_id,panel_channel_id) VALUES(?,?,?) ON CONFLICT(guild_id) DO UPDATE SET category_id=excluded.category_id,panel_channel_id=excluded.panel_channel_id",(str(guild.id),str(category.id),str(panel.id))); conn.commit()
+    saved=conn.execute("SELECT panel_message_id FROM support_ticket_config WHERE guild_id=?",(str(guild.id),)).fetchone()
+    panel_message=None
+    if saved and saved[0]:
+        try: panel_message=await panel.fetch_message(int(saved[0]))
+        except (discord.NotFound,ValueError): pass
+    if panel_message is None:
+        async for candidate in panel.history(limit=50):
+            if candidate.author==bot.user and candidate.embeds and candidate.embeds[0].title=="❗ Поддержка WhiteGrief": panel_message=candidate; break
+    if panel_message is None: panel_message=await panel.send(embed=ticket_embed_panel(),view=TicketPanelView())
+    else: await panel_message.edit(embed=ticket_embed_panel(),view=TicketPanelView())
+    conn.execute("UPDATE support_ticket_config SET panel_message_id=? WHERE guild_id=?",(str(panel_message.id),str(guild.id))); conn.commit()
+    print(f"🎫 [ТИКЕТЫ] Панель готова: #{panel.name}; категория {category.name}",flush=True)
 
 
 pending_apps = {}
@@ -1590,11 +1702,20 @@ async def on_ready():
         _console_reader_started = True
         asyncio.create_task(console_input_loop())
 
+    if not getattr(bot, "_ticket_views_registered", False):
+        bot.add_view(TicketPanelView())
+        bot.add_view(TicketControlView())
+        bot._ticket_views_registered = True
+
     # Автоматически создаём роли доступа и синхронизируем их ID с сайтом.
     for access_guild_id in ALLOWED_GUILDS:
         access_guild = bot.get_guild(access_guild_id)
         if access_guild:
             await ensure_control_panel_roles(access_guild)
+            try:
+                await ensure_ticket_system(access_guild)
+            except Exception as error:
+                print(f"❌ [ТИКЕТЫ] Ошибка настройки: {error}", flush=True)
 
     # Регистрируем команды только как серверные (guild commands).
     # Старые глобальные команды удаляем ниже, чтобы Discord не показывал
@@ -2172,6 +2293,14 @@ async def panel_refresh_presence():
     print("🖥️ [ПАНЕЛЬ] Активность бота обновлена.", flush=True)
     return {"message": "Активность бота обновлена."}
 
+async def panel_tickets_list():
+    rows=conn.execute("SELECT channel_id,user_id,username,subject,description,status,created_at,updated_at,closed_by FROM support_tickets ORDER BY created_at DESC LIMIT 250").fetchall()
+    return {"tickets":[{"channel_id":r[0],"user_id":r[1],"username":r[2],"subject":r[3],"description":r[4],"status":r[5],"created_at":r[6],"updated_at":r[7],"closed_by":r[8]} for r in rows]}
+
+async def panel_ticket_status(channel_id,status,actor):
+    return await set_ticket_status(channel_id,status,actor)
+
+
 async def run_services():
     """Запускает Discord-бота и FastAPI в одном процессе Bot-Hosting."""
     from dashboard.backend.main import app as panel_app
@@ -2181,6 +2310,8 @@ async def run_services():
         "command": panel_console_command,
         "app_command": panel_application_command,
         "output": panel_console_output,
+        "tickets": panel_tickets_list,
+        "ticket_status": panel_ticket_status,
         "actions": {
             "sync_commands": panel_sync_commands,
             "sync_roles": panel_sync_roles,
