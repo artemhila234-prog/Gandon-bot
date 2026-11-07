@@ -1232,3 +1232,20 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
     -webkit-overflow-scrolling:touch;
   }
 }
+
+
+/* Support ticket management */
+.tickets-list{display:grid;gap:12px;margin-top:18px}
+.ticket-card{padding:17px;border:1px solid var(--line);border-radius:13px;background:var(--panel);display:grid;gap:10px}
+.ticket-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ticket-card-head strong{font-size:13px}
+.ticket-status{font-size:9px;padding:5px 9px;border-radius:20px;background:#292b38;color:#b8bac8;white-space:nowrap}
+.ticket-status.open{background:#17382d;color:#75e0ad}
+.ticket-status.closed{background:#3a3030;color:#e6a0a0}
+.ticket-status.resolved{background:#25364a;color:#9bc9ff}
+.ticket-meta{font-size:10px;color:var(--muted)}
+.ticket-description{font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere}
+.ticket-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ticket-open-link,.ticket-action-button{border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:600 10px Inter,system-ui,sans-serif;text-decoration:none;color:var(--text);background:var(--panel);cursor:pointer}
+.ticket-action-button:hover,.ticket-open-link:hover{border-color:var(--wg-palette-1,#8b5cf6)}
+.ticket-action-button:disabled{opacity:.55;cursor:wait}
