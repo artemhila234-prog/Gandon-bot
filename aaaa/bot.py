@@ -547,21 +547,48 @@ class TicketControlView(discord.ui.View):
             if not row: await interaction.response.send_message("Тикет не найден.",ephemeral=True); return
             if str(interaction.user.id)!=str(row[0]) and not ticket_is_staff(interaction.user):
                 await interaction.response.send_message("Недостаточно прав.",ephemeral=True); return
-            try: await set_ticket_status(str(interaction.channel_id),status,str(interaction.user))
-            except Exception as error: await interaction.response.send_message(f"Ошибка: {str(error)[:200]}",ephemeral=True); return
-            await interaction.response.send_message({"open":"🟢 Тикет переоткрыт.","closed":"🔒 Тикет закрыт.","resolved":"✅ Отмечен как решённый."}[status],ephemeral=True)
+            await interaction.response.defer(ephemeral=True, thinking=True)
+            try:
+                await set_ticket_status(str(interaction.channel_id),status,str(interaction.user))
+            except Exception as error:
+                await interaction.followup.send(f"Ошибка изменения тикета: {str(error)[:300]}",ephemeral=True)
+                return
+            await interaction.followup.send({"open":"🟢 Тикет переоткрыт.","closed":"🔒 Тикет закрыт.","resolved":"✅ Отмечен как решённый."}[status],ephemeral=True)
         return callback
 
 async def set_ticket_status(channel_id,status,actor="Dashboard"):
     if status not in {"open","closed","resolved"}: raise ValueError("Неизвестный статус.")
-    row=conn.execute("SELECT guild_id,user_id FROM support_tickets WHERE channel_id=?",(str(channel_id),)).fetchone()
+    row=conn.execute("SELECT guild_id,user_id,subject,description FROM support_tickets WHERE channel_id=?",(str(channel_id),)).fetchone()
     if not row: raise ValueError("Тикет не найден.")
     guild=bot.get_guild(int(row[0])); channel=guild.get_channel(int(channel_id)) if guild else None
     if channel is None: raise ValueError("Канал тикета не найден.")
     member=guild.get_member(int(row[1]))
-    if member: await channel.set_permissions(member,view_channel=True,send_messages=(status=="open"),read_message_history=True,attach_files=(status=="open"))
+    if member is None:
+        try: member=await guild.fetch_member(int(row[1]))
+        except (discord.NotFound,discord.Forbidden): member=None
+    if member:
+        await channel.set_permissions(member,view_channel=True,send_messages=(status=="open"),read_message_history=True,attach_files=(status=="open"))
     await channel.edit(topic=f"WhiteGrief ticket | user_id={row[1]} | status={status}")
-    conn.execute("UPDATE support_tickets SET status=?,updated_at=CURRENT_TIMESTAMP,closed_by=? WHERE channel_id=?",(status,None if status=="open" else str(actor)[:100],str(channel_id))); conn.commit()
+    # Синхронизируем Embed в самом тикете, независимо от того, откуда нажали кнопку.
+    status_labels={"open":"🟢 Открыт","closed":"🔒 Закрыт","resolved":"✅ Решено"}
+    status_colors={"open":0xFFFFFF,"closed":0x777777,"resolved":0xBDBDBD}
+    try:
+        async for message in channel.history(limit=30,oldest_first=True):
+            if message.author == bot.user and message.embeds and message.embeds[0].title == f"🎫 {row[2]}":
+                embed=message.embeds[0].copy()
+                embed.color=status_colors[status]
+                for index,field in enumerate(embed.fields):
+                    if field.name=="Статус":
+                        embed.set_field_at(index,name="Статус",value=status_labels[status],inline=field.inline)
+                        break
+                else:
+                    embed.add_field(name="Статус",value=status_labels[status],inline=True)
+                await message.edit(embed=embed,view=TicketControlView())
+                break
+    except (discord.Forbidden,discord.HTTPException) as error:
+        print(f"⚠️ [ТИКЕТЫ] Не удалось обновить Embed тикета {channel_id}: {error}",flush=True)
+    conn.execute("UPDATE support_tickets SET status=?,updated_at=CURRENT_TIMESTAMP,closed_by=? WHERE channel_id=?",(status,None if status=="open" else str(actor)[:100],str(channel_id)))
+    conn.commit()
     return {"channel_id":str(channel_id),"status":status}
 
 async def ensure_ticket_system(guild):
