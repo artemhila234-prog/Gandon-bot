@@ -11,11 +11,35 @@
   <aside class="sidebar legal-sidebar" id="legalSidebar">
     <a class="brand" href="/" aria-label="WhiteGrief Control Panel"><span class="brand-mark">W</span><span><strong>WHITEGRIEF</strong><small>CONTROL PANEL</small></span></a>
     <div class="server-card"><div class="server-avatar">WG</div><div class="server-info"><strong>WhiteGrief</strong><span>Discord Bot</span></div><span class="server-dot"></span></div>
-    <div class="nav-label">ОБЗОР</div><nav class="nav-list"><a class="nav-item" href="/"><span class="nav-icon">▦</span>Главная</a></nav>
-    <div class="nav-label">ИНФОРМАЦИЯ</div><nav class="nav-list">
-      <a class="nav-item nav-item-link " href="/terms"><span class="nav-icon">§</span>Условия использования</a>
-      <a class="nav-item nav-item-link " href="/privacy"><span class="nav-icon">◈</span>Конфиденциальность</a>
-    </nav>
+    <div class="nav-group" data-nav-group>
+      <div class="nav-label">ОБЗОР</div><nav class="nav-list"><a class="nav-item" data-page="dashboard" href="/"><span class="nav-icon">▦</span>Главная</a></nav>
+    </div>
+    <div class="nav-group" data-nav-group>
+      <div class="nav-label">УПРАВЛЕНИЕ</div><nav class="nav-list">
+        <a class="nav-item" data-page="players" href="/?page=players"><span class="nav-icon">♙</span>Игроки</a>
+        <a class="nav-item" data-page="requests" href="/?page=requests"><span class="nav-icon">▤</span>Заявки</a>
+        <a class="nav-item" data-page="shop" href="/?page=shop"><span class="nav-icon">◇</span>Магазин</a>
+        <a class="nav-item" data-page="messages" href="/?page=messages"><span class="nav-icon">✉</span>Сообщения</a>
+        <a class="nav-item" data-page="access" href="/?page=access"><span class="nav-icon">♧</span>Доступ</a>
+      </nav>
+    </div>
+    <div class="nav-group" data-nav-group>
+      <div class="nav-label">СИСТЕМА</div><nav class="nav-list">
+        <a class="nav-item" data-page="logs" href="/?page=logs"><span class="nav-icon">≋</span>Логи</a>
+        <a class="nav-item" data-page="console" href="/?page=console"><span class="nav-icon">⌘</span>Консоль</a>
+        <a class="nav-item" data-page="settings" href="/?page=settings"><span class="nav-icon">⚙</span>Настройки</a>
+      </nav>
+    </div>
+    <div class="nav-group" data-nav-group>
+      <div class="nav-label">ИНФОРМАЦИЯ</div><nav class="nav-list">
+        <a class="nav-item nav-item-link " href="/terms"><span class="nav-icon">§</span>Условия использования</a>
+        <a class="nav-item nav-item-link " href="/privacy"><span class="nav-icon">◈</span>Конфиденциальность</a>
+      </nav>
+    </div>
+    <script>
+    (()=>{const rank={none:0,media:1,co_adm:2,adm:3,full:4};const min={dashboard:0,players:1,shop:1,requests:2,messages:3,logs:3,console:3,access:3,settings:0};
+    fetch("/api/me",{credentials:"same-origin"}).then(r=>r.json()).then(data=>{const level=data?.authenticated?(data.user?.access_level||"none"):"none";document.querySelectorAll(".nav-item[data-page]").forEach(link=>{link.hidden=!data?.authenticated||rank[level]>=min[link.dataset.page] ? false : true;});document.querySelectorAll(".nav-group[data-nav-group]").forEach(group=>{const list=group.querySelector(".nav-list");group.hidden=!list||!Array.from(list.querySelectorAll(".nav-item")).some(item=>!item.hidden);});}).catch(()=>{document.querySelectorAll(".nav-item[data-page]").forEach(link=>link.hidden=link.dataset.page!=="dashboard");});})();
+    </script>
     <div class="sidebar-bottom"><div class="connection-line"><span class="pulse"></span><span>WhiteGrief Control Panel</span></div><div class="user-card"><div class="user-avatar">W</div><div><strong>WhiteGrief</strong><small>Документы проекта</small></div><span class="more">···</span></div></div>
   </aside>
   <div class="mobile-overlay" id="legalOverlay"></div>
