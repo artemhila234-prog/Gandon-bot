@@ -1087,3 +1087,5 @@ D. Важное ограничение API
   Коммиты сохранены. Live-проверка пока не выполнялась — после обновления проверить „Закрыть“, „Переоткрыть“ и „Решено“ и в Discord, и на сайте.»
 - Техническая сверка GitHub на момент записи: в aaaa/bot.py действительно присутствует defer до долгой операции в callback кнопки и followup после set_ticket_status; в dashboard/backend/main.py bot_api_request использует timeout=60. Текущие blob SHA: bot.py 7d7580565bc0f917819f49629b8394004e7cdf41; backend d018d0b1cc53b97619ccb105468cd5f93f1811f3.
 - Важно: сохранение кода в GitHub не подтверждает его развёртывание на хостингах и не доказывает, что все сценарии работают в Discord/браузере. Live-проверка не проводилась.
+
+- Фактические GitHub-коммиты реализации раздела 99: aaaa/bot.py fe2355fbb3f27ddda9388a5ec95e8a20a3ffea4f; dashboard/backend/main.py 0bda0d6e64ed37594dceaa771ea24c0bbc22e400; dashboard/app.js 45dce6e23952c7f7db8f5455c23012b53bbadb98; dashboard/style.css 4544bfbc05d74340bacdc8888574645b321311ff; dashboard/index.html 4d378aed338b0de82737c424f225fe6ec460db0e.
