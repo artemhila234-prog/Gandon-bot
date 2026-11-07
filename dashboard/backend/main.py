@@ -426,6 +426,7 @@ async def api_access_members(request: Request):
         "total_members": len(members),
         "total_roles": len(role_items),
         "guild_name": "WhiteGrief",
+        "guild_id": GUILD_ID,
     }
 
 
