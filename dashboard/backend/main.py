@@ -724,7 +724,7 @@ async def bot_api_request(method: str, path: str, *, payload: dict[str, Any] | N
     if not BOT_API_URL or not BOT_DATA_API_SECRET:
         raise HTTPException(status_code=503, detail="Связь с сервером бота не настроена.")
     try:
-        async with httpx.AsyncClient(timeout=20) as client:
+        async with httpx.AsyncClient(timeout=60) as client:
             response = await client.request(
                 method, f"{BOT_API_URL}{path}",
                 headers={"X-Bot-Data-Secret": BOT_DATA_API_SECRET},
