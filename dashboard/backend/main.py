@@ -400,7 +400,11 @@ async def api_settings(request: Request):
 
 @app.get("/api/settings/live")
 async def api_settings_live(request: Request):
-    user = await require_user(request)
+    # Polling endpoint uses the already-authenticated session cookie and avoids
+    # repeated Discord member/role lookups every few seconds.
+    user = await current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Сначала войди через Discord.")
     return {
         "global_settings": get_global_panel_settings(),
         "preferences": get_user_panel_preferences(str(user["id"])),
