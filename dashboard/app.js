@@ -1158,9 +1158,9 @@ function showShopDetails(item,icon,category){
   const tag=document.createElement("span");tag.className="shop-category";tag.textContent=category;
   const title=document.createElement("h2");title.textContent=item.name;
   const price=document.createElement("p");price.className="shop-modal-price";price.textContent=Number(item.price).toLocaleString("ru-RU")+" баллов";
-  const note=document.createElement("p");note.className="shop-modal-note";note.textContent="После подтверждения баллы спишутся с твоего баланса. В личный Discord-канал придёт уведомление, а товар выдаст администрация.";
+  const note=document.createElement("p");note.className="shop-modal-note";note.textContent="После подтверждения баллы спишутся с твоего баланса. Обязательно укажи правильный ник Minecraft: без него администрация не сможет выдать покупку. Уведомление о заказе придёт в твой личный Discord-канал.";
   const balance=document.createElement("div");balance.className="shop-modal-balance";balance.textContent="Проверяем баланс…";
-  const nickLabel=document.createElement("label");nickLabel.className="shop-nick-label";nickLabel.textContent="Ник в Minecraft";
+  const nickLabel=document.createElement("label");nickLabel.className="shop-nick-label";nickLabel.textContent="Ник в Minecraft (обязательно)";
   const nickInput=document.createElement("input");nickInput.className="shop-nick-input";nickInput.type="text";nickInput.name="minecraft_nick";nickInput.autocomplete="off";nickInput.maxLength=16;nickInput.placeholder="Введите свой ник";nickInput.required=true;nickInput.pattern="[A-Za-z0-9_]{3,16}";nickLabel.append(nickInput);
   const confirm=document.createElement("button");confirm.className="shop-buy-button";confirm.type="button";confirm.textContent="Подтвердить покупку";
   const cancel=document.createElement("button");cancel.className="shop-modal-cancel";cancel.type="button";cancel.textContent="Отмена";
