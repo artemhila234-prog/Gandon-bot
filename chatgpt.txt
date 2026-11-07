@@ -880,3 +880,14 @@ D. Важное ограничение API
 - Изменены dashboard/app.js, dashboard/style.css, dashboard/index.html и chatgpt.txt. Backend и первый хостинг бота не менялись; используется уже существующий защищённый /api/me.
 - Коммиты: app.js 82966c6379bb44d5c5859d58131363baeafb0fd8; style.css 70e46ffd3c6208cda840036d5d47595305930ca3; index.html d12daf57ab8d88c9569fc07a7675bea7d10c603b.
 - GitHub обновлён. Реальный деплой и браузерная проверка на Bot-Hosting не выполнялись. Для применения синхронизировать на втором Dashboard-хостинге dashboard/app.js, dashboard/style.css, dashboard/index.html, перезапустить Dashboard и выполнить Ctrl+F5. Секреты не добавлялись.
+
+
+82. КОРРЕКТНЫЙ СТАТУС ПОДКЛЮЧЕНИЯ ИМЕННО DISCORD-БОТА (2026-11-07)
+- Пользователь уточнил, что надпись «Ожидание подключения API» внизу боковой панели должна показывать реальное состояние, а не состояние загрузки/авторизации Dashboard.
+- Выявлена логическая ошибка предыдущего решения: frontend ставил статус «подключено» по успешному ответу /api/me, который подтверждает доступность Dashboard и Discord-сессию, но не проверяет отдельный процесс бота на первом хостинге.
+- dashboard/backend/main.py: добавлен GET /api/status. Он обращается с таймаутом 5 секунд к BOT_API_URL + /health и проверяет HTTP 200 и JSON {"ok": true}. Возвращает bot_api=true/status=online только при подтверждённом ответе. При отсутствующем BOT_API_URL, ошибке сети, HTTP-ошибке или неверном ответе возвращает понятный offline/not_configured статус.
+- dashboard/app.js: статус боковой панели больше не зависит от /api/me. Функция refreshBotConnectionStatus запрашивает /api/status при старте и затем каждые 30 секунд; индикатор отображает «Бот подключён», «Нет соединения с API бота» либо «API бота не настроено». Ошибки запроса отображаются как offline.
+- dashboard/index.html: cache-buster обновлён на 20261107-bot-api-status1.
+- Изменены dashboard/backend/main.py, dashboard/app.js, dashboard/index.html и chatgpt.txt. Только второй Dashboard-хостинг. Первый хостинг бота не менялся; его существующий /health используется для проверки.
+- Коммиты: backend ba9ff1a2cd53166eb0f02a54ef658eb26d995749; app.js 54db3349cb436e4f32a92e2078a521f8a1a1da15; index.html 2b7dc5a7bafc31eef21160d08df8ce3a3ae381ac.
+- GitHub обновлён. Live API и хостинг не проверялись из среды GitHub. Для применения синхронизировать на втором Dashboard-хостинге dashboard/backend/main.py, dashboard/app.js, dashboard/index.html, перезапустить Dashboard и выполнить Ctrl+F5. Если статус будет offline, проверить BOT_API_URL на втором хостинге и доступность /health первого хостинга. Секреты не записывать в памятку.
