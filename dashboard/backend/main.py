@@ -1035,6 +1035,26 @@ SHOP_ITEMS_PANEL = [
     {"name": "Кейс с Супер Риликами", "price": 3000, "type": "кейс"},
     {"name": "Снятие 1 выговора", "price": 400, "type": "услуга"}
 ]
+@app.post("/api/shop/purchase")
+async def api_shop_purchase(request: Request):
+    user = await require_access(request, "media")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос покупки.")
+    item_name = str(payload.get("item", "")).strip()
+    request_id = str(payload.get("request_id", "")).strip()
+    item = next((entry for entry in SHOP_ITEMS_PANEL if entry["name"] == item_name), None)
+    if not item:
+        raise HTTPException(status_code=400, detail="Товар не найден в каталоге.")
+    if not request_id or len(request_id) > 100:
+        raise HTTPException(status_code=400, detail="Не удалось проверить запрос покупки.")
+    return await bot_api_request(
+        "POST", "/api/internal/data/shop/purchase",
+        payload={"user_id": str(user["id"]), "item": item_name, "request_id": request_id},
+    )
+
+
 @app.get("/api/me/balance")
 async def api_my_balance(request: Request):
     user = await require_access(request, "media")
@@ -1657,6 +1677,129 @@ async def internal_data_balance(user_id: str, request: Request):
     with sqlite3.connect(path, timeout=10) as db:
         row = db.execute("SELECT balance FROM users WHERE user_id = ?", (int(user_id),)).fetchone()
     return {"user_id": user_id, "balance": int(row[0]) if row else 0}
+
+
+@app.post("/api/internal/data/shop/purchase")
+async def internal_shop_purchase(request: Request):
+    require_bot_data_secret(request)
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос покупки.")
+    user_id = str(payload.get("user_id", "")).strip()
+    item_name = str(payload.get("item", "")).strip()
+    request_id = str(payload.get("request_id", "")).strip()
+    if not user_id.isdigit() or not request_id or len(request_id) > 100:
+        raise HTTPException(status_code=400, detail="Некорректные данные покупки.")
+    item = next((entry for entry in SHOP_ITEMS_PANEL if entry["name"] == item_name), None)
+    if not item:
+        raise HTTPException(status_code=400, detail="Такого товара нет в магазине.")
+    price = int(item["price"])
+    import sqlite3
+    path = bot_database_path()
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=503, detail="База данных бота не найдена.")
+    # Make sure the account is still a member and the personal channel belongs to it.
+    member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{user_id}")
+    member_user = member.get("user") or {}
+    display_name = str(member.get("nick") or member_user.get("global_name") or member_user.get("username") or user_id)
+    order_id = None
+    balance_after = None
+    notification_sent = False
+    try:
+        with sqlite3.connect(path, timeout=15) as db:
+            db.execute("PRAGMA busy_timeout=15000")
+            db.execute("""CREATE TABLE IF NOT EXISTS web_shop_orders (
+                request_id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                item TEXT NOT NULL,
+                price INTEGER NOT NULL,
+                purchase_id INTEGER,
+                balance_after INTEGER,
+                notification_sent INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )""")
+            db.execute("BEGIN IMMEDIATE")
+            prior = db.execute(
+                "SELECT user_id,item,price,purchase_id,balance_after,notification_sent FROM web_shop_orders WHERE request_id=?",
+                (request_id,)
+            ).fetchone()
+            if prior:
+                if int(prior[0]) != int(user_id) or str(prior[1]) != item_name or int(prior[2]) != price:
+                    raise HTTPException(status_code=409, detail="Идентификатор покупки уже использован для другого заказа.")
+                order_id, balance_after, notification_sent = prior[3], prior[4], bool(prior[5])
+            else:
+                row = db.execute(
+                    "SELECT balance, personal_channel_id FROM users WHERE user_id=?",
+                    (int(user_id),)
+                ).fetchone()
+                if not row:
+                    raise HTTPException(status_code=409, detail="У тебя пока нет личного канала WhiteGrief. Обратись к администрации.")
+                balance, personal_channel_id = int(row[0] or 0), row[1]
+                if not personal_channel_id:
+                    raise HTTPException(status_code=409, detail="Личный Discord-канал не найден. Обратись к администрации.")
+                if balance < price:
+                    raise HTTPException(status_code=409, detail=f"Недостаточно баллов. Нужно {price}, у тебя {balance}.")
+                channel = await discord_request("GET", f"/channels/{int(personal_channel_id)}")
+                if str(channel.get("guild_id", "")) != GUILD_ID:
+                    raise HTTPException(status_code=409, detail="Личный канал не принадлежит серверу WhiteGrief.")
+                balance_after = balance - price
+                db.execute("UPDATE users SET balance=? WHERE user_id=?", (balance_after, int(user_id)))
+                cursor = db.execute(
+                    "INSERT INTO purchases (user_id,item,price) VALUES (?,?,?)",
+                    (int(user_id), item_name, price)
+                )
+                order_id = int(cursor.lastrowid)
+                db.execute(
+                    "INSERT INTO web_shop_orders (request_id,user_id,item,price,purchase_id,balance_after,notification_sent) VALUES (?,?,?,?,?,?,0)",
+                    (request_id, int(user_id), item_name, price, order_id, balance_after)
+                )
+                db.commit()
+        if not notification_sent:
+            personal_channel_id = int(row[1]) if 'row' in locals() and row else None
+            if not personal_channel_id:
+                with sqlite3.connect(path, timeout=10) as db:
+                    channel_row = db.execute("SELECT personal_channel_id FROM users WHERE user_id=?", (int(user_id),)).fetchone()
+                    personal_channel_id = int(channel_row[0]) if channel_row and channel_row[0] else None
+            if not personal_channel_id:
+                return {"ok": True, "purchase_id": order_id, "balance": balance_after, "notification_sent": False,
+                        "message": "Покупка сохранена, но личный канал не найден."}
+            embed = {
+                "title": "🛍️ Покупка через WhiteGrief Control Panel",
+                "description": f"**{display_name}** совершил покупку на сайте.",
+                "color": 0x8B5CF6,
+                "fields": [
+                    {"name": "Товар", "value": item_name, "inline": True},
+                    {"name": "Цена", "value": f"{price:,} баллов".replace(",", " "), "inline": True},
+                    {"name": "Остаток", "value": f"{int(balance_after or 0):,} баллов".replace(",", " "), "inline": True},
+                    {"name": "Номер покупки", "value": f"#{order_id}", "inline": True},
+                    {"name": "Статус", "value": "Ожидает выдачи администрацией", "inline": False},
+                ],
+                "footer": {"text": "WHITEGRIEF • Покупка с сайта"},
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            try:
+                await discord_request("POST", f"/channels/{personal_channel_id}/messages", payload={
+                    "content": f"<@{user_id}>",
+                    "embeds": [embed],
+                    "allowed_mentions": {"parse": [], "users": [user_id]},
+                })
+                with sqlite3.connect(path, timeout=10) as db:
+                    db.execute("UPDATE web_shop_orders SET notification_sent=1 WHERE request_id=?", (request_id,))
+                    db.commit()
+                notification_sent = True
+            except HTTPException:
+                # The order and debit are durable; the same request_id can retry the notification safely.
+                notification_sent = False
+        return {
+            "ok": True, "purchase_id": order_id, "item": item_name, "price": price,
+            "balance": int(balance_after or 0), "notification_sent": notification_sent,
+            "message": "Покупка оформлена." if notification_sent else "Покупка сохранена, но уведомление в личный канал не отправилось.",
+        }
+    except HTTPException:
+        raise
+    except sqlite3.Error:
+        raise HTTPException(status_code=503, detail="Не удалось сохранить покупку в базе данных.")
 
 
 @app.post("/api/internal/data/players/{user_id}/warn")
