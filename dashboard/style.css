@@ -867,3 +867,25 @@ body.wg-compact .nav-item{padding-top:8px;padding-bottom:8px}
 :root[data-theme="light"] .access-assign-role-button{box-shadow:0 4px 12px #4a2b6c1c}
 @media(max-width:900px){.access-member-card{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}.access-member-actions{grid-column:1/-1;justify-content:flex-end}}
 @media(max-width:760px){.access-member-card{grid-template-columns:1fr}.access-member-actions{grid-column:auto;justify-content:flex-start}.access-assign-role-button{width:100%}.access-role-modal{padding:23px 19px}}
+
+
+/* Three-color personal palette with animated theme flow */
+:root{--wg-palette-1:#8b5cf6;--wg-palette-2:#ec4899;--wg-palette-3:#38bdf8;--wg-palette-ink:#fff}
+@keyframes wgPaletteFlow{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+.nav-item.active,.console-mode-tab.active,.quick-card:hover{
+  background-image:linear-gradient(110deg,var(--wg-palette-1),var(--wg-palette-2),var(--wg-palette-3),var(--wg-palette-1));
+  background-size:300% 300%;animation:wgPaletteFlow 10s ease infinite;color:var(--wg-palette-ink);
+}
+.nav-item.active .nav-icon{color:var(--wg-palette-ink)}
+.settings-hero,.access-assign-role-button,.primary-action{
+  background-image:linear-gradient(115deg,var(--wg-palette-1),var(--wg-palette-2),var(--wg-palette-3),var(--wg-palette-1));
+  background-size:300% 300%;animation:wgPaletteFlow 12s ease infinite;color:var(--wg-palette-ink);
+}
+.settings-hero-copy>strong,.settings-hero-copy p,.settings-hero-copy>span,.settings-hero-icon{color:var(--wg-palette-ink)}
+.wg-palette-editor{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.wg-palette-swatch{display:flex;align-items:center;gap:8px;min-width:0;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text);font-size:10px}
+.wg-palette-swatch input{width:34px;height:30px;flex:0 0 34px;padding:2px;border:1px solid #ffffff35;border-radius:7px;background:transparent;cursor:pointer}
+.wg-palette-preview{grid-column:1/-1;min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid #ffffff22;background:linear-gradient(110deg,var(--preview-a,#8b5cf6),var(--preview-b,#ec4899),var(--preview-c,#38bdf8));background-size:250% 250%;animation:wgPaletteFlow 8s ease infinite;color:var(--wg-palette-ink);font-size:9px;font-weight:850;letter-spacing:1.6px}
+.nav-group[hidden]{display:none!important}
+@media(max-width:560px){.wg-palette-editor{grid-template-columns:1fr}.wg-palette-preview{grid-column:auto}}
+@media(prefers-reduced-motion:reduce){.nav-item.active,.console-mode-tab.active,.quick-card:hover,.settings-hero,.access-assign-role-button,.primary-action,.wg-palette-preview{animation:none;background-position:50% 50%}}
