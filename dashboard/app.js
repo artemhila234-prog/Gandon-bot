@@ -903,6 +903,12 @@ function makeCell(value){
   cell.textContent=String(value??"—");
   return cell;
 }
+async function apiPost(url,payload){
+  const response=await fetch(url,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.detail||"Ошибка запроса.");
+  return data;
+}
 async function apiGet(url){
   const response=await fetch(url,{credentials:"same-origin"});
   const data=await response.json();
@@ -1152,10 +1158,37 @@ function showShopDetails(item,icon,category){
   const tag=document.createElement("span");tag.className="shop-category";tag.textContent=category;
   const title=document.createElement("h2");title.textContent=item.name;
   const price=document.createElement("p");price.className="shop-modal-price";price.textContent=Number(item.price).toLocaleString("ru-RU")+" баллов";
-  const note=document.createElement("p");note.className="shop-modal-note";note.textContent="Покупка через панель пока не подключена. Уточни оформление товара у администрации WhiteGrief.";
-  const done=document.createElement("button");done.className="shop-buy-button";done.type="button";done.textContent="Понятно";
-  const dismiss=()=>modal.remove();close.addEventListener("click",dismiss);done.addEventListener("click",dismiss);modal.addEventListener("click",e=>{if(e.target===modal)dismiss();});
-  dialog.append(close,symbol,tag,title,price,note,done);modal.append(dialog);document.body.append(modal);done.focus();
+  const note=document.createElement("p");note.className="shop-modal-note";note.textContent="После подтверждения баллы спишутся с твоего баланса. В личный Discord-канал придёт уведомление, а товар выдаст администрация.";
+  const balance=document.createElement("div");balance.className="shop-modal-balance";balance.textContent="Проверяем баланс…";
+  const confirm=document.createElement("button");confirm.className="shop-buy-button";confirm.type="button";confirm.textContent="Подтвердить покупку";
+  const cancel=document.createElement("button");cancel.className="shop-modal-cancel";cancel.type="button";cancel.textContent="Отмена";
+  const status=document.createElement("p");status.className="shop-modal-status";status.setAttribute("aria-live","polite");
+  let requestId=(globalThis.crypto?.randomUUID?.()||("wg-"+Date.now()+"-"+Math.random().toString(36).slice(2)));
+  let currentBalance=null;
+  const dismiss=()=>modal.remove();
+  close.addEventListener("click",dismiss);cancel.addEventListener("click",dismiss);modal.addEventListener("click",e=>{if(e.target===modal)dismiss();});
+  confirm.addEventListener("click",async()=>{
+    if(confirm.disabled)return;
+    confirm.disabled=true;cancel.disabled=true;confirm.textContent="Оформляем покупку…";status.textContent="";
+    try{
+      const result=await apiPost("/api/shop/purchase",{item:item.name,request_id:requestId});
+      balance.textContent="Остаток: "+Number(result.balance||0).toLocaleString("ru-RU")+" баллов";
+      note.textContent=result.notification_sent?"Покупка успешно оформлена. Уведомление отправлено в твой личный Discord-канал. Товар будет выдан администрацией.":(result.message||"Покупка оформлена, но уведомление не отправлено.");
+      status.textContent="Покупка №"+result.purchase_id+" оформлена.";
+      confirm.textContent="Готово";confirm.disabled=true;cancel.textContent="Закрыть";cancel.disabled=false;
+      confirm.onclick=dismiss;
+      if(typeof loadMyBalance==="function")loadMyBalance();
+    }catch(error){
+      status.textContent=error.message;confirm.textContent="Повторить покупку";confirm.disabled=false;cancel.disabled=false;
+    }
+  });
+  dialog.append(close,symbol,tag,title,price,balance,note,status,confirm,cancel);modal.append(dialog);document.body.append(modal);
+  apiGet("/api/me/balance").then(data=>{
+    currentBalance=Number(data.balance||0);
+    balance.textContent="Твой баланс: "+currentBalance.toLocaleString("ru-RU")+" баллов";
+    if(currentBalance<Number(item.price)){confirm.disabled=true;status.textContent="Не хватает "+(Number(item.price)-currentBalance).toLocaleString("ru-RU")+" баллов.";}
+  }).catch(error=>{balance.textContent="Не удалось загрузить баланс";status.textContent=error.message;confirm.disabled=true;});
+  close.focus();
 }
 
 
