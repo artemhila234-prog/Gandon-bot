@@ -834,3 +834,4 @@ D. Важное ограничение API
 - dashboard/backend/main.py: в user_preferences добавлена колонка palette с миграцией существующей SQLite базы без удаления старых настроек. API live возвращает три цвета, POST /api/settings/preferences проверяет ровно три HEX-цвета и сохраняет их в SQLite. Существующие theme/accent/compact_mode сохраняются и совместимы.
 - Изменены dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html и chatgpt.txt. Первый хостинг Discord-бота и aaaa/bot.py не менялись.
 - Для применения обновить на втором Dashboard-хостинге эти четыре файла и перезапустить Dashboard; затем открыть сайт с Ctrl+F5. Реальное обновление на хостинге и проверка в браузере не выполнены.
+- Дополнительная правка после проверки HTML: закрыт контейнер группы «ИНФОРМАЦИЯ»; при редактировании палитры live-синхронизация не должна перезаписывать ещё не сохранённый локальный выбор.
