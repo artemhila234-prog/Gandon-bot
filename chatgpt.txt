@@ -814,3 +814,12 @@ D. Важное ограничение API
 - Изменены dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html, chatgpt.txt. Источники бота aaaa/bot.py и его хостинг не менялись.
 - Основные коммиты: backend POST 07424cc041d6cf004e50d6c312fa4b393059467c; assignable roles 82b1b29c698a1489edf4de8471a23b9ca18ce8fa; app modal 8ab38c530b5dc8d353cdf01accaefde30cbc2edb; CSS modal b8054e685fef49c95cbfe1f2d4fc6cea6e62326b; HTML cache 20261107-role-assignment1 (commit записан в истории GitHub).
 - GitHub обновлён, но деплой и реальная выдача роли на Discord-сервере не проверены. Для деплоя на втором Dashboard-хостинге обновить dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html и перезапустить Dashboard. Первый хостинг бота менять не требуется. После обновления открыть «Доступ» и Ctrl+F5.
+
+
+75. СКРЫТИЕ ВКЛАДОК ПО УРОВНЮ ДОСТУПА (2026-11-07)
+- Пользователь попросил скрывать вкладки панели, к которым текущему классу доступа запрещён доступ.
+- В dashboard/app.js добавлена единая таблица минимальных уровней для навигации: Главная и Настройки доступны всем авторизованным уровням; Игроки и Магазин — Media и выше; Заявки — Co.Adm и выше; Сообщения, Логи, Консоль и Доступ — Adm и Full.
+- Недоступные пункты бокового меню скрываются, а прямой переход через URL/вызов showPage на закрытую страницу возвращает пользователя на Главную. Проверка применяется после загрузки Discord-сессии; до авторизации защищённые пункты скрыты.
+- Серверные проверки прав в dashboard/backend/main.py не изменялись и остаются обязательным уровнем защиты; скрытие навигации — только интерфейсное удобство.
+- Изменён dashboard/app.js, commit: b6d8fd89f44587d541ef1624aae600c4a8bd1c40.
+- Для применения синхронизировать dashboard/app.js на втором Bot-Hosting (панель) и перезапустить Dashboard. Если используется кеширование, обновить cache-buster в dashboard/index.html или сделать Ctrl+F5.
