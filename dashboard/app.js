@@ -142,6 +142,7 @@ async function refreshWhiteGriefLiveSettings(){
     if(!response.ok)return;
     const data=await response.json();
     wgGlobalSettings=data.global_settings||wgGlobalSettings;
+    wgPreferences=data.preferences||wgPreferences;
     applyWhiteGriefAppearance();
     renderGlobalAnnouncement();
   }catch(error){}
