@@ -412,6 +412,58 @@ async function loadAccess(section){
       const resultCount=document.createElement("span");resultCount.className="access-result-count";
       resultHead.append(resultTitle,resultCount);
       const list=document.createElement("div");list.className="access-member-list";
+      const openRoleModal=member=>{
+        const available=(data.assignable_roles||[]).filter(role=>!member.role_ids.includes(role.id));
+        const backdrop=document.createElement("div");backdrop.className="access-role-modal-backdrop";
+        const modal=document.createElement("section");modal.className="access-role-modal";modal.setAttribute("role","dialog");modal.setAttribute("aria-modal","true");
+        const close=()=>backdrop.remove();
+        const closeButton=document.createElement("button");closeButton.type="button";closeButton.className="access-role-modal-close";closeButton.textContent="×";closeButton.setAttribute("aria-label","Закрыть");closeButton.addEventListener("click",close);
+        const emblem=document.createElement("div");emblem.className="access-role-modal-emblem";emblem.textContent="✦";
+        const eyebrow=document.createElement("div");eyebrow.className="access-role-modal-eyebrow";eyebrow.textContent="WHITEGRIEF · УПРАВЛЕНИЕ РОЛЯМИ";
+        const title=document.createElement("h2");title.textContent="Выдать роль";
+        const description=document.createElement("p");description.className="access-role-modal-description";description.textContent="Выбери роль Discord для участника "+(member.display_name||member.username)+".";
+        const field=document.createElement("label");field.className="access-role-modal-field";
+        const fieldTitle=document.createElement("span");fieldTitle.textContent="РОЛЬ СЕРВЕРА";
+        const select=document.createElement("select");select.className="access-role-modal-select";
+        const placeholder=document.createElement("option");placeholder.value="";placeholder.textContent=available.length?"Выбери роль…":"Нет доступных для выдачи ролей";select.append(placeholder);
+        available.forEach(role=>{const option=document.createElement("option");option.value=role.id;option.textContent=role.name;select.append(option);});
+        field.append(fieldTitle,select);
+        const preview=document.createElement("div");preview.className="access-role-modal-preview";
+        const previewDot=document.createElement("i");const previewText=document.createElement("span");previewText.textContent="После выдачи роль появится в карточке участника.";preview.append(previewDot,previewText);
+        select.addEventListener("change",()=>{
+          const selected=available.find(role=>role.id===select.value);
+          previewText.textContent=selected?"Будет выдана роль «"+selected.name+"».":"После выдачи роль появится в карточке участника.";
+          previewDot.style.background=selected&&selected.color?"#"+selected.color.toString(16).padStart(6,"0"):"";
+        });
+        const notice=document.createElement("div");notice.className="access-role-modal-notice";notice.textContent="Выдача выполняется ботом WhiteGrief. Discord проверяет права и иерархию ролей.";
+        const footer=document.createElement("div");footer.className="access-role-modal-footer";
+        const cancel=document.createElement("button");cancel.type="button";cancel.className="access-role-modal-cancel";cancel.textContent="Отмена";cancel.addEventListener("click",close);
+        const confirm=document.createElement("button");confirm.type="button";confirm.className="access-role-modal-confirm";confirm.textContent="✦ Выдать роль";confirm.disabled=!available.length;
+        confirm.addEventListener("click",async()=>{
+          if(!select.value)return;
+          confirm.disabled=true;cancel.disabled=true;select.disabled=true;confirm.textContent="Выдаём…";
+          try{
+            const response=await fetch("/api/access/members/"+encodeURIComponent(member.id)+"/roles",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({role_id:select.value})});
+            const result=await response.json();
+            if(!response.ok)throw new Error(result.detail||"Не удалось выдать роль.");
+            if(!result.already_had_role){
+              member.role_ids.push(result.role.id);
+              member.roles.push(result.role);
+            }
+            close();
+            if(typeof showToast==="function")showToast(result.message||"Роль выдана.");
+            render();
+          }catch(error){
+            notice.textContent=error.message||"Не удалось выдать роль.";
+            notice.classList.add("is-error");
+            confirm.disabled=false;cancel.disabled=false;select.disabled=false;confirm.textContent="Повторить";
+          }
+        });
+        footer.append(cancel,confirm);
+        modal.append(closeButton,emblem,eyebrow,title,description,field,preview,notice,footer);
+        backdrop.append(modal);backdrop.addEventListener("click",event=>{if(event.target===backdrop)close();});
+        document.body.append(backdrop);select.focus();
+      };
       const render=()=>{
         const term=search.value.trim().toLocaleLowerCase();
         const roleId=filter.value;
@@ -447,7 +499,13 @@ async function loadAccess(section){
             roleBadges.append(badge);
           });
           if(!roleBadges.children.length){const none=document.createElement("span");none.className="access-no-roles";none.textContent="Нет дополнительных ролей";roleBadges.append(none);}
-          card.append(identity,roleBadges);fragment.append(card);
+          const roleAction=document.createElement("div");roleAction.className="access-member-actions";
+          const assignButton=document.createElement("button");assignButton.type="button";assignButton.className="access-assign-role-button";assignButton.textContent="＋ Выдать роль";
+          assignButton.disabled=!(data.assignable_roles||[]).some(role=>!member.role_ids.includes(role.id));
+          assignButton.title=assignButton.disabled?"Нет доступных ролей для выдачи":"Выдать Discord-роль участнику";
+          assignButton.addEventListener("click",()=>openRoleModal(member));
+          roleAction.append(assignButton);
+          card.append(identity,roleBadges,roleAction);fragment.append(card);
         });
         list.append(fragment);
       };
