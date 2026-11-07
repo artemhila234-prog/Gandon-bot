@@ -385,7 +385,7 @@ async def api_settings(request: Request):
                 }.get(role_map.get(str(role.get("id", "")), "none"), "Без доступа"),
                 "position": int(role.get("position", 0)),
             }
-            for role in roles if str(role.get("id", "")) != GUILD_ID
+            for role in roles if str(role.get("id", "")) != GUILD_ID and not role.get("managed", False)
         ]
         result["roles"].sort(key=lambda item: item["position"], reverse=True)
         result["channels"] = [
@@ -462,7 +462,7 @@ async def api_save_access_roles(request: Request):
     actual = {
         str(role.get("id")): str(role.get("name", "Без названия"))[:100]
         for role in discord_roles
-        if str(role.get("id", "")) != GUILD_ID
+        if str(role.get("id", "")) != GUILD_ID and not role.get("managed", False)
     }
     normalized = {}
     allowed = {"none", "media", "co_adm", "adm", "full"}
