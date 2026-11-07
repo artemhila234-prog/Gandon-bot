@@ -79,10 +79,55 @@
     <footer class="legal-footer"><span>WHITEGRIEF CONTROL PANEL • MADE FOR THE TEAM</span><a href="/terms">Перейти к условиям использования →</a></footer>
   </div></main>
   <script>
-    const legalSidebar=document.getElementById("legalSidebar");
-    const legalOverlay=document.getElementById("legalOverlay");
-    document.getElementById("legalMenuButton").addEventListener("click",()=>{legalSidebar.classList.toggle("open");legalOverlay.classList.toggle("show")});
-    legalOverlay.addEventListener("click",()=>{legalSidebar.classList.remove("open");legalOverlay.classList.remove("show")});
-  </script>
+(() => {
+  const rank = { none: 0, media: 1, co_adm: 2, adm: 3, full: 4 };
+  const minimum = {
+    dashboard: 0,
+    players: 1,
+    shop: 1,
+    requests: 2,
+    messages: 3,
+    logs: 3,
+    console: 3,
+    access: 3,
+    settings: 0
+  };
+  const links = Array.from(document.querySelectorAll(".nav-item[data-page]"));
+  const groups = Array.from(document.querySelectorAll(".nav-group[data-nav-group]"));
+
+  function applyAccess(data) {
+    const authenticated = data?.authenticated === true && !!data.user;
+    const level = authenticated ? (data.user.access_level || "none") : "none";
+    const userRank = rank[level] ?? 0;
+
+    links.forEach(link => {
+      const page = link.dataset.page;
+      const isHome = page === "dashboard";
+      const requiredRank = minimum[page] ?? Number.POSITIVE_INFINITY;
+      link.hidden = !isHome && (!authenticated || userRank < requiredRank);
+    });
+
+    groups.forEach(group => {
+      const groupLinks = Array.from(group.querySelectorAll(".nav-item"));
+      group.hidden = groupLinks.length === 0 || groupLinks.every(link => link.hidden);
+    });
+  }
+
+  // До ответа API скрываем закрытые разделы, чтобы они не мелькали при загрузке.
+  links.forEach(link => {
+    if (link.dataset.page !== "dashboard") link.hidden = true;
+  });
+
+  fetch("/api/me", { credentials: "same-origin", cache: "no-store" })
+    .then(response => {
+      if (!response.ok) throw new Error("Не удалось проверить доступ");
+      return response.json();
+    })
+    .then(applyAccess)
+    .catch(() => {
+      applyAccess({ authenticated: false, user: null });
+    });
+})();
+</script>
 </body>
 </html>
