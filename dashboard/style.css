@@ -733,3 +733,10 @@ body.wg-compact .nav-item{padding-top:8px;padding-bottom:8px}
 :root[data-theme="light"] .settings-switch-label{color:#39364a}
 :root[data-theme="light"] .wg-global-announcement{background:#f1edfa;color:#45375e;border-color:#cbb9e9}
 @media(max-width:640px){.settings-edit-grid{grid-template-columns:1fr}.wg-global-announcement{margin-left:12px;margin-right:12px}}
+
+
+/* Editable Discord role access mapping */
+.settings-role-editor{max-height:560px}
+.settings-role-edit-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,220px);align-items:center}
+.settings-role-select{max-width:220px}
+@media(max-width:560px){.settings-role-edit-row{grid-template-columns:1fr}.settings-role-select{max-width:none;width:100%}}
