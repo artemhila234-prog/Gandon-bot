@@ -7,12 +7,18 @@ let currentAccessLevel="none";
 const pageMinimumAccess={dashboard:"none",players:"media",shop:"media",requests:"co_adm",messages:"adm",logs:"adm",console:"adm",access:"adm",settings:"none"};
 const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
 function canOpenPage(page){
-  return !!pageNames[page] && (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"]);
+  return !!pageNames[page] && (page==="dashboard" || (isAuthenticated && (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"])));
 }
+let isAuthenticated=false;
 function applyAccessNavigation(){
   document.querySelectorAll(".nav-item[data-page]").forEach(button=>{
     const page=button.dataset.page;
     button.hidden=!canOpenPage(page);
+  });
+  document.querySelectorAll(".nav-group[data-nav-group]").forEach(group=>{
+    const nav=group.querySelector(".nav-list");
+    const visible=nav&&Array.from(nav.querySelectorAll(".nav-item")).some(item=>!item.hidden);
+    group.hidden=!visible;
   });
 }
 applyAccessNavigation();
@@ -95,6 +101,7 @@ async function loadSession(){
       return;
     }
     const user=data.user;
+    isAuthenticated=true;
     currentAccessLevel=user.access_level||"none";
     applyAccessNavigation();
     startSettingsLiveSync();
@@ -131,14 +138,24 @@ loadSession();
 
 
 
-let wgPreferences={theme:"system",accent:"purple",compact_mode:false};
+let wgPreferences={theme:"system",accent:"purple",palette:["#8b5cf6","#ec4899","#38bdf8"],compact_mode:false};
 let wgGlobalSettings={announcement_enabled:false,announcement_text:"",default_theme:"dark"};
 let wgSettingsLiveTimer=null;
 
 function applyWhiteGriefAppearance(){
+  const root=document.documentElement;
   const theme=wgPreferences.theme==="system"?(wgGlobalSettings.default_theme||"dark"):wgPreferences.theme;
-  document.documentElement.dataset.theme=theme;
-  document.documentElement.dataset.accent=wgPreferences.accent||"purple";
+  const fallback=["#8b5cf6","#ec4899","#38bdf8"];
+  const palette=Array.isArray(wgPreferences.palette)&&wgPreferences.palette.length===3?wgPreferences.palette:fallback;
+  root.dataset.theme=theme;
+  root.dataset.accent=wgPreferences.accent||"purple";
+  palette.forEach((color,index)=>root.style.setProperty("--wg-palette-"+(index+1),color));
+  const luminance=color=>{
+    const channels=[1,3,5].map(offset=>parseInt(String(color).slice(offset,offset+2),16)/255).map(value=>value<=.04045?value/12.92:Math.pow((value+.055)/1.055,2));
+    return .2126*channels[0]+.7152*channels[1]+.0722*channels[2];
+  };
+  const average=palette.reduce((sum,color)=>sum+luminance(color),0)/3;
+  root.style.setProperty("--wg-palette-ink",average>.48?"#111018":"#ffffff");
   document.body.classList.toggle("wg-compact",!!wgPreferences.compact_mode);
 }
 function renderGlobalAnnouncement(){
@@ -165,13 +182,13 @@ async function refreshWhiteGriefLiveSettings(){
     applyWhiteGriefAppearance();
     renderGlobalAnnouncement();
     const liveTheme=document.getElementById("wgPersonalTheme");
-    const liveAccent=document.getElementById("wgPersonalAccent");
+    const livePalette=[1,2,3].map(index=>document.getElementById("wgPaletteColor"+index));
     const liveCompact=document.getElementById("wgPersonalCompact");
     const liveAnnouncement=document.getElementById("wgAdminAnnouncementEnabled");
     const liveMessage=document.getElementById("wgAdminAnnouncementText");
     const liveDefaultTheme=document.getElementById("wgAdminDefaultTheme");
     if(liveTheme&&document.activeElement!==liveTheme)liveTheme.value=wgPreferences.theme||"system";
-    if(liveAccent&&document.activeElement!==liveAccent)liveAccent.value=wgPreferences.accent||"purple";
+    livePalette.forEach((control,index)=>{if(control&&document.activeElement!==control)control.value=(wgPreferences.palette||["#8b5cf6","#ec4899","#38bdf8"])[index];});
     if(liveCompact&&document.activeElement!==liveCompact)liveCompact.checked=!!wgPreferences.compact_mode;
     if(liveAnnouncement&&document.activeElement!==liveAnnouncement)liveAnnouncement.checked=!!wgGlobalSettings.announcement_enabled;
     if(liveMessage&&document.activeElement!==liveMessage)liveMessage.value=wgGlobalSettings.announcement_text||"";
@@ -232,12 +249,19 @@ async function loadSettings(section){
     const theme=document.createElement("select");theme.id="wgPersonalTheme";theme.className="settings-select";
     [["system","По умолчанию сервера"],["dark","Тёмная"],["light","Светлая"]].forEach(([value,label])=>{const o=document.createElement("option");o.value=value;o.textContent=label;theme.append(o);});
     theme.value=wgPreferences.theme||"system";
-    const accent=document.createElement("select");accent.id="wgPersonalAccent";accent.className="settings-select";
-    [["purple","Фиолетовый"],["blue","Синий"],["green","Зелёный"],["red","Красный"]].forEach(([value,label])=>{const o=document.createElement("option");o.value=value;o.textContent=label;accent.append(o);});
-    accent.value=wgPreferences.accent||"purple";
+    const paletteWrap=document.createElement("div");paletteWrap.className="wg-palette-editor";
+    const paletteInputs=[1,2,3].map((index)=>{
+      const item=document.createElement("div");item.className="wg-palette-swatch";
+      const color=document.createElement("input");color.type="color";color.id="wgPaletteColor"+index;color.value=(wgPreferences.palette||["#8b5cf6","#ec4899","#38bdf8"])[index-1];color.setAttribute("aria-label","Цвет палитры "+index);
+      const caption=document.createElement("span");caption.textContent="Цвет "+index;
+      item.append(color,caption);paletteWrap.append(item);return color;
+    });
+    const palettePreview=document.createElement("div");palettePreview.className="wg-palette-preview";
+    const previewLabel=document.createElement("span");previewLabel.textContent="ТВОЙ ГРАДИЕНТ";
+    palettePreview.append(previewLabel);paletteWrap.append(palettePreview);
     const compact=document.createElement("input");compact.id="wgPersonalCompact";compact.type="checkbox";compact.checked=!!wgPreferences.compact_mode;
     const compactLabel=document.createElement("label");compactLabel.className="settings-switch-label";compactLabel.append(compact,document.createTextNode("Компактный интерфейс"));
-    personalGrid.append(makeField("Тема оформления",theme,"Можно использовать тему по умолчанию, заданную администрацией."),makeField("Цвет акцента",accent,"Цвет выделения элементов панели."),makeField("Плотность интерфейса",compactLabel,"Уменьшает отступы между элементами."));
+    personalGrid.append(makeField("Тема оформления",theme,"Можно использовать тему по умолчанию, заданную администрацией."),makeField("Палитра из трёх цветов",paletteWrap,"Выбери три любимых цвета — градиент будет плавно переливаться по всей панели."),makeField("Плотность интерфейса",compactLabel,"Уменьшает отступы между элементами."));
     personal.append(personalGrid);
     const personalStatus=document.createElement("small");personalStatus.className="settings-save-status";personalStatus.textContent="Изменения сохраняются автоматически.";
     personal.append(personalStatus);root.append(personal);
@@ -246,14 +270,22 @@ async function loadSettings(section){
     const savePersonal=async()=>{
       if(savePersonalTimer)clearTimeout(savePersonalTimer);
       personalStatus.textContent="Сохраняем…";
-      wgPreferences={theme:theme.value,accent:accent.value,compact_mode:compact.checked};
+      wgPreferences={theme:theme.value,accent:wgPreferences.accent||"purple",palette:paletteInputs.map(input=>input.value),compact_mode:compact.checked};
       applyWhiteGriefAppearance();
       try{
         await requestJSON("/api/settings/preferences",wgPreferences);
         personalStatus.textContent="Сохранено · применяется сразу";
       }catch(error){personalStatus.textContent=error.message;}
     };
-    [theme,accent,compact].forEach(control=>control.addEventListener("change",savePersonal));
+    const updatePalettePreview=()=>{
+      palettePreview.style.setProperty("--preview-a",paletteInputs[0].value);
+      palettePreview.style.setProperty("--preview-b",paletteInputs[1].value);
+      palettePreview.style.setProperty("--preview-c",paletteInputs[2].value);
+    };
+    paletteInputs.forEach(control=>control.addEventListener("input",()=>{updatePalettePreview();wgPreferences.palette=paletteInputs.map(input=>input.value);applyWhiteGriefAppearance();}));
+    paletteInputs.forEach(control=>control.addEventListener("change",savePersonal));
+    updatePalettePreview();
+    [theme,compact].forEach(control=>control.addEventListener("change",savePersonal));
 
     if(data.is_admin){
       const admin=makePanel("Общие настройки панели","Изменения видны всем пользователям");
