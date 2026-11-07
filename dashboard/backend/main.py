@@ -46,9 +46,51 @@ def init_panel_db() -> None:
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (guild_id, role_id)
         )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS user_preferences (
+            user_id TEXT PRIMARY KEY,
+            theme TEXT NOT NULL DEFAULT 'system',
+            accent TEXT NOT NULL DEFAULT 'purple',
+            compact_mode INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
+        db.execute("""CREATE TABLE IF NOT EXISTS panel_settings (
+            setting_key TEXT PRIMARY KEY,
+            setting_value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )""")
+        db.executemany(
+            "INSERT OR IGNORE INTO panel_settings (setting_key, setting_value) VALUES (?, ?)",
+            [("announcement_enabled", "false"), ("announcement_text", ""), ("default_theme", "dark")]
+        )
         db.commit()
 
 init_panel_db()
+
+
+def get_global_panel_settings() -> dict[str, Any]:
+    import sqlite3
+    defaults = {"announcement_enabled": False, "announcement_text": "", "default_theme": "dark"}
+    with sqlite3.connect(PANEL_DB_PATH) as db:
+        rows = db.execute("SELECT setting_key, setting_value FROM panel_settings").fetchall()
+    values = {str(key): str(value) for key, value in rows}
+    return {
+        "announcement_enabled": values.get("announcement_enabled", "false").lower() == "true",
+        "announcement_text": values.get("announcement_text", defaults["announcement_text"]),
+        "default_theme": values.get("default_theme", defaults["default_theme"]),
+    }
+
+
+def get_user_panel_preferences(user_id: str) -> dict[str, Any]:
+    import sqlite3
+    with sqlite3.connect(PANEL_DB_PATH) as db:
+        row = db.execute(
+            "SELECT theme, accent, compact_mode FROM user_preferences WHERE user_id = ?",
+            (str(user_id),)
+        ).fetchone()
+    if not row:
+        return {"theme": "system", "accent": "purple", "compact_mode": False}
+    return {"theme": row[0], "accent": row[1], "compact_mode": bool(row[2])}
+
 
 def get_role_access_map() -> dict[str, str]:
     import sqlite3
@@ -309,17 +351,24 @@ async def discord_request(method: str, path: str, *, payload: dict[str, Any] | N
 
 @app.get("/api/settings")
 async def api_settings(request: Request):
-    await require_access(request, "adm")
-    role_map = get_role_access_map()
+    user = await require_user(request)
+    is_admin = ACCESS_RANK.get(user.get("access_level", "none"), 0) >= ACCESS_RANK["adm"]
     result: dict[str, Any] = {
-        "guild_id": GUILD_ID,
-        "guild_name": "WhiteGrief",
+        "is_admin": is_admin,
+        "preferences": get_user_panel_preferences(str(user["id"])),
+        "global_settings": get_global_panel_settings(),
+        "configuration": configuration_status() if is_admin else None,
+        "guild_id": GUILD_ID if is_admin else None,
+        "guild_name": "WhiteGrief" if is_admin else None,
         "discord_connected": False,
         "roles": [],
         "channels": [],
         "channels_error": "",
-        "configuration": configuration_status(),
     }
+    if not is_admin:
+        return result
+
+    role_map = get_role_access_map()
     try:
         roles = await discord_request("GET", f"/guilds/{GUILD_ID}/roles")
         channels = await discord_request("GET", f"/guilds/{GUILD_ID}/channels")
@@ -348,6 +397,78 @@ async def api_settings(request: Request):
         result["channels_error"] = str(exc.detail)
     return result
 
+
+@app.get("/api/settings/live")
+async def api_settings_live(request: Request):
+    await require_user(request)
+    return {"global_settings": get_global_panel_settings()}
+
+
+@app.post("/api/settings/preferences")
+async def api_save_preferences(request: Request):
+    user = await require_user(request)
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    theme = payload.get("theme", "system")
+    accent = payload.get("accent", "purple")
+    compact_mode = payload.get("compact_mode", False)
+    if theme not in {"system", "dark", "light"}:
+        raise HTTPException(status_code=400, detail="Неизвестная тема оформления.")
+    if accent not in {"purple", "blue", "green", "red"}:
+        raise HTTPException(status_code=400, detail="Неизвестный цвет акцента.")
+    if not isinstance(compact_mode, bool):
+        raise HTTPException(status_code=400, detail="compact_mode должен быть true или false.")
+    import sqlite3
+    with sqlite3.connect(PANEL_DB_PATH) as db:
+        db.execute(
+            """INSERT INTO user_preferences (user_id, theme, accent, compact_mode, updated_at)
+               VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(user_id) DO UPDATE SET
+               theme=excluded.theme, accent=excluded.accent,
+               compact_mode=excluded.compact_mode, updated_at=CURRENT_TIMESTAMP""",
+            (str(user["id"]), theme, accent, int(compact_mode)),
+        )
+        db.commit()
+    return {"ok": True, "preferences": get_user_panel_preferences(str(user["id"]))}
+
+
+@app.post("/api/settings/admin")
+async def api_save_admin_settings(request: Request):
+    await require_access(request, "adm")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    announcement_enabled = payload.get("announcement_enabled", False)
+    announcement_text = payload.get("announcement_text", "")
+    default_theme = payload.get("default_theme", "dark")
+    if not isinstance(announcement_enabled, bool):
+        raise HTTPException(status_code=400, detail="announcement_enabled должен быть true или false.")
+    if not isinstance(announcement_text, str) or len(announcement_text) > 350:
+        raise HTTPException(status_code=400, detail="Текст уведомления должен быть не длиннее 350 символов.")
+    if default_theme not in {"dark", "light"}:
+        raise HTTPException(status_code=400, detail="Неизвестная тема по умолчанию.")
+    values = {
+        "announcement_enabled": "true" if announcement_enabled else "false",
+        "announcement_text": announcement_text.strip(),
+        "default_theme": default_theme,
+    }
+    import sqlite3
+    with sqlite3.connect(PANEL_DB_PATH) as db:
+        db.executemany(
+            """INSERT INTO panel_settings (setting_key, setting_value, updated_at)
+               VALUES (?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(setting_key) DO UPDATE SET
+               setting_value=excluded.setting_value, updated_at=CURRENT_TIMESTAMP""",
+            list(values.items()),
+        )
+        db.commit()
+    return {"ok": True, "global_settings": get_global_panel_settings()}
+
+
+async def bot_api_request
 
 async def bot_api_request(method: str, path: str, *, payload: dict[str, Any] | None = None) -> Any:
     if not BOT_API_URL or not BOT_DATA_API_SECRET:
