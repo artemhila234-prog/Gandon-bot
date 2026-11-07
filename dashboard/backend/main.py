@@ -1023,9 +1023,9 @@ async def api_send_message(request: Request):
 SHOP_ITEMS_PANEL = [
     {"name": "PVP", "price": 1000, "type": "kit"}, {"name": "CYBER", "price": 1500, "type": "kit"},
     {"name": "RICH", "price": 2000, "type": "kit"}, {"name": "TOPER", "price": 2500, "type": "kit"},
-    {"name": "D.OWNER", "price": 2300, "type": "kit"}, {"name": "DADMIN", "price": 1000, "type": "kit"},
-    {"name": "D.GLMODER", "price": 900, "type": "kit"}, {"name": "D.STMODER", "price": 750, "type": "kit"},
-    {"name": "D.MODER", "price": 500, "type": "kit"}, {"name": "WHITE", "price": 5000, "type": "донат"},
+    {"name": "D.OWNER", "price": 2300, "type": "донат"}, {"name": "DADMIN", "price": 1000, "type": "донат"},
+    {"name": "D.GLMODER", "price": 900, "type": "донат"}, {"name": "D.STMODER", "price": 750, "type": "донат"},
+    {"name": "D.MODER", "price": 500, "type": "донат"}, {"name": "WHITE", "price": 5000, "type": "донат"},
     {"name": "RABBIT", "price": 4500, "type": "донат"}, {"name": "DHELPER", "price": 4500, "type": "донат"},
     {"name": "GOD", "price": 4000, "type": "донат"}, {"name": "ENDER", "price": 4000, "type": "донат"},
     {"name": "DRACULA", "price": 3500, "type": "донат"}, {"name": "BERSERK", "price": 3500, "type": "донат"},
