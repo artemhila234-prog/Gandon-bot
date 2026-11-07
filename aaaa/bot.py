@@ -157,7 +157,11 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS tiktok_videos (
 )""")
 cursor.execute("DELETE FROM pending_requests WHERE request_type = 'points'")
 cursor.execute("""CREATE TABLE IF NOT EXISTS support_tickets (channel_id TEXT PRIMARY KEY,guild_id TEXT NOT NULL,user_id TEXT NOT NULL,username TEXT NOT NULL,subject TEXT NOT NULL,description TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,closed_by TEXT)""")
-cursor.execute("""CREATE TABLE IF NOT EXISTS support_ticket_config (guild_id TEXT PRIMARY KEY,category_id TEXT,panel_channel_id TEXT,panel_message_id TEXT)""")
+cursor.execute("""CREATE TABLE IF NOT EXISTS support_ticket_config (guild_id TEXT PRIMARY KEY,category_id TEXT,panel_channel_id TEXT,panel_message_id TEXT,accepting INTEGER NOT NULL DEFAULT 1)""")
+try:
+    cursor.execute("ALTER TABLE support_ticket_config ADD COLUMN accepting INTEGER NOT NULL DEFAULT 1")
+except sqlite3.OperationalError:
+    pass
 conn.commit()
 
 print(f"🗄️ База WhiteGrief: {os.path.abspath(DB_PATH)}", flush=True)
@@ -490,8 +494,14 @@ def ticket_is_staff(member):
     staff_ids = set(STAFF_ROLES) | set(MOD_ROLE_IDS) | {1546125455633944598,1546125498340614195,1546125469093732372,1546125465482174484,1547654044263252038,1546125472897961984,1546125480321749053,1550200782177968178,1567181454947917864,1567181456059535380,1567181457212833822}
     return bool(ids.intersection(staff_ids))
 
+def ticket_accepting(guild_id):
+    row = conn.execute("SELECT accepting FROM support_ticket_config WHERE guild_id=?", (str(guild_id),)).fetchone()
+    return bool(row[0]) if row else True
+
 def ticket_embed_panel():
-    embed = discord.Embed(title="❗ Поддержка WhiteGrief", description="Нашёл баг или ошибку в Discord-боте либо на сайте WhiteGrief?\n\nНажми **«Создать тикет»** ниже и опиши проблему — команда поддержки увидит обращение и поможет разобраться.\n\nУкажи, что произошло и как повторить ошибку. При необходимости приложи скриншоты. Для каждой проблемы создавай отдельный тикет.", color=0xF2C94C)
+    accepting = ticket_accepting(ALLOWED_GUILDS[0])
+    description = ("Нашёл баг или ошибку в Discord-боте либо на сайте WhiteGrief?\\n\\nНажми **«Создать тикет»** ниже и опиши проблему — команда поддержки увидит обращение и поможет разобраться.\\n\\nУкажи, что произошло и как повторить ошибку. При необходимости приложи скриншоты. Для каждой проблемы создавай отдельный тикет." if accepting else "Приём новых обращений временно закрыт.\\n\\nСуществующие тикеты продолжают работать. Попробуй отправить обращение позже.")
+    embed = discord.Embed(title="❗ Поддержка WhiteGrief", description=description, color=0xFFFFFF)
     embed.set_footer(text="WhiteGrief • Служба поддержки")
     return embed
 
@@ -503,6 +513,8 @@ class TicketCreateModal(discord.ui.Modal, title="Новое обращение")
         guild = interaction.guild
         if guild is None or guild.id not in ALLOWED_GUILDS:
             await interaction.followup.send("Тикеты доступны только на сервере WhiteGrief.", ephemeral=True); return
+        if not ticket_accepting(guild.id):
+            await interaction.followup.send("🚫 Приём новых тикетов сейчас закрыт. Попробуй позже.", ephemeral=True); return
         old = conn.execute("SELECT channel_id FROM support_tickets WHERE guild_id=? AND user_id=? AND status='open'", (str(guild.id),str(interaction.user.id))).fetchone()
         if old:
             old_channel = guild.get_channel(int(old[0]))
@@ -529,7 +541,8 @@ class TicketCreateModal(discord.ui.Modal, title="Новое обращение")
 class TicketPanelView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        button = discord.ui.Button(label="Создать тикет",style=discord.ButtonStyle.primary,emoji="🎫",custom_id=TICKET_PANEL_CUSTOM_ID)
+        accepting = ticket_accepting(ALLOWED_GUILDS[0])
+        button = discord.ui.Button(label="Создать тикет" if accepting else "Приём закрыт",style=discord.ButtonStyle.secondary,emoji="🎫",custom_id=TICKET_PANEL_CUSTOM_ID,disabled=not accepting)
         button.callback = self.create
         self.add_item(button)
     async def create(self, interaction): await interaction.response.send_modal(TicketCreateModal())
@@ -2327,6 +2340,26 @@ async def panel_tickets_list():
 async def panel_ticket_status(channel_id,status,actor):
     return await set_ticket_status(channel_id,status,actor)
 
+async def panel_ticket_acceptance():
+    return {"accepting": ticket_accepting(ALLOWED_GUILDS[0])}
+
+async def panel_set_ticket_acceptance(enabled):
+    guild_id = str(ALLOWED_GUILDS[0])
+    conn.execute("INSERT OR IGNORE INTO support_ticket_config (guild_id,accepting) VALUES (?,1)", (guild_id,))
+    conn.execute("UPDATE support_ticket_config SET accepting=? WHERE guild_id=?", (1 if enabled else 0, guild_id))
+    conn.commit()
+    guild = bot.get_guild(int(guild_id))
+    row = conn.execute("SELECT panel_channel_id,panel_message_id FROM support_ticket_config WHERE guild_id=?", (guild_id,)).fetchone()
+    if guild and row and row[0] and row[1]:
+        channel = guild.get_channel(int(row[0]))
+        if channel:
+            try:
+                message = await channel.fetch_message(int(row[1]))
+                await message.edit(embed=ticket_embed_panel(), view=TicketPanelView())
+            except discord.NotFound:
+                pass
+    return {"accepting": bool(enabled)}
+
 
 async def run_services():
     """Запускает Discord-бота и FastAPI в одном процессе Bot-Hosting."""
@@ -2339,6 +2372,8 @@ async def run_services():
         "output": panel_console_output,
         "tickets": panel_tickets_list,
         "ticket_status": panel_ticket_status,
+        "ticket_acceptance": panel_ticket_acceptance,
+        "set_ticket_acceptance": panel_set_ticket_acceptance,
         "actions": {
             "sync_commands": panel_sync_commands,
             "sync_roles": panel_sync_roles,
