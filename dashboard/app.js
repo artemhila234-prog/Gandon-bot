@@ -31,6 +31,9 @@ function showPage(page){
     } else if(page==="console"){
       section.innerHTML='<div class="panel-heading"><div><h2>Управление ботом</h2><p>Состояние Discord-подключения и безопасные действия управления.</p></div><button class="text-button" id="refreshConsole">↻ Обновить</button></div><div id="consoleWorkspace" class="console-workspace"><div class="empty-state">Подключаемся к боту…</div></div>';
       loadConsole(section);
+    } else if(page==="settings"){
+       section.innerHTML='<div class="panel-heading"><div><h2>Настройки системы</h2><p>Подключения, роли доступа, Discord-каналы и интеграции WhiteGrief.</p></div><button class="text-button" id="refreshSettings">↻ Обновить</button></div><div id="settingsWorkspace" class="settings-workspace"><div class="empty-state">Проверяем конфигурацию…</div></div>';
+       loadSettings(section);
     } else if(page==="logs"){
       section.innerHTML='<div class="panel-heading"><div><h2>Папка logs/</h2><p>Все файлы журналов бота. Выбери файл, чтобы открыть просмотрщик.</p></div><button class="text-button" id="refreshLogs">↻ Обновить</button></div><div class="logs-browser-toolbar"><div class="logs-folder-path"><span class="folder-icon">▰</span><span>WhiteGrief</span><span class="muted">/</span><strong>logs/</strong></div><input id="logsFileSearch" class="panel-search" placeholder="Найти файл…"></div><div class="logs-summary" id="logsSummary">Загрузка списка файлов…</div><div id="logsResult" class="logs-file-grid"><div class="empty-state">Загружаем файлы…</div></div>';
       loadLogs(section);
@@ -104,6 +107,103 @@ if(logoutButton){
   });
 }
 loadSession();
+
+
+
+async function loadSettings(section){
+  const root=section.querySelector("#settingsWorkspace"),refresh=section.querySelector("#refreshSettings");
+  if(!root)return;
+  const makeStatus=(label,ok,detail)=>{
+    const card=document.createElement("article");card.className="settings-status-card";
+    const head=document.createElement("div");head.className="settings-status-head";
+    const name=document.createElement("strong");name.textContent=label;
+    const badge=document.createElement("span");badge.className="settings-status-pill "+(ok?"is-ready":"is-missing");badge.textContent=ok?"Готово":"Проверить";
+    const desc=document.createElement("small");desc.textContent=detail;
+    head.append(name,badge);card.append(head,desc);return card;
+  };
+  const render=data=>{
+    root.replaceChildren();
+    const intro=document.createElement("div");intro.className="settings-intro";
+    const introTitle=document.createElement("strong");introTitle.textContent="Конфигурация WhiteGrief";
+    const introText=document.createElement("p");introText.textContent="Состояние настроек второго хостинга. Секретные значения скрыты; для их изменения используй переменные окружения Bot-Hosting.";
+    intro.append(introTitle,introText);root.append(intro);
+    const summary=document.createElement("div");summary.className="settings-status-grid";
+    const c=data.configuration||{};
+    [
+      ["Discord OAuth",c.oauth,"Вход через Discord · Client ID и Secret"],
+      ["Discord Bot API",c.bot,"Токен бота задан на Dashboard-хостинге"],
+      ["Секрет сессии",c.session_secret,"Защита авторизационных cookie"],
+      ["OAuth Redirect",c.redirect_uri,"Адрес возврата после входа"],
+      ["Синхронизация ролей",c.bot_sync,"Внутренний ключ синхронизации ролей"],
+      ["Связь с ботом",c.bot_api,"Адрес первого хостинга и внутренний API"],
+      ["TikTok Login Kit",c.tiktok_oauth,"Client Key, Secret и Redirect URI"],
+      ["Шифрование TikTok",c.tiktok_encryption,"Ключ шифрования токенов задан"]
+    ].forEach(item=>summary.append(makeStatus(item[0],!!item[1],item[2])));
+    root.append(summary);
+    const guild=document.createElement("section");guild.className="settings-panel";
+    const gh=document.createElement("div");gh.className="settings-panel-heading";
+    const gt=document.createElement("h3");gt.textContent="Discord-сервер";
+    const gm=document.createElement("span");gm.className="settings-muted";gm.textContent=data.guild_name||"WhiteGrief";
+    gh.append(gt,gm);
+    const info=document.createElement("div");info.className="settings-info-grid";
+    [["Название",data.guild_name||"Недоступно"],["Guild ID",data.guild_id||"—"],["Подключение",data.discord_connected?"Discord API доступен":"Нет доступа к Discord API"]].forEach(pair=>{
+      const item=document.createElement("div");item.className="settings-info-item";
+      const small=document.createElement("small");small.textContent=pair[0];
+      const strong=document.createElement("strong");strong.textContent=pair[1];
+      item.append(small,strong);info.append(item);
+    });
+    guild.append(gh,info);root.append(guild);
+    const rolePanel=document.createElement("section");rolePanel.className="settings-panel";
+    const rh=document.createElement("div");rh.className="settings-panel-heading";
+    const rt=document.createElement("h3");rt.textContent="Роли доступа";
+    const rm=document.createElement("span");rm.className="settings-muted";rm.textContent="Текущая карта доступа";
+    rh.append(rt,rm);rolePanel.append(rh);
+    const roleList=document.createElement("div");roleList.className="settings-role-list";
+    (data.roles||[]).forEach(role=>{
+      const row=document.createElement("div");row.className="settings-role-row";
+      const copy=document.createElement("div");copy.className="settings-role-copy";
+      const name=document.createElement("strong");name.textContent=role.name;
+      const id=document.createElement("small");id.textContent="ID: "+role.id;
+      copy.append(name,id);
+      const level=document.createElement("span");level.className="settings-access-level level-"+(role.access_level||"none");level.textContent=role.access_label||"Без доступа";
+      row.append(copy,level);roleList.append(row);
+    });
+    if(!roleList.children.length){const empty=document.createElement("div");empty.className="settings-empty";empty.textContent="Список ролей Discord недоступен.";roleList.append(empty);}
+    rolePanel.append(roleList);root.append(rolePanel);
+    const channelPanel=document.createElement("section");channelPanel.className="settings-panel";
+    const ch=document.createElement("div");ch.className="settings-panel-heading";
+    const ct=document.createElement("h3");ct.textContent="Каналы Discord";
+    const cm=document.createElement("span");cm.className="settings-muted";cm.textContent=(data.channels||[]).length+" текстовых каналов";
+    ch.append(ct,cm);channelPanel.append(ch);
+    const channelList=document.createElement("div");channelList.className="settings-channel-list";
+    (data.channels||[]).forEach(channel=>{
+      const row=document.createElement("div");row.className="settings-channel-row";
+      const hash=document.createElement("span");hash.className="settings-channel-hash";hash.textContent="#";
+      const name=document.createElement("strong");name.textContent=channel.name;
+      const id=document.createElement("small");id.textContent=channel.id;
+      row.append(hash,name,id);channelList.append(row);
+    });
+    if(!channelList.children.length){const empty=document.createElement("div");empty.className="settings-empty";empty.textContent=data.channels_error||"Список каналов недоступен.";channelList.append(empty);}
+    channelPanel.append(channelList);root.append(channelPanel);
+    const note=document.createElement("div");note.className="settings-security-note";
+    note.textContent="Безопасность: секреты, токены и содержимое .env не передаются в браузер. Эта версия настроек работает в режиме просмотра — изменение инфраструктурных параметров выполняется на хостинге.";
+    root.append(note);
+  };
+  const load=async()=>{
+    if(refresh){refresh.disabled=true;refresh.textContent="Загрузка…";}
+    root.innerHTML='<div class="empty-state">Получаем актуальные настройки…</div>';
+    try{
+      const response=await fetch("/api/settings",{credentials:"same-origin",cache:"no-store"});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.detail||"Не удалось загрузить настройки.");
+      render(data);
+    }catch(error){
+      root.replaceChildren();const message=document.createElement("div");message.className="console-error";message.textContent=error.message||"Ошибка загрузки настроек.";root.append(message);
+    }finally{if(refresh){refresh.disabled=false;refresh.textContent="↻ Обновить";}}
+  };
+  if(refresh)refresh.addEventListener("click",load);
+  await load();
+}
 
 
 async function loadConsole(section){
