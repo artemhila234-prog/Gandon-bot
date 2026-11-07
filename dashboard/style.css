@@ -896,3 +896,55 @@ body.wg-compact .nav-item{padding-top:8px;padding-bottom:8px}
 .nav-group[hidden]{
   display:none!important;
 }
+
+
+/* Personal palette: Discord-like solid button colors + softly tinted surfaces */
+:root{
+  --wg-palette-soft-1:color-mix(in srgb,var(--wg-palette-1) 13%,var(--panel));
+  --wg-palette-soft-2:color-mix(in srgb,var(--wg-palette-2) 13%,var(--panel));
+  --wg-palette-soft-3:color-mix(in srgb,var(--wg-palette-3) 13%,var(--panel));
+}
+.settings-hero{
+  background:
+    radial-gradient(ellipse at 88% 12%,color-mix(in srgb,var(--wg-palette-3) 42%,transparent),transparent 42%),
+    linear-gradient(115deg,color-mix(in srgb,var(--wg-palette-1) 34%,#11121a),color-mix(in srgb,var(--wg-palette-2) 30%,#11121a),color-mix(in srgb,var(--wg-palette-3) 32%,#11121a));
+  background-size:220% 220%;animation:wgPaletteFlow 14s ease infinite;
+}
+.panel,.stat-card,.settings-panel,.console-controls,.console-status-card,.logs-tabs,.messages-composer,.shop-toolbar{
+  border-color:color-mix(in srgb,var(--wg-palette-1) 24%,var(--line));
+}
+.panel,.stat-card,.settings-panel,.console-controls{
+  background-image:linear-gradient(135deg,var(--wg-palette-soft-1),transparent 62%);
+}
+.player-card,.shop-card,.quick-card,.log-file-card{
+  border-color:color-mix(in srgb,var(--wg-palette-2) 24%,var(--line));
+  background-image:linear-gradient(135deg,var(--wg-palette-soft-2),var(--panel) 72%);
+}
+.nav-item.active,.console-mode-tab.active,.quick-card:hover{
+  background:var(--wg-palette-1);
+  background-image:none;background-size:auto;animation:none;
+  border-color:var(--wg-palette-1);color:var(--wg-palette-ink-1);
+}
+.nav-item.active .nav-icon{color:var(--wg-palette-ink-1)}
+/* Buttons use individual palette swatches instead of one moving gradient */
+.primary-action,.access-assign-role-button,.console-action-button,#refreshPlayers,#refreshShop{
+  background:var(--wg-palette-1);background-image:none;border-color:var(--wg-palette-1);
+  color:var(--wg-palette-ink-1);box-shadow:0 4px 14px color-mix(in srgb,var(--wg-palette-1) 24%,transparent);
+}
+.secondary-action,.console-tool-button,.logs-tab.active,.log-back-button{
+  background:var(--wg-palette-2);background-image:none;border-color:var(--wg-palette-2);
+  color:var(--wg-palette-ink-2);box-shadow:0 4px 14px color-mix(in srgb,var(--wg-palette-2) 20%,transparent);
+}
+.shop-filter.active,.member-action.give-warn,.login-button{
+  background:var(--wg-palette-3);background-image:none;border-color:var(--wg-palette-3);
+  color:var(--wg-palette-ink-3);box-shadow:0 4px 14px color-mix(in srgb,var(--wg-palette-3) 20%,transparent);
+}
+.text-button,.settings-status-pill.is-ready,.shop-price>span{color:var(--wg-palette-2)}
+.action-button:hover:not(:disabled),.access-assign-role-button:hover:not(:disabled),
+.console-action-button:hover,.console-tool-button:hover,.shop-filter:hover{
+  filter:brightness(1.12);transform:translateY(-1px);
+}
+:root[data-theme="light"] .panel,:root[data-theme="light"] .stat-card,:root[data-theme="light"] .settings-panel,:root[data-theme="light"] .console-controls{
+  background-image:linear-gradient(135deg,color-mix(in srgb,var(--wg-palette-1) 7%,white),white 70%);
+}
+@media(prefers-reduced-motion:reduce){.settings-hero{animation:none}}
