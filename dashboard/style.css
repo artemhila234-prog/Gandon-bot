@@ -1094,3 +1094,8 @@ body::before{
 .top-avatar{overflow:hidden;cursor:pointer;flex:0 0 30px;padding:0;border:1px solid color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 45%,transparent);transition:transform .18s,border-color .18s,box-shadow .18s}
 .top-avatar:hover{transform:scale(1.08);border-color:var(--wg-palette-1,#8b5cf6);box-shadow:0 0 0 3px color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 18%,transparent)}
 .top-avatar:focus-visible{outline:2px solid var(--wg-palette-1,#8b5cf6);outline-offset:3px}
+
+.shop-modal-balance{margin:12px 0;padding:12px 14px;border:1px solid color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 35%,var(--line));border-radius:12px;background:color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 10%,var(--panel));font-weight:800;font-size:13px;text-align:center}
+.shop-modal-status{min-height:18px;margin:8px 0;color:var(--muted);font-size:12px;text-align:center}
+.shop-modal-cancel{width:100%;margin-top:8px;padding:11px 16px;border:1px solid var(--line);border-radius:11px;background:var(--panel2);color:var(--text);font-weight:700;cursor:pointer}
+.shop-buy-button:disabled,.shop-modal-cancel:disabled{opacity:.55;cursor:not-allowed}
