@@ -889,3 +889,10 @@ body.wg-compact .nav-item{padding-top:8px;padding-bottom:8px}
 .nav-group[hidden]{display:none!important}
 @media(max-width:560px){.wg-palette-editor{grid-template-columns:1fr}.wg-palette-preview{grid-column:auto}}
 @media(prefers-reduced-motion:reduce){.nav-item.active,.console-mode-tab.active,.quick-card:hover,.settings-hero,.access-assign-role-button,.primary-action,.wg-palette-preview{animation:none;background-position:50% 50%}}
+
+
+/* Ensure browser hidden attribute wins over component display rules */
+.nav-item[hidden],
+.nav-group[hidden]{
+  display:none!important;
+}
