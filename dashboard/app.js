@@ -283,19 +283,40 @@ async function loadSettings(section){
       });
       guild.append(info);root.append(guild);
 
-      const rolePanel=makePanel("Роли доступа","Текущая карта доступа");
-      const roleList=document.createElement("div");roleList.className="settings-role-list";
+      const rolePanel=makePanel("Роли доступа к сайту","Назначай уровень доступа каждой роли Discord");
+      const roleList=document.createElement("div");roleList.className="settings-role-list settings-role-editor";
+      const roleControls=[];
+      const actorIsFull=(data.current_access_level==="full");
       (data.roles||[]).forEach(role=>{
-        const row=document.createElement("div");row.className="settings-role-row";
+        const row=document.createElement("div");row.className="settings-role-row settings-role-edit-row";
         const copy=document.createElement("div");copy.className="settings-role-copy";
         const name=document.createElement("strong");name.textContent=role.name;
         const id=document.createElement("small");id.textContent="ID: "+role.id;
         copy.append(name,id);
-        const level=document.createElement("span");level.className="settings-access-level level-"+(role.access_level||"none");level.textContent=role.access_label||"Без доступа";
-        row.append(copy,level);roleList.append(row);
+        const select=document.createElement("select");select.className="settings-select settings-role-select";
+        const options=[["none","Без доступа"],["media","Media"],["co_adm","Co.Adm"],["adm","Adm"]];
+        if(actorIsFull)options.push(["full","Full"]);
+        else if(role.access_level==="full")options.push(["full","Full · защищено"]);
+        options.forEach(([value,label])=>{const option=document.createElement("option");option.value=value;option.textContent=label;if(value==="full"&&!actorIsFull)option.disabled=true;select.append(option);});
+        select.value=role.access_level||"none";
+        if(!actorIsFull&&role.access_level==="full")select.disabled=true;
+        roleControls.push({id:role.id,select});
+        row.append(copy,select);roleList.append(row);
       });
       if(!roleList.children.length){const empty=document.createElement("div");empty.className="settings-empty";empty.textContent="Список ролей Discord недоступен.";roleList.append(empty);}
-      rolePanel.append(roleList);root.append(rolePanel);
+      const roleActions=document.createElement("div");roleActions.className="settings-admin-actions";
+      const saveRoles=document.createElement("button");saveRoles.type="button";saveRoles.className="console-action-button";saveRoles.textContent="Сохранить доступ ролей";
+      const roleStatus=document.createElement("small");roleStatus.className="settings-save-status";roleStatus.textContent=actorIsFull?"Full может назначать все уровни. Adm может управлять ролями, кроме Full.":"Adm может менять уровни до Adm; назначать Full может только Full.";
+      saveRoles.addEventListener("click",async()=>{
+        saveRoles.disabled=true;roleStatus.textContent="Сохраняем права…";
+        try{
+          await requestJSON("/api/settings/access-roles",{roles:roleControls.map(item=>({id:item.id,access_level:item.select.value}))});
+          roleStatus.textContent="Сохранено. Новые права применяются при следующем запросе к панели.";
+          await load();
+        }catch(error){roleStatus.textContent=error.message;}
+        finally{saveRoles.disabled=false;}
+      });
+      roleActions.append(saveRoles,roleStatus);rolePanel.append(roleList,roleActions);root.append(rolePanel);
 
       const channelPanel=makePanel("Каналы Discord",(data.channels||[]).length+" текстовых каналов");
       const channelList=document.createElement("div");channelList.className="settings-channel-list";
