@@ -4,9 +4,21 @@ const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
 const overlay=document.getElementById("overlay");
 let currentAccessLevel="none";
+const pageMinimumAccess={dashboard:"none",players:"media",shop:"media",requests:"co_adm",messages:"adm",logs:"adm",console:"adm",access:"adm",settings:"none"};
+const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
+function canOpenPage(page){
+  return !!pageNames[page] && (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"]);
+}
+function applyAccessNavigation(){
+  document.querySelectorAll(".nav-item[data-page]").forEach(button=>{
+    const page=button.dataset.page;
+    button.hidden=!canOpenPage(page);
+  });
+}
+applyAccessNavigation();
 function showPage(page){
   if(!pageNames[page]) return;
-  if(page==="access" && !["adm","full"].includes(currentAccessLevel)){return;}
+  if(!canOpenPage(page)){page="dashboard";}
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
   breadcrumb.textContent=pageNames[page];
   if(page!=="dashboard"){
@@ -55,7 +67,6 @@ function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("
 document.querySelectorAll("[data-page]").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.page)));
 document.querySelectorAll("[data-go]").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.go)));
 const initialPage=new URLSearchParams(window.location.search).get("page");
-if(initialPage && pageNames[initialPage]) showPage(initialPage);
 document.getElementById("menuButton").addEventListener("click",()=>{sidebar.classList.toggle("open");overlay.classList.toggle("show")});
 overlay.addEventListener("click",closeMenu);
 // The dashboard is a static first-stage shell. No fake metrics or live bot actions are exposed.
@@ -79,13 +90,15 @@ async function loadSession(){
       authBadge.textContent="НЕ АВТОРИЗОВАН";
       sideUserName.textContent="Гость";
       sideUserAccess.textContent="Вход не выполнен";
+      applyAccessNavigation();
+      if(initialPage && pageNames[initialPage])showPage(initialPage);
       return;
     }
     const user=data.user;
     currentAccessLevel=user.access_level||"none";
-    const accessNav=document.querySelector('[data-page="access"]');
-    if(accessNav)accessNav.hidden=!["adm","full"].includes(currentAccessLevel);
+    applyAccessNavigation();
     startSettingsLiveSync();
+    if(initialPage && pageNames[initialPage])showPage(initialPage);
     const letter=avatarLetter(user.username);
     authBadge.textContent="DISCORD ПОДКЛЮЧЁН";
     authBadge.classList.add("authenticated");
