@@ -1053,3 +1053,11 @@ D. Важное ограничение API
 - Коммиты: bot.py 688f086f913bb7c2b1a12b53f6925fa90aa8fc48; backend API 61b154f727bd048946410c02a4236bc174e6dcd2; app.js dab338068be8d40b0f911567a7877e30f620c5d0; index.html fa11aeb8b0686bd743d090be9847300a80fc0749; style.css 67a9a13026bddfc1833b0e692fd66df3c7ede5aa.
 - Для запуска: первый Bot-хостинг обновить aaaa/bot.py и dashboard/backend/main.py; второй Dashboard-хостинг обновить dashboard/backend/main.py, dashboard/app.js, dashboard/index.html, dashboard/style.css. В обоих окружениях сохранить действующие переменные окружения без изменений. Перезапустить оба процесса. При первом старте бот создаст категорию/канал/Embed-панель автоматически.
 - Требуемые права Discord-бота: Manage Channels, View Channels, Send Messages, Embed Links, Read Message History, Manage Roles/permissions as needed; роль бота должна иметь достаточную иерархию. Проверить в Discord тестовый тикет: создать, закрыть, переоткрыть, отметить решённым; проверить вкладку сайта под Adm/Full. Код в GitHub сохранён, но deploy и live-тест ещё не выполнены.
+
+
+97. ИСПРАВЛЕНИЕ УПРАВЛЕНИЯ СТАТУСАМИ ТИКЕТОВ (2026-11-08)
+- Исправлен обработчик Discord-кнопок «Закрыть», «Переоткрыть», «Решено»: теперь interaction подтверждается defer сразу, до медленных запросов Discord API; результат/ошибка отправляется followup, чтобы кнопки не истекали по трёхсекундному лимиту.
+- set_ticket_status теперь при необходимости получает участника через fetch_member, меняет права отправки сообщений, обновляет topic канала, SQLite-статус и Embed первого сообщения тикета. Embed отражает актуальный статус независимо от того, изменили его в Discord или Dashboard.
+- Для запросов Dashboard → Bot API увеличен HTTP timeout с 20 до 60 секунд, чтобы изменение Discord permissions/topic/Embed не обрывалось на стороне сайта.
+- Обновлены aaaa/bot.py и dashboard/backend/main.py. Код записан в GitHub; это ещё не означает, что файлы обновлены на Bot-Hosting и Dashboard-хостинге. Требуется обновить bot.py и dashboard/backend/main.py на первом хосте, dashboard/backend/main.py на втором; перезапустить оба процесса и проверить три статуса в Discord и на сайте.
+- Live-проверка Discord и Dashboard не выполнялась.
