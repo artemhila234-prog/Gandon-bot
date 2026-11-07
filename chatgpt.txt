@@ -760,3 +760,5 @@ D. Важное ограничение API
 - Последние итоговые коммиты реализации (включая финальную синхронизацию и валидацию): dashboard/backend/main.py fbabe77d528a15b005706cf20bb7534669de226a; dashboard/app.js 302ba578116a23dd8bd8d93c2f85003dfb4d4dc5; dashboard/style.css 58789baff16294b133d7e2200a423e8ccc68b690; dashboard/index.html 4fc21a85ce67b2b8887e809e6296f9c39873a2ab.
 
 - Окончательные SHA после последнего снижения нагрузки live polling: dashboard/backend/main.py 3412e8ecddad1f8c7462021f4bb0bc378e3181d1; dashboard/app.js 302ba578116a23dd8bd8d93c2f85003dfb4d4dc5; dashboard/style.css 58789baff16294b133d7e2200a423e8ccc68b690; dashboard/index.html 4fc21a85ce67b2b8887e809e6296f9c39873a2ab.
+
+- Commit SHA (GitHub commit IDs, не blob SHA): dashboard/backend/main.py c1ed81a15f6a969f4406aee06bd6ea2f0cb8b54b; dashboard/app.js 36b9ee6e594be1243bb77065df0cbcfbc46c5836; dashboard/style.css c3bed1e4c4967812c7ed582046cd498851a283ef; dashboard/index.html 9d333e7b378a4dd0084bf32dcf81ad68a12ae563; chatgpt.txt ad3965d4c1107246d9c6b1e7ceabb347e8ddde09 (до этой строки).
