@@ -177,9 +177,46 @@ async function loadConsole(section){
       });
       footer.append(cancel,confirm);dialog.append(close,icon,eyebrow,title,description,note,footer);modal.append(dialog);document.body.append(modal);confirm.focus();
     });restartRow.append(restartHint,restart);
-    const foot=document.createElement("div");foot.className="console-terminal-foot";foot.textContent=currentAccessLevel==="full"?"Live stdout/stderr первого хостинга · свободные команды shell · доступ Full. Команды могут изменять файлы и настройки сервера.":"Adm: live-просмотр вывода первого хостинга, быстрые действия и перезапуск. Команды доступны только Full.";
-    if(currentAccessLevel==="full")terminal.append(top,output,form,restartRow,foot);else terminal.append(top,output,restartRow,foot);workspace.append(cards,controls,terminal);root.replaceChildren(workspace);
+    const tabs=document.createElement("div");tabs.className="console-mode-tabs";
+    const shellTab=document.createElement("button");shellTab.type="button";shellTab.className="console-mode-tab active";shellTab.textContent="Shell";
+    const appTab=document.createElement("button");appTab.type="button";appTab.className="console-mode-tab";appTab.textContent="Ввод в приложение";
+    tabs.append(shellTab,appTab);
+    const shellPane=document.createElement("div");shellPane.className="console-mode-pane";
+    const appPane=document.createElement("div");appPane.className="console-mode-pane";appPane.hidden=true;
+    const appOutput=document.createElement("div");appOutput.className="console-terminal-output console-app-output";
+    append(appOutput,"WhiteGrief Application Input","system");
+    append(appOutput,"Ввод передаётся обработчику приложения. Неизвестные команды тоже принимаются и возвращают ответ приложения.","muted");
+    const appForm=document.createElement("form");appForm.className="console-command-form";
+    const appPrompt=document.createElement("label");appPrompt.className="console-command-prompt";appPrompt.textContent="WhiteGrief>";
+    const appInput=document.createElement("input");appInput.className="console-command-input";appInput.type="text";appInput.autocomplete="off";appInput.spellcheck=false;appInput.placeholder="Введите команду приложения или любой текст…";appInput.disabled=currentAccessLevel!=="full";
+    const appRun=document.createElement("button");appRun.type="submit";appRun.className="console-action-button";appRun.textContent="Выполнить";appRun.disabled=currentAccessLevel!=="full";
+    appForm.append(appPrompt,appInput,appRun);
+    const appFoot=document.createElement("div");appFoot.className="console-terminal-foot";appFoot.textContent="Ввод в приложение · произвольная строка до 2000 символов · доступ Full. Команда обрабатывается логикой WhiteGrief, а не Linux.";
+    appPane.append(appOutput,appForm,appFoot);
+    const foot=document.createElement("div");foot.className="console-terminal-foot";foot.textContent=currentAccessLevel==="full"?"Shell · Linux первого хостинга · произвольные команды и символы · доступ Full. Команды могут изменять файлы и настройки сервера.":"Adm: live-просмотр вывода первого хостинга, быстрые действия и перезапуск. Команды доступны только Full.";
+    shellPane.append(output);
+    if(currentAccessLevel==="full")shellPane.append(form,restartRow,foot);else shellPane.append(restartRow,foot);
+    const switchMode=(mode)=>{const shell=mode==="shell";shellTab.classList.toggle("active",shell);appTab.classList.toggle("active",!shell);shellPane.hidden=!shell;appPane.hidden=shell;};
+    shellTab.addEventListener("click",()=>switchMode("shell"));appTab.addEventListener("click",()=>switchMode("app"));
+    if(currentAccessLevel==="full")terminal.append(top,tabs,shellPane,appPane);else terminal.append(top,tabs,shellPane,appPane);
+    workspace.append(cards,controls,terminal);root.replaceChildren(workspace);
     form.addEventListener("submit",async event=>{event.preventDefault();const command=input.value;if(!command.trim()||commandBusy)return;if(command.toLowerCase()==="clear"){output.replaceChildren();append(output,"Терминал очищен.","muted");input.value="";return;}if(command.toLowerCase()==="restart"){restart.click();input.value="";return;}if(currentAccessLevel!=="full"){append(output,"Недостаточно прав. Требуется уровень Full.","error");return;}commandBusy=true;history.push(command);historyIndex=history.length;append(output,"container~ "+command,"command");input.value="";run.disabled=true;run.textContent="…";try{const response=await fetch("/api/console/command",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({command})});const result=await response.json();if(!response.ok)throw new Error(result.detail||"Команда не выполнена.");append(output,result.output||"Команда выполнена.",Number(result.exit_code)===0?"success":"error");if(Number(result.exit_code)!==0)append(output,"Код завершения: "+result.exit_code,"muted");}catch(error){append(output,"Ошибка: "+(error.message||"Команда не выполнена."),"error");}finally{commandBusy=false;run.disabled=currentAccessLevel!=="full";run.textContent="Выполнить";input.focus();}});
+    appForm.addEventListener("submit",async event=>{
+      event.preventDefault();
+      const command=appInput.value;
+      if(!command.trim()||commandBusy)return;
+      if(command.toLowerCase()==="clear"){appOutput.replaceChildren();append(appOutput,"Вывод приложения очищен.","muted");appInput.value="";return;}
+      if(currentAccessLevel!=="full"){append(appOutput,"Недостаточно прав. Требуется уровень Full.","error");return;}
+      commandBusy=true;append(appOutput,"WhiteGrief> "+command,"command");appInput.value="";appRun.disabled=true;appRun.textContent="…";
+      try{
+        const response=await fetch("/api/console/app-command",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({command})});
+        const result=await response.json();
+        if(!response.ok)throw new Error(result.detail||"Ввод в приложение не выполнен.");
+        append(appOutput,result.output||"Приложение не вернуло ответ.",Number(result.exit_code)===0?"success":"error");
+        if(Number(result.exit_code)!==0)append(appOutput,"Код ответа: "+result.exit_code,"muted");
+      }catch(error){append(appOutput,"Ошибка: "+(error.message||"Не удалось передать ввод."),"error");}
+      finally{commandBusy=false;appRun.disabled=currentAccessLevel!=="full";appRun.textContent="Выполнить";appInput.focus();}
+    });
     input.addEventListener("keydown",event=>{if(event.key==="ArrowUp"){event.preventDefault();if(history.length){historyIndex=Math.max(0,historyIndex-1);input.value=history[historyIndex]||"";}}if(event.key==="ArrowDown"){event.preventDefault();if(history.length){historyIndex=Math.min(history.length,historyIndex+1);input.value=history[historyIndex]||"";}}});
     input.focus();
   };
