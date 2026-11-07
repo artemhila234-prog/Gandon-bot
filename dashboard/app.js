@@ -1160,6 +1160,8 @@ function showShopDetails(item,icon,category){
   const price=document.createElement("p");price.className="shop-modal-price";price.textContent=Number(item.price).toLocaleString("ru-RU")+" баллов";
   const note=document.createElement("p");note.className="shop-modal-note";note.textContent="После подтверждения баллы спишутся с твоего баланса. В личный Discord-канал придёт уведомление, а товар выдаст администрация.";
   const balance=document.createElement("div");balance.className="shop-modal-balance";balance.textContent="Проверяем баланс…";
+  const nickLabel=document.createElement("label");nickLabel.className="shop-nick-label";nickLabel.textContent="Ник в Minecraft";
+  const nickInput=document.createElement("input");nickInput.className="shop-nick-input";nickInput.type="text";nickInput.name="minecraft_nick";nickInput.autocomplete="off";nickInput.maxLength=16;nickInput.placeholder="Введите свой ник";nickInput.required=true;nickInput.pattern="[A-Za-z0-9_]{3,16}";nickLabel.append(nickInput);
   const confirm=document.createElement("button");confirm.className="shop-buy-button";confirm.type="button";confirm.textContent="Подтвердить покупку";
   const cancel=document.createElement("button");cancel.className="shop-modal-cancel";cancel.type="button";cancel.textContent="Отмена";
   const status=document.createElement("p");status.className="shop-modal-status";status.setAttribute("aria-live","polite");
@@ -1171,7 +1173,12 @@ function showShopDetails(item,icon,category){
     if(confirm.disabled)return;
     confirm.disabled=true;cancel.disabled=true;confirm.textContent="Оформляем покупку…";status.textContent="";
     try{
-      const result=await apiPost("/api/shop/purchase",{item:item.name,request_id:requestId});
+      const minecraftNick=nickInput.value.trim();
+      if(!/^[A-Za-z0-9_]{3,16}$/.test(minecraftNick)){
+        status.textContent="Введи ник Minecraft: 3–16 символов, латиница, цифры и _.";
+        confirm.disabled=false;cancel.disabled=false;confirm.textContent="Подтвердить покупку";nickInput.focus();return;
+      }
+      const result=await apiPost("/api/shop/purchase",{item:item.name,request_id:requestId,minecraft_nick:minecraftNick});
       balance.textContent="Остаток: "+Number(result.balance||0).toLocaleString("ru-RU")+" баллов";
       note.textContent=result.notification_sent?"Покупка успешно оформлена. Уведомление отправлено в твой личный Discord-канал. Товар будет выдан администрацией.":(result.message||"Покупка оформлена, но уведомление не отправлено.");
       status.textContent="Покупка №"+result.purchase_id+" оформлена.";
@@ -1182,12 +1189,13 @@ function showShopDetails(item,icon,category){
       status.textContent=error.message;confirm.textContent="Повторить покупку";confirm.disabled=false;cancel.disabled=false;
     }
   });
-  dialog.append(close,symbol,tag,title,price,balance,note,status,confirm,cancel);modal.append(dialog);document.body.append(modal);
+  dialog.append(close,symbol,tag,title,price,balance,nickLabel,note,status,confirm,cancel);modal.append(dialog);document.body.append(modal);
   apiGet("/api/me/balance").then(data=>{
     currentBalance=Number(data.balance||0);
     balance.textContent="Твой баланс: "+currentBalance.toLocaleString("ru-RU")+" баллов";
     if(currentBalance<Number(item.price)){confirm.disabled=true;status.textContent="Не хватает "+(Number(item.price)-currentBalance).toLocaleString("ru-RU")+" баллов.";}
   }).catch(error=>{balance.textContent="Не удалось загрузить баланс";status.textContent=error.message;confirm.disabled=true;});
+  nickInput.addEventListener("input",()=>{if(nickInput.value.trim())status.textContent="";});
   close.focus();
 }
 
