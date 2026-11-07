@@ -355,6 +355,7 @@ async def api_settings(request: Request):
     is_admin = ACCESS_RANK.get(user.get("access_level", "none"), 0) >= ACCESS_RANK["adm"]
     result: dict[str, Any] = {
         "is_admin": is_admin,
+        "current_access_level": user.get("access_level", "none"),
         "preferences": get_user_panel_preferences(str(user["id"])),
         "global_settings": get_global_panel_settings(),
         "configuration": configuration_status() if is_admin else None,
@@ -441,6 +442,77 @@ async def api_save_preferences(request: Request):
         )
         db.commit()
     return {"ok": True, "preferences": get_user_panel_preferences(str(user["id"]))}
+
+
+@app.post("/api/settings/access-roles")
+async def api_save_access_roles(request: Request):
+    actor = await require_access(request, "adm")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    submitted = payload.get("roles") if isinstance(payload, dict) else None
+    if not isinstance(submitted, list) or not submitted:
+        raise HTTPException(status_code=400, detail="Передай список ролей и уровней доступа.")
+
+    try:
+        discord_roles = await discord_request("GET", f"/guilds/{GUILD_ID}/roles")
+    except HTTPException as exc:
+        raise HTTPException(status_code=502, detail=f"Не удалось получить актуальные роли Discord: {exc.detail}")
+    actual = {
+        str(role.get("id")): str(role.get("name", "Без названия"))[:100]
+        for role in discord_roles
+        if str(role.get("id", "")) != GUILD_ID
+    }
+    normalized = {}
+    allowed = {"none", "media", "co_adm", "adm", "full"}
+    for item in submitted:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=400, detail="Некорректная запись роли.")
+        role_id = str(item.get("id", ""))
+        level = str(item.get("access_level", ""))
+        if role_id not in actual or level not in allowed:
+            raise HTTPException(status_code=400, detail="В списке есть неизвестная роль или уровень доступа.")
+        if role_id in normalized:
+            raise HTTPException(status_code=400, detail="Одна и та же роль указана несколько раз.")
+        normalized[role_id] = level
+    if set(normalized) != set(actual):
+        raise HTTPException(status_code=400, detail="Список ролей устарел. Обнови настройки и попробуй снова.")
+
+    old_map = get_role_access_map()
+    actor_is_full = actor.get("access_level") == "full"
+    if not actor_is_full:
+        for role_id, level in normalized.items():
+            if level == "full":
+                raise HTTPException(status_code=403, detail="Назначать уровень Full может только пользователь Full.")
+            if old_map.get(role_id) == "full" and level != "full":
+                raise HTTPException(status_code=403, detail="Изменять или снимать уровень Full может только пользователь Full.")
+
+    if not any(level == "full" for level in normalized.values()):
+        raise HTTPException(status_code=400, detail="Нельзя убрать последний уровень Full: должен остаться хотя бы один владелец панели.")
+
+    actor_level = max(
+        (level for role_id, level in normalized.items() if role_id in set(map(str, actor.get("role_ids", [])))),
+        key=lambda level: ACCESS_RANK.get(level, 0),
+        default="none",
+    )
+    if ACCESS_RANK.get(actor_level, 0) < ACCESS_RANK["adm"]:
+        raise HTTPException(status_code=400, detail="Нельзя снять собственный доступ Adm/Full во время этой сессии.")
+
+    import sqlite3
+    rows = [(GUILD_ID, role_id, level, actual[role_id]) for role_id, level in normalized.items()]
+    with sqlite3.connect(PANEL_DB_PATH) as db:
+        db.execute("BEGIN IMMEDIATE")
+        db.execute("DELETE FROM access_roles WHERE guild_id = ?", (GUILD_ID,))
+        db.executemany(
+            "INSERT INTO access_roles (guild_id, role_id, access_level, role_name, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+            rows,
+        )
+        db.commit()
+    return {"ok": True, "saved": len(rows), "roles": [
+        {"id": role_id, "name": actual[role_id], "access_level": normalized[role_id]}
+        for role_id in sorted(normalized, key=lambda rid: next((int(r.get("position", 0)) for r in discord_roles if str(r.get("id")) == rid), 0), reverse=True)
+    ]}
 
 
 @app.post("/api/settings/admin")
@@ -1627,9 +1699,13 @@ async def sync_access_roles(request: Request):
     import sqlite3
     with sqlite3.connect(PANEL_DB_PATH) as db:
         db.execute("BEGIN IMMEDIATE")
-        db.execute("DELETE FROM access_roles WHERE guild_id = ?", (guild_id,))
+        # На старте бота обновляем системные роли, но не перезаписываем
+        # уровни, вручную назначенные администрацией через Dashboard.
         db.executemany(
-            "INSERT INTO access_roles (guild_id, role_id, access_level, role_name) VALUES (?, ?, ?, ?)",
+            """INSERT INTO access_roles (guild_id, role_id, access_level, role_name)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(guild_id, role_id) DO UPDATE SET
+               role_name=excluded.role_name, updated_at=CURRENT_TIMESTAMP""",
             normalized,
         )
         db.commit()
