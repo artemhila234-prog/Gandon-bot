@@ -1111,3 +1111,16 @@ body::before{
 .shop-nick-input:focus{border-color:#b78aff;box-shadow:0 0 0 3px #8b5cf633}
 .shop-modal-note{margin:8px 0 14px}
 @media(max-width:480px){.shop-modal{padding:12px}.shop-modal-card{padding:28px 18px 20px}.shop-modal .shop-category{top:22px;right:54px}}
+
+
+/* Legal document visibility safeguard */
+.legal-wrap>article.legal-document{
+  display:block!important;visibility:visible!important;opacity:1!important;
+  position:relative!important;width:100%;height:auto!important;min-height:240px;
+  overflow:visible!important;color:var(--text,#f3f2fa)!important;
+}
+.legal-document>.legal-intro,.legal-document>.legal-section{
+  display:block!important;visibility:visible!important;opacity:1!important;
+  height:auto!important;overflow:visible!important;
+}
+.legal-document>.legal-section h2{display:flex!important}
