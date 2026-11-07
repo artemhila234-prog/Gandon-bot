@@ -762,3 +762,14 @@ D. Важное ограничение API
 - Окончательные SHA после последнего снижения нагрузки live polling: dashboard/backend/main.py 3412e8ecddad1f8c7462021f4bb0bc378e3181d1; dashboard/app.js 302ba578116a23dd8bd8d93c2f85003dfb4d4dc5; dashboard/style.css 58789baff16294b133d7e2200a423e8ccc68b690; dashboard/index.html 4fc21a85ce67b2b8887e809e6296f9c39873a2ab.
 
 - Commit SHA (GitHub commit IDs, не blob SHA): dashboard/backend/main.py c1ed81a15f6a969f4406aee06bd6ea2f0cb8b54b; dashboard/app.js 36b9ee6e594be1243bb77065df0cbcfbc46c5836; dashboard/style.css c3bed1e4c4967812c7ed582046cd498851a283ef; dashboard/index.html 9d333e7b378a4dd0084bf32dcf81ad68a12ae563; chatgpt.txt ad3965d4c1107246d9c6b1e7ceabb347e8ddde09 (до этой строки).
+
+
+71. ПОВТОРНАЯ ПРОВЕРКА ПАМЯТКИ И НАСТРОЕК (2026-11-07)
+- Пользователь повторно попросил прочитать chatgpt.txt и автоматически вести его, приведя свой предыдущий ответ о личных и административных настройках.
+- Перед записью прочитан актуальный chatgpt.txt из default branch. В нём уже есть раздел 70 «ЛИЧНЫЕ И ОБЩИЕ НАСТРОЙКИ С LIVE-ОБНОВЛЕНИЕМ», соответствующий описанию пользователя; поэтому реализацию не дублировать и не создавать бессмысленные повторные коммиты исходных файлов.
+- Повторно проверено актуальное содержимое dashboard/backend/main.py: присутствуют SQLite таблицы user_preferences и panel_settings; GET /api/settings; GET /api/settings/live; POST /api/settings/preferences; POST /api/settings/admin с require_access(request, "adm"). Личные настройки изолированы по Discord user_id, общие — в panel_settings.
+- В текущем dashboard/backend/main.py GET /api/settings требует аутентификацию и отдаёт конфигурационную диагностику, роли и каналы только пользователям Adm/Full; общие настройки и личные preferences доступны вошедшему пользователю. Секретные значения не включаются в настройки.
+- Повторно проверены dashboard/style.css и dashboard/index.html: присутствуют стили личных настроек, переключателей, цветов акцента, компактного режима и светлой темы; cache-buster ресурсов — 20261107-settings-live1.
+- Актуальный blob SHA dashboard/backend/main.py при проверке: 3412e8ecddad1f8c7462021f4bb0bc378e3181d1. Актуальный blob SHA dashboard/index.html: 4fc21a85ce67b2b8887e809e6296f9c39873a2ab. Это SHA содержимого файлов (blob), не commit SHA.
+- По состоянию на эту проверку новых изменений исходного кода не вносилось. Изменения из раздела 70 остаются GitHub-кодом и не считаются развёрнутыми на Bot-Hosting до ручной синхронизации и перезапуска Dashboard.
+- Следующий шаг пользователя: если раздел 70 ещё не развёрнут, обновить на втором хостинге Dashboard файлы dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html, перезапустить Dashboard и выполнить Ctrl+F5. Первый хостинг бота не менять. После деплоя проверить личные настройки под обычным участником, административные — под Adm/Full и live-обновление между двумя сессиями.
