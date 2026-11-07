@@ -86,6 +86,46 @@ const sideUserName=document.getElementById("sideUserName");
 const sideUserAccess=document.getElementById("sideUserAccess");
 const topAvatar=document.getElementById("topAvatar");
 const sideAvatar=document.getElementById("sideAvatar");
+let currentSessionUser=null;
+function setConnectionStatus(connected){
+  const line=document.querySelector(".connection-line span:last-child");
+  const pulse=document.querySelector(".connection-line .pulse");
+  if(line)line.textContent=connected?"Панель подключена":"Нет соединения с API";
+  if(pulse){pulse.classList.toggle("is-online",connected);pulse.classList.toggle("is-offline",!connected);}
+}
+function openOwnProfile(){
+  if(!currentSessionUser)return;
+  document.getElementById("wgProfileOverlay")?.remove();
+  const user=currentSessionUser;
+  const overlay=document.createElement("div");
+  overlay.id="wgProfileOverlay";overlay.className="wg-profile-overlay";
+  const dialog=document.createElement("section");
+  dialog.className="wg-profile-dialog";dialog.setAttribute("role","dialog");dialog.setAttribute("aria-modal","true");dialog.setAttribute("aria-labelledby","wgProfileTitle");
+  const head=document.createElement("div");head.className="wg-profile-head";
+  const avatar=document.createElement("div");avatar.className="wg-profile-avatar";
+  if(user.avatar){const image=document.createElement("img");image.src="https://cdn.discordapp.com/avatars/"+encodeURIComponent(user.id)+"/"+encodeURIComponent(user.avatar)+".png?size=128";image.alt="";avatar.append(image)}else avatar.textContent=avatarLetter(user.username);
+  const identity=document.createElement("div");identity.className="wg-profile-identity";
+  const title=document.createElement("strong");title.id="wgProfileTitle";title.textContent=user.username||"Discord user";
+  const handle=document.createElement("span");handle.textContent="@"+(user.discord_username||"unknown");
+  identity.append(title,handle);
+  const close=document.createElement("button");close.className="wg-profile-close";close.type="button";close.textContent="×";close.setAttribute("aria-label","Закрыть профиль");
+  head.append(avatar,identity,close);
+  const details=document.createElement("div");details.className="wg-profile-details";
+  const addDetail=(label,value,copyable=false)=>{const row=document.createElement("div");row.className="wg-profile-detail";const l=document.createElement("span");l.textContent=label;const v=document.createElement("strong");v.textContent=value||"—";if(copyable){v.title="Нажми, чтобы скопировать";v.classList.add("copyable");v.addEventListener("click",()=>{if(navigator.clipboard?.writeText)navigator.clipboard.writeText(value).catch(()=>{});});}row.append(l,v);details.append(row)};
+  addDetail("Discord ID",user.id,true);
+  addDetail("Уровень доступа",accessLabels[user.access_level]||"Нет доступа");
+  const roles=document.createElement("div");roles.className="wg-profile-roles";const label=document.createElement("span");label.textContent="Роли на сервере";roles.append(label);
+  const chips=document.createElement("div");chips.className="wg-profile-role-list";
+  (user.role_names||[]).forEach(name=>{const chip=document.createElement("span");chip.textContent=name;chips.append(chip)});
+  if(!chips.childElementCount){const chip=document.createElement("span");chip.textContent="Роли не найдены";chips.append(chip)}
+  roles.append(chips);
+  const footer=document.createElement("div");footer.className="wg-profile-footer";const note=document.createElement("span");note.textContent="Профиль Discord · WhiteGrief";const done=document.createElement("button");done.type="button";done.className="wg-profile-done";done.textContent="Закрыть";footer.append(note,done);
+  dialog.append(head,details,roles,footer);overlay.append(dialog);document.body.append(overlay);
+  const closeModal=()=>overlay.remove();close.addEventListener("click",closeModal);done.addEventListener("click",closeModal);
+  overlay.addEventListener("click",event=>{if(event.target===overlay)closeModal()});
+  document.addEventListener("keydown",function onKey(event){if(event.key==="Escape"&&document.getElementById("wgProfileOverlay")){closeModal();document.removeEventListener("keydown",onKey)}});
+  close.focus();
+}
 const accessLabels={none:"Нет доступа",media:"Media",co_adm:"Co.Adm — управление персоналом",adm:"Adm — управление ботом",full:"Full — полный доступ"};
 function avatarLetter(name){return (name||"?").trim().slice(0,1).toUpperCase()}
 async function loadSession(){
@@ -93,6 +133,8 @@ async function loadSession(){
     const response=await fetch("/api/me",{credentials:"same-origin"});
     const data=await response.json();
     if(!data.authenticated){
+      currentSessionUser=null;
+      setConnectionStatus(true);
       authBadge.textContent="НЕ АВТОРИЗОВАН";
       sideUserName.textContent="Гость";
       sideUserAccess.textContent="Вход не выполнен";
@@ -101,6 +143,8 @@ async function loadSession(){
       return;
     }
     const user=data.user;
+    currentSessionUser=user;
+    setConnectionStatus(true);
     isAuthenticated=true;
     currentAccessLevel=user.access_level||"none";
     applyAccessNavigation();
@@ -124,6 +168,7 @@ async function loadSession(){
       notice.textContent="Discord: "+user.discord_username+" · "+mediaText+". Ваш класс доступа: "+(accessLabels[user.access_level]||"не назначен")+". Роли: "+roleText+".";
     }
   }catch(error){
+    setConnectionStatus(false);
     authBadge.textContent="API НЕДОСТУПЕН";
   }
 }
@@ -133,6 +178,12 @@ if(logoutButton){
     await fetch("/auth/logout",{method:"POST",credentials:"same-origin"});
     window.location.href="/";
   });
+}
+const profileCard=document.querySelector(".user-card");
+if(profileCard){
+  profileCard.setAttribute("role","button");profileCard.setAttribute("tabindex","0");profileCard.setAttribute("aria-label","Открыть мой профиль");
+  profileCard.addEventListener("click",openOwnProfile);
+  profileCard.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openOwnProfile()}});
 }
 loadSession();
 
