@@ -420,9 +420,28 @@ async def api_access_members(request: Request):
 
     members.sort(key=lambda item: (item["display_name"].casefold(), item["username"].casefold()))
     role_items = sorted(role_by_id.values(), key=lambda role: (role["position"], role["name"].casefold()), reverse=True)
+    bot_user = await discord_request("GET", "/users/@me")
+    bot_member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{bot_user.get('id')}")
+    bot_role_ids = {str(item) for item in bot_member.get("roles", [])}
+    bot_top_position = max(
+        (int(role.get("position") or 0) for role in roles if str(role.get("id")) in bot_role_ids),
+        default=0,
+    )
+    access_map = get_role_access_map()
+    assignable_roles = [
+        role for role in role_items
+        if role["id"] != GUILD_ID
+        and not role["managed"]
+        and role["position"] < bot_top_position
+        and not (
+            access_map.get(role["id"], "none") == "full"
+            and (await_actor_level := "full") != "full"
+        )
+    ]
     return {
         "members": members,
         "roles": role_items,
+        "assignable_roles": assignable_roles,
         "total_members": len(members),
         "total_roles": len(role_items),
         "guild_name": "WhiteGrief",
