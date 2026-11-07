@@ -944,3 +944,13 @@ D. Важное ограничение API
 - Изменены dashboard/app.js, dashboard/backend/main.py, dashboard/style.css, dashboard/index.html, chatgpt.txt. Коммиты: backend 7dc7f9ee0f92e98958eb1c89da5c2cf54d56c552 (доп. import re — см. следующий коммит); app 76ceb6333a5aedf8ae3069eaf1c447c700e4bc3e; CSS e132a38d400543e1a3fafd3ba42ba23ffaca01c1; HTML 72434249435d678d61aa1a45dcd8e0b95a7a2916.
 - Обновить dashboard/backend/main.py на обоих хостингах; dashboard/app.js, dashboard/style.css, dashboard/index.html — на втором хостинге. Перезапустить оба процесса, очистить кэш Ctrl+F5. Не тестировать реальную покупку без согласия, чтобы не списать баллы.
 - Необходимо проверить: после перезапуска сервер принимает новый minecraft_nick; ник виден в личном Discord embed. GitHub обновлён, live-покупка не тестировалась.
+
+
+87. ВОССТАНОВЛЕНИЕ ВИДИМОСТИ ТЕКСТА LEGAL-СТРАНИЦ (2026-11-07)
+- Пользователь прислал скриншот /terms: hero «Условия использования» отображается, но после вкладки юридического документа пусто — основной текст условий не виден.
+- Проверка GitHub: dashboard/terms.html и dashboard/privacy.html содержат полноценные article. Backend route /terms возвращает BASE_DIR/terms.html; документ в репозитории не удалён.
+- Вероятная причина — устаревшая копия/кэш или конфликт CSS на втором хостинге. В dashboard/style.css добавлен явный visibility safeguard для .legal-document, .legal-intro и .legal-section; у контента принудительно display:block, visibility:visible, opacity:1, auto height/overflow.
+- В terms.html и privacy.html stylesheet href обновлён на /style.css?v=20261107-legal-content1 для сброса CSS-кэша.
+- Изменены dashboard/terms.html, dashboard/privacy.html, dashboard/style.css и chatgpt.txt. Коммиты: terms см. GitHub history, privacy см. GitHub history, CSS см. GitHub history.
+- Для применения на втором Dashboard-хостинге обновить dashboard/terms.html, dashboard/privacy.html и dashboard/style.css в папке dashboard/, затем перезапустить Dashboard и открыть /terms с Ctrl+F5. Первый хостинг обновлять не нужно.
+- До обновления и проверки в браузере нельзя утверждать, что live-страница исправлена.
