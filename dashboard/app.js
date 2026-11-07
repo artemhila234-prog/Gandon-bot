@@ -1,14 +1,15 @@
-const pageNames={dashboard:"Главная",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",logs:"Логи",console:"Консоль",settings:"Настройки"};
+const pageNames={dashboard:"Главная",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",logs:"Логи",console:"Консоль",access:"Доступ",settings:"Настройки"};
 const content=document.getElementById("pageContent");
 const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
 const overlay=document.getElementById("overlay");
 function showPage(page){
   if(!pageNames[page]) return;
+  if(page==="access" && !["adm","full"].includes(currentAccessLevel)){return;}
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
   breadcrumb.textContent=pageNames[page];
   if(page!=="dashboard"){
-    const descriptions={players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели."};
+    const descriptions={players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям."};
     const existing=document.getElementById("comingPage");
     if(existing) existing.remove();
     const section=document.createElement("section");
@@ -31,6 +32,9 @@ function showPage(page){
     } else if(page==="console"){
       section.innerHTML='<div class="panel-heading"><div><h2>Управление ботом</h2><p>Состояние Discord-подключения и безопасные действия управления.</p></div><button class="text-button" id="refreshConsole">↻ Обновить</button></div><div id="consoleWorkspace" class="console-workspace"><div class="empty-state">Подключаемся к боту…</div></div>';
       loadConsole(section);
+    } else if(page==="access"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Доступ к серверу</h2><p>Все участники WhiteGrief и назначенные им Discord-роли</p></div><button class="text-button" id="refreshAccess">↻ Обновить</button></div><div id="accessWorkspace" class="access-workspace"><div class="empty-state">Загружаем участников сервера…</div></div>';
+      loadAccess(section);
     } else if(page==="settings"){
        section.innerHTML='<div class="panel-heading"><div><h2>Настройки системы</h2><p>Подключения, роли доступа, Discord-каналы и интеграции WhiteGrief.</p></div><button class="text-button" id="refreshSettings">↻ Обновить</button></div><div id="settingsWorkspace" class="settings-workspace"><div class="empty-state">Проверяем конфигурацию…</div></div>';
        loadSettings(section);
@@ -79,6 +83,8 @@ async function loadSession(){
     }
     const user=data.user;
     currentAccessLevel=user.access_level||"none";
+    const accessNav=document.querySelector('[data-page="access"]');
+    if(accessNav)accessNav.hidden=!["adm","full"].includes(currentAccessLevel);
     startSettingsLiveSync();
     const letter=avatarLetter(user.username);
     authBadge.textContent="DISCORD ПОДКЛЮЧЁН";
@@ -198,6 +204,12 @@ async function loadSettings(section){
   };
   const render=data=>{
     root.replaceChildren();
+    const hero=document.createElement("div");hero.className="settings-hero";
+    const heroIcon=document.createElement("div");heroIcon.className="settings-hero-icon";heroIcon.textContent="✦";
+    const heroCopy=document.createElement("div");heroCopy.className="settings-hero-copy";
+    const eyebrow=document.createElement("span");eyebrow.textContent="WHITEGRIEF CONTROL CENTER";
+    const heroTitle=document.createElement("strong");heroTitle.textContent="Центр настроек";
+    const heroText=document.createElement("p");heroText.textContent="Настрой внешний вид панели, общие параметры и подключение Discord.";heroCopy.append(eyebrow,heroTitle,heroText);hero.append(heroIcon,heroCopy);root.append(hero);
     wgPreferences=data.preferences||wgPreferences;
     wgGlobalSettings=data.global_settings||wgGlobalSettings;
     applyWhiteGriefAppearance();renderGlobalAnnouncement();
@@ -348,6 +360,106 @@ async function loadSettings(section){
     }finally{if(refresh){refresh.disabled=false;refresh.textContent="↻ Обновить";}}
   };
   if(refresh)refresh.addEventListener("click",load);
+  await load();
+}
+
+
+async function loadAccess(section){
+  const root=section.querySelector("#accessWorkspace");
+  const refresh=section.querySelector("#refreshAccess");
+  if(!root)return;
+  const load=async()=>{
+    if(refresh){refresh.disabled=true;refresh.textContent="Загрузка…";}
+    root.innerHTML='<div class="empty-state">Получаем полный список участников Discord…</div>';
+    try{
+      const response=await fetch("/api/access/members",{credentials:"same-origin",cache:"no-store"});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.detail||"Не удалось загрузить участников.");
+      const members=Array.isArray(data.members)?data.members:[];
+      const roles=Array.isArray(data.roles)?data.roles:[];
+      root.replaceChildren();
+
+      const toolbar=document.createElement("div");toolbar.className="access-toolbar";
+      const searchWrap=document.createElement("label");searchWrap.className="access-search-wrap";
+      const searchIcon=document.createElement("span");searchIcon.textContent="⌕";
+      const search=document.createElement("input");search.className="panel-search access-search";search.placeholder="Поиск по нику, имени или Discord ID…";search.type="search";
+      searchWrap.append(searchIcon,search);
+      const filterWrap=document.createElement("label");filterWrap.className="access-filter-wrap";
+      const filterLabel=document.createElement("span");filterLabel.textContent="Фильтр по роли";
+      const filter=document.createElement("select");filter.className="settings-select access-role-filter";
+      const allOption=document.createElement("option");allOption.value="";allOption.textContent="Все участники";filter.append(allOption);
+      roles.forEach(role=>{
+        const option=document.createElement("option");option.value=role.id;
+        option.textContent=role.id===data.guild_id?"@everyone · Все участники":role.name;
+        filter.append(option);
+      });
+      filterWrap.append(filterLabel,filter);
+      toolbar.append(searchWrap,filterWrap);
+
+      const summary=document.createElement("div");summary.className="access-summary";
+      const memberCount=document.createElement("div");memberCount.className="access-summary-card";
+      const memberValue=document.createElement("strong");memberValue.textContent=String(members.length);
+      const memberLabel=document.createElement("span");memberLabel.textContent="Участников сервера";
+      memberCount.append(memberValue,memberLabel);
+      const roleCount=document.createElement("div");roleCount.className="access-summary-card";
+      const roleValue=document.createElement("strong");roleValue.textContent=String(roles.length);
+      const roleLabel=document.createElement("span");roleLabel.textContent="Ролей на сервере";
+      roleCount.append(roleValue,roleLabel);
+      summary.append(memberCount,roleCount);
+
+      const resultHead=document.createElement("div");resultHead.className="access-result-head";
+      const resultTitle=document.createElement("strong");resultTitle.textContent="Участники";
+      const resultCount=document.createElement("span");resultCount.className="access-result-count";
+      resultHead.append(resultTitle,resultCount);
+      const list=document.createElement("div");list.className="access-member-list";
+      const render=()=>{
+        const term=search.value.trim().toLocaleLowerCase();
+        const roleId=filter.value;
+        const filtered=members.filter(member=>{
+          const matchesRole=!roleId||roleId===data.guild_id||member.role_ids.includes(roleId);
+          const haystack=[member.display_name,member.username,member.id].join(" ").toLocaleLowerCase();
+          return matchesRole&&(!term||haystack.includes(term));
+        });
+        resultCount.textContent=filtered.length+" из "+members.length;
+        list.replaceChildren();
+        if(!filtered.length){
+          const empty=document.createElement("div");empty.className="settings-empty";empty.textContent="Никого не нашли. Измени фильтр или поисковый запрос.";list.append(empty);return;
+        }
+        const fragment=document.createDocumentFragment();
+        filtered.forEach(member=>{
+          const card=document.createElement("article");card.className="access-member-card";
+          const identity=document.createElement("div");identity.className="access-member-identity";
+          const avatar=document.createElement("div");avatar.className="access-member-avatar";
+          if(member.avatar){const img=document.createElement("img");img.src=member.avatar;img.alt="";img.loading="lazy";img.onerror=()=>{img.remove();avatar.textContent=(member.display_name||"?").slice(0,1).toUpperCase();};avatar.append(img);}
+          else avatar.textContent=(member.display_name||"?").slice(0,1).toUpperCase();
+          const names=document.createElement("div");names.className="access-member-names";
+          const display=document.createElement("strong");display.textContent=member.display_name||member.username;
+          const username=document.createElement("span");username.textContent="@"+member.username+" · "+member.id;
+          names.append(display,username);
+          if(member.bot){const botTag=document.createElement("em");botTag.textContent="BOT";botTag.className="access-bot-tag";names.append(botTag);}
+          identity.append(avatar,names);
+          const roleBadges=document.createElement("div");roleBadges.className="access-member-roles";
+          (member.roles||[]).sort((x,y)=>{
+            const xp=roles.find(r=>r.id===x.id)?.position||0,yp=roles.find(r=>r.id===y.id)?.position||0;return yp-xp;
+          }).forEach(role=>{
+            const badge=document.createElement("span");badge.className="access-role-chip";badge.textContent=role.name;
+            if(role.color){badge.style.setProperty("--role-color","#"+role.color.toString(16).padStart(6,"0"));}
+            roleBadges.append(badge);
+          });
+          if(!roleBadges.children.length){const none=document.createElement("span");none.className="access-no-roles";none.textContent="Нет дополнительных ролей";roleBadges.append(none);}
+          card.append(identity,roleBadges);fragment.append(card);
+        });
+        list.append(fragment);
+      };
+      root.append(toolbar,summary,resultHead,list);
+      search.addEventListener("input",render);
+      filter.addEventListener("change",render);
+      render();
+    }catch(error){
+      root.replaceChildren();const box=document.createElement("div");box.className="console-error";box.textContent=error.message||"Ошибка загрузки списка участников.";root.append(box);
+    }finally{if(refresh){refresh.disabled=false;refresh.textContent="↻ Обновить";}}
+  };
+  refresh?.addEventListener("click",load);
   await load();
 }
 
