@@ -1051,7 +1051,8 @@ async def api_shop_purchase(request: Request):
         raise HTTPException(status_code=400, detail="Не удалось проверить запрос покупки.")
     return await bot_api_request(
         "POST", "/api/internal/data/shop/purchase",
-        payload={"user_id": str(user["id"]), "item": item_name, "request_id": request_id},
+        payload={"user_id": str(user["id"]), "item": item_name, "request_id": request_id,
+             "minecraft_nick": str(payload.get("minecraft_nick", "")).strip()},
     )
 
 
@@ -1689,8 +1690,11 @@ async def internal_shop_purchase(request: Request):
     user_id = str(payload.get("user_id", "")).strip()
     item_name = str(payload.get("item", "")).strip()
     request_id = str(payload.get("request_id", "")).strip()
+    minecraft_nick = str(payload.get("minecraft_nick", "")).strip()
     if not user_id.isdigit() or not request_id or len(request_id) > 100:
         raise HTTPException(status_code=400, detail="Некорректные данные покупки.")
+    if not re.fullmatch(r"[A-Za-z0-9_]{3,16}", minecraft_nick):
+        raise HTTPException(status_code=400, detail="Введи корректный ник Minecraft: 3–16 символов, латиница, цифры и _.")
     item = next((entry for entry in SHOP_ITEMS_PANEL if entry["name"] == item_name), None)
     if not item:
         raise HTTPException(status_code=400, detail="Такого товара нет в магазине.")
@@ -1717,15 +1721,19 @@ async def internal_shop_purchase(request: Request):
                 purchase_id INTEGER,
                 balance_after INTEGER,
                 notification_sent INTEGER NOT NULL DEFAULT 0,
+                minecraft_nick TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )""")
+            existing_columns = {column[1] for column in db.execute("PRAGMA table_info(web_shop_orders)").fetchall()}
+            if "minecraft_nick" not in existing_columns:
+                db.execute("ALTER TABLE web_shop_orders ADD COLUMN minecraft_nick TEXT NOT NULL DEFAULT ''")
             db.execute("BEGIN IMMEDIATE")
             prior = db.execute(
-                "SELECT user_id,item,price,purchase_id,balance_after,notification_sent FROM web_shop_orders WHERE request_id=?",
+                "SELECT user_id,item,price,purchase_id,balance_after,notification_sent,minecraft_nick FROM web_shop_orders WHERE request_id=?",
                 (request_id,)
             ).fetchone()
             if prior:
-                if int(prior[0]) != int(user_id) or str(prior[1]) != item_name or int(prior[2]) != price:
+                if int(prior[0]) != int(user_id) or str(prior[1]) != item_name or int(prior[2]) != price or str(prior[6] or "") != minecraft_nick:
                     raise HTTPException(status_code=409, detail="Идентификатор покупки уже использован для другого заказа.")
                 order_id, balance_after, notification_sent = prior[3], prior[4], bool(prior[5])
             else:
@@ -1751,8 +1759,8 @@ async def internal_shop_purchase(request: Request):
                 )
                 order_id = int(cursor.lastrowid)
                 db.execute(
-                    "INSERT INTO web_shop_orders (request_id,user_id,item,price,purchase_id,balance_after,notification_sent) VALUES (?,?,?,?,?,?,0)",
-                    (request_id, int(user_id), item_name, price, order_id, balance_after)
+                    "INSERT INTO web_shop_orders (request_id,user_id,item,price,purchase_id,balance_after,notification_sent,minecraft_nick) VALUES (?,?,?,?,?,?,0,?)",
+                    (request_id, int(user_id), item_name, price, order_id, balance_after, minecraft_nick)
                 )
                 db.commit()
         if not notification_sent:
@@ -1770,6 +1778,7 @@ async def internal_shop_purchase(request: Request):
                 "color": 0x8B5CF6,
                 "fields": [
                     {"name": "Товар", "value": item_name, "inline": True},
+                    {"name": "Ник Minecraft", "value": minecraft_nick, "inline": True},
                     {"name": "Цена", "value": f"{price:,} баллов".replace(",", " "), "inline": True},
                     {"name": "Остаток", "value": f"{int(balance_after or 0):,} баллов".replace(",", " "), "inline": True},
                     {"name": "Номер покупки", "value": f"#{order_id}", "inline": True},
