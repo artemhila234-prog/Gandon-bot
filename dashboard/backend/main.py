@@ -82,6 +82,9 @@ def configuration_status() -> dict[str, bool]:
         "redirect_uri": bool(REDIRECT_URI),
         "bot_sync": bool(BOT_SYNC_SECRET),
         "access_roles": bool(get_role_access_map()),
+        "bot_api": bool(BOT_API_URL and BOT_DATA_API_SECRET),
+        "tiktok_oauth": bool(TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET and TIKTOK_REDIRECT_URI),
+        "tiktok_encryption": bool(TIKTOK_TOKEN_ENCRYPTION_KEY),
     }
 
 
@@ -302,6 +305,49 @@ async def discord_request(method: str, path: str, *, payload: dict[str, Any] | N
     if response.status_code >= 400:
         raise HTTPException(status_code=502, detail=f"Ошибка Discord API ({response.status_code}).")
     return response.json() if response.content else None
+
+
+@app.get("/api/settings")
+async def api_settings(request: Request):
+    await require_access(request, "adm")
+    role_map = get_role_access_map()
+    result: dict[str, Any] = {
+        "guild_id": GUILD_ID,
+        "guild_name": "WhiteGrief",
+        "discord_connected": False,
+        "roles": [],
+        "channels": [],
+        "channels_error": "",
+        "configuration": configuration_status(),
+    }
+    try:
+        roles = await discord_request("GET", f"/guilds/{GUILD_ID}/roles")
+        channels = await discord_request("GET", f"/guilds/{GUILD_ID}/channels")
+        result["discord_connected"] = True
+        result["roles"] = [
+            {
+                "id": str(role.get("id", "")),
+                "name": str(role.get("name", "Без названия")),
+                "access_level": role_map.get(str(role.get("id", "")), "none"),
+                "access_label": {
+                    "full": "Full", "adm": "Adm", "co_adm": "Co.Adm",
+                    "media": "Media", "none": "Без доступа",
+                }.get(role_map.get(str(role.get("id", "")), "none"), "Без доступа"),
+                "position": int(role.get("position", 0)),
+            }
+            for role in roles if str(role.get("id", "")) != GUILD_ID
+        ]
+        result["roles"].sort(key=lambda item: item["position"], reverse=True)
+        result["channels"] = [
+            {"id": str(channel.get("id", "")), "name": str(channel.get("name", ""))}
+            for channel in channels
+            if channel.get("type") in (0, 5) and str(channel.get("guild_id", GUILD_ID)) == GUILD_ID
+        ]
+        result["channels"].sort(key=lambda item: item["name"].casefold())
+    except HTTPException as exc:
+        result["channels_error"] = str(exc.detail)
+    return result
+
 
 async def bot_api_request(method: str, path: str, *, payload: dict[str, Any] | None = None) -> Any:
     if not BOT_API_URL or not BOT_DATA_API_SECRET:
