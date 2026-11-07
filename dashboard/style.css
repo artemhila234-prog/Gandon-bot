@@ -1088,3 +1088,9 @@ body::before{
 .top-avatar img{border-radius:50%}
 .user-avatar img{border-radius:50%}
 .user-avatar.avatar-fallback,.top-avatar.avatar-fallback{font-size:12px}
+
+/* Real Discord avatar thumbnails in both profile entry points */
+.user-avatar img,.top-avatar img{display:block;width:100%;height:100%;border-radius:inherit;object-fit:cover}
+.top-avatar{overflow:hidden;cursor:pointer;flex:0 0 30px;padding:0;border:1px solid color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 45%,transparent);transition:transform .18s,border-color .18s,box-shadow .18s}
+.top-avatar:hover{transform:scale(1.08);border-color:var(--wg-palette-1,#8b5cf6);box-shadow:0 0 0 3px color-mix(in srgb,var(--wg-palette-1,#8b5cf6) 18%,transparent)}
+.top-avatar:focus-visible{outline:2px solid var(--wg-palette-1,#8b5cf6);outline-offset:3px}
