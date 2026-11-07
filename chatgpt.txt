@@ -954,3 +954,12 @@ D. Важное ограничение API
 - Изменены dashboard/terms.html, dashboard/privacy.html, dashboard/style.css и chatgpt.txt. Коммиты: terms см. GitHub history, privacy см. GitHub history, CSS см. GitHub history.
 - Для применения на втором Dashboard-хостинге обновить dashboard/terms.html, dashboard/privacy.html и dashboard/style.css в папке dashboard/, затем перезапустить Dashboard и открыть /terms с Ctrl+F5. Первый хостинг обновлять не нужно.
 - До обновления и проверки в браузере нельзя утверждать, что live-страница исправлена.
+
+
+88. ВИЗУАЛЬНАЯ ДОВОДКА WHITEGRIEF CONTROL PANEL — МЕНЬШЕ «VIBE CODE» (2026-11-07)
+- Пользователь попросил сделать сайт так, чтобы он не выглядел как сырой vibe-coded шаблон. Интерпретация: профессиональная продуктовая доводка всего Dashboard без изменения существующих функций, маршрутов, API и логики доступа.
+- dashboard/style.css: добавлен завершающий слой дизайн-системы — согласованные радиусы и границы, более спокойные поверхности, аккуратная типографическая иерархия, единые состояния hover/focus/disabled, доступная видимая клавиатурная фокусировка, уменьшение лишних скачков/свечений, адаптивные отступы и prefers-reduced-motion. Используются текущие CSS variables темы (var(--panel), var(--side), var(--purple), var(--line)), чтобы не ломать пользовательскую палитру.
+- dashboard/index.html: обновлён cache-buster на 20261107-product-refine1.
+- Изменены dashboard/style.css и dashboard/index.html; функции/JS/backend не затронуты. Коммиты: CSS a4ca5ec74740b41ed015e96c56cc67c22786d6a5; HTML 97a5608af11cae6e0b368faca7963fda7278c2e2.
+- Применение: обновить эти два файла на втором Dashboard-хостинге и сделать Ctrl+F5. Перезапуск backend не требуется, если сервер раздаёт статику с диска; если хостинг держит старый процесс/статику, перезапустить Dashboard.
+- Визуальный результат на живом хостинге не проверен; после обновления нужен скриншот для точечной доводки.
