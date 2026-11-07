@@ -756,3 +756,5 @@ D. Важное ограничение API
 - SQLite DB PANEL_DB_PATH хранит параметры на втором хостинге Dashboard; после рестарта они сохраняются, если хостинг сохраняет файл panel.db/путь PANEL_DB_PATH.
 - Деплой: только второй хостинг Dashboard — обновить dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html и перезапустить Dashboard. Первый хостинг бота менять не требуется.
 - Проверки после деплоя: Media/Co.Adm могут менять только личные настройки; Adm/Full могут менять личные и общие настройки. Общее уведомление должно появиться у других вошедших пользователей не позднее ~4 секунд. Проверить перезапуск Dashboard и сохранность настроек. Реальный хостинг не проверен; секреты не записывать.
+
+- Последние итоговые коммиты реализации (включая финальную синхронизацию и валидацию): dashboard/backend/main.py fbabe77d528a15b005706cf20bb7534669de226a; dashboard/app.js 302ba578116a23dd8bd8d93c2f85003dfb4d4dc5; dashboard/style.css 58789baff16294b133d7e2200a423e8ccc68b690; dashboard/index.html 4fc21a85ce67b2b8887e809e6296f9c39873a2ab.
