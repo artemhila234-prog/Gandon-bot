@@ -400,8 +400,11 @@ async def api_settings(request: Request):
 
 @app.get("/api/settings/live")
 async def api_settings_live(request: Request):
-    await require_user(request)
-    return {"global_settings": get_global_panel_settings()}
+    user = await require_user(request)
+    return {
+        "global_settings": get_global_panel_settings(),
+        "preferences": get_user_panel_preferences(str(user["id"])),
+    }
 
 
 @app.post("/api/settings/preferences")
