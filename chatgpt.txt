@@ -891,3 +891,14 @@ D. Важное ограничение API
 - Изменены dashboard/backend/main.py, dashboard/app.js, dashboard/index.html и chatgpt.txt. Только второй Dashboard-хостинг. Первый хостинг бота не менялся; его существующий /health используется для проверки.
 - Коммиты: backend ba9ff1a2cd53166eb0f02a54ef658eb26d995749; app.js 54db3349cb436e4f32a92e2078a521f8a1a1da15; index.html 2b7dc5a7bafc31eef21160d08df8ce3a3ae381ac.
 - GitHub обновлён. Live API и хостинг не проверялись из среды GitHub. Для применения синхронизировать на втором Dashboard-хостинге dashboard/backend/main.py, dashboard/app.js, dashboard/index.html, перезапустить Dashboard и выполнить Ctrl+F5. Если статус будет offline, проверить BOT_API_URL на втором хостинге и доступность /health первого хостинга. Секреты не записывать в памятку.
+
+
+83. DISCORD-АВАТАРЫ В ПАНЕЛИ И ПРОФИЛЬ ИЗ ВЕРХНЕЙ ПАНЕЛИ (2026-11-07)
+- Пользователь прислал два скриншота: в нижней карточке и в верхнем правом углу вместо Discord-аватара отображалась буква/символ «!». Попросил использовать реальный Discord avatar и сделать верхний правый аватар входом в просмотр своего профиля.
+- Проверено: /api/me уже возвращает id, username, discord_username и avatar hash; менять backend и OAuth scopes не требуется.
+- dashboard/app.js: добавлены discordAvatarUrl и renderDiscordAvatar. Они используют Discord CDN URL /avatars/{user_id}/{avatar_hash}.png; для animated hash a_ используют GIF. В боковой карточке и верхнем правом углу теперь рендерится реальная аватарка, а при ошибке загрузки остаётся буквенный fallback. В модальном окне собственного профиля используется та же функция.
+- Верхний правый элемент уже был связан с openOwnProfile; сохранена эта функция и клавиатурная доступность. Теперь после загрузки сессии это видимая аватарка, по нажатию открывающая собственный профиль.
+- dashboard/style.css: добавлены правила для img внутри верхнего и бокового аватара, обрезка object-fit:cover, hover/focus состояние верхней кнопки.
+- dashboard/index.html: cache-buster установлен 20261107-discord-avatars1 для app.js и style.css.
+- Изменены dashboard/app.js, dashboard/style.css, dashboard/index.html и chatgpt.txt. Backend и первый хостинг не менялись. Коммиты: app.js 1d830023abc6c108809816f6b313ea968154e04e; style.css 32aab5994454e84e18d29b1f9f6b2f08158c45f2; index.html 6b166487f28a25685468c86a3c774c407c22d733.
+- GitHub обновлён; реальная загрузка Discord CDN и live deploy не проверены. Для применения обновить на втором Dashboard-хостинге dashboard/app.js, dashboard/style.css, dashboard/index.html, перезапустить Dashboard и выполнить Ctrl+F5. Секреты не записывать.
