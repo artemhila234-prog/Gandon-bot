@@ -150,6 +150,12 @@ function applyWhiteGriefAppearance(){
   root.dataset.theme=theme;
   root.dataset.accent=wgPreferences.accent||"purple";
   palette.forEach((color,index)=>root.style.setProperty("--wg-palette-"+(index+1),color));
+  root.style.setProperty("--wg-bg-tint",`color-mix(in srgb, ${palette[0]} 13%, #0d0e14)`);
+  root.style.setProperty("--wg-side-tint",`color-mix(in srgb, ${palette[1]} 11%, #11121a)`);
+  root.style.setProperty("--wg-panel-tint",`color-mix(in srgb, ${palette[2]} 10%, #151722)`);
+  root.style.setProperty("--wg-surface-glow-1",`color-mix(in srgb, ${palette[0]} 24%, transparent)`);
+  root.style.setProperty("--wg-surface-glow-2",`color-mix(in srgb, ${palette[1]} 20%, transparent)`);
+  root.style.setProperty("--wg-surface-glow-3",`color-mix(in srgb, ${palette[2]} 19%, transparent)`);
   const luminance=color=>{
     const channels=[1,3,5].map(offset=>parseInt(String(color).slice(offset,offset+2),16)/255).map(value=>value<=.04045?value/12.92:Math.pow((value+.055)/1.055,2));
     return .2126*channels[0]+.7152*channels[1]+.0722*channels[2];
