@@ -710,3 +710,19 @@ D. Важное ограничение API
 - Изменён только aaaa/bot.py и эта памятка; backend и frontend Dashboard не требуют изменений для маршрутизации.
 - Для применения: на первом Bot-Hosting заменить корневой /home/container/bot.py содержимым актуального aaaa/bot.py и перезапустить бота. На втором хостинге ничего менять не нужно. После перезапуска проверить в Dashboard под уровнем Full команды /help, /channels; /text — только с тестовым сообщением в нужный канал. Не проверять /delete или /restart pending_requests на рабочей базе без необходимости.
 - Изменения в GitHub сами по себе не развёртываются на хостинге; реальное выполнение после деплоя ещё не проверено. Секреты не записывать.
+
+
+68. ДВЕ ВКЛАДКИ КОНСОЛИ: SHELL И ВВОД В ПРИЛОЖЕНИЕ (2026-11-07)
+- По запросу пользователя консоль Dashboard разделена на два независимых режима:
+  1) Shell — произвольный ввод команд Linux на первом хостинге через существующий panel_console_command / asyncio.create_subprocess_shell. Любые непустые строки и символы до 2000 символов отправляются в shell; несуществующие команды возвращают обычную ошибку оболочки. Таймаут shell — 60 секунд. Доступ Full-only.
+  2) Ввод в приложение — отдельный endpoint, вызывающий обработчик приложения WhiteGrief, а не shell. Принимает произвольную строку до 2000 символов; известные команды /help, /text, /channels, /delete pending_requests и /restart pending_requests выполняются приложением, неизвестные строки получают ответ «Неизвестная команда приложения». Доступ Full-only.
+- aaaa/bot.py: добавлен execute_application_console_command(raw), stdin console_input_loop теперь использует тот же обработчик; добавлен panel_application_command и app_command в bot_controller. Shell handler остался отдельным и не маршрутизирует ввод приложения в Linux.
+- dashboard/backend/main.py: добавлены Full-only POST /api/console/app-command и защищённый X-Bot-Data-Secret POST /api/internal/console/app-command.
+- dashboard/app.js: добавлены вкладки Shell и Ввод в приложение, отдельные поля ввода и области вывода. Shell сохраняет live stdout/stderr первого хостинга; ответ приложения отображается отдельно. В обоих режимах можно отправлять произвольный ввод, включая неизвестные команды. История ввода shell сохранена; приложение имеет отдельную форму.
+- dashboard/style.css: оформление вкладок, отдельных панелей вывода и адаптивный вид.
+- dashboard/index.html: cache-buster ресурсов обновлён на 20261107-console-tabs1.
+- Коммиты: aaaa/bot.py 7b973d48837519db821554673f924ebe5c8a198c; dashboard/backend/main.py 0e6d056a2c2eeaaab6b1d5f1904ea84c972ae4b8; dashboard/app.js e4e473fb673f7daaa3ab0b014620b98099704589; dashboard/style.css a8beac9ef45577cf96cb2b77cbbf2cac23a04625; dashboard/index.html df19a1f92d39ef19c743bd6ba73780790d1e49a2.
+- ВАЖНО: это изменения в GitHub, не доказательство деплоя/работы на реальных хостингах. Для применения:
+  * Первый Bot-Hosting: заменить корневой /home/container/bot.py актуальным содержимым aaaa/bot.py и перезапустить процесс.
+  * Второй Bot-Hosting: обновить dashboard/backend/main.py, dashboard/app.js, dashboard/style.css, dashboard/index.html и перезапустить Dashboard; затем сделать Ctrl+F5.
+- Проверка: во вкладке Shell выполнить pwd, затем несуществующую безопасную команду типа command_that_does_not_exist_123; во вкладке «Ввод в приложение» выполнить /help и неизвестную строку типа /unknown_test. Не запускать /delete pending_requests или /restart pending_requests на рабочей базе без необходимости. Shell Full-доступ — полноценное выполнение команд ОС с возможностью изменения/удаления файлов и управления процессами; не выдавать Full посторонним. Секреты не записывать.
