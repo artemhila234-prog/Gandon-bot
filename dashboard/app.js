@@ -156,6 +156,7 @@ function applyWhiteGriefAppearance(){
   };
   const average=palette.reduce((sum,color)=>sum+luminance(color),0)/3;
   root.style.setProperty("--wg-palette-ink",average>.48?"#111018":"#ffffff");
+  palette.forEach((color,index)=>root.style.setProperty("--wg-palette-ink-"+(index+1),luminance(color)>.42?"#111018":"#ffffff"));
   document.body.classList.toggle("wg-compact",!!wgPreferences.compact_mode);
 }
 function renderGlobalAnnouncement(){
