@@ -51,9 +51,13 @@ def init_panel_db() -> None:
             user_id TEXT PRIMARY KEY,
             theme TEXT NOT NULL DEFAULT 'system',
             accent TEXT NOT NULL DEFAULT 'purple',
+            palette TEXT NOT NULL DEFAULT '["#8b5cf6","#ec4899","#38bdf8"]',
             compact_mode INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )""")
+        preference_columns = {row[1] for row in db.execute("PRAGMA table_info(user_preferences)").fetchall()}
+        if "palette" not in preference_columns:
+            db.execute("""ALTER TABLE user_preferences ADD COLUMN palette TEXT NOT NULL DEFAULT '["#8b5cf6","#ec4899","#38bdf8"]'""")
         db.execute("""CREATE TABLE IF NOT EXISTS panel_settings (
             setting_key TEXT PRIMARY KEY,
             setting_value TEXT NOT NULL,
@@ -85,12 +89,18 @@ def get_user_panel_preferences(user_id: str) -> dict[str, Any]:
     import sqlite3
     with sqlite3.connect(PANEL_DB_PATH) as db:
         row = db.execute(
-            "SELECT theme, accent, compact_mode FROM user_preferences WHERE user_id = ?",
+            "SELECT theme, accent, compact_mode, palette FROM user_preferences WHERE user_id = ?",
             (str(user_id),)
         ).fetchone()
     if not row:
-        return {"theme": "system", "accent": "purple", "compact_mode": False}
-    return {"theme": row[0], "accent": row[1], "compact_mode": bool(row[2])}
+        return {"theme": "system", "accent": "purple", "palette": ["#8b5cf6", "#ec4899", "#38bdf8"], "compact_mode": False}
+    try:
+        palette = json.loads(row[3] or '["#8b5cf6","#ec4899","#38bdf8"]')
+    except (TypeError, json.JSONDecodeError):
+        palette = ["#8b5cf6", "#ec4899", "#38bdf8"]
+    if not isinstance(palette, list) or len(palette) != 3:
+        palette = ["#8b5cf6", "#ec4899", "#38bdf8"]
+    return {"theme": row[0], "accent": row[1], "palette": palette, "compact_mode": bool(row[2])}
 
 
 def get_role_access_map() -> dict[str, str]:
@@ -577,22 +587,27 @@ async def api_save_preferences(request: Request):
         raise HTTPException(status_code=400, detail="Ожидался объект настроек.")
     theme = payload.get("theme", "system")
     accent = payload.get("accent", "purple")
+    palette = payload.get("palette", ["#8b5cf6", "#ec4899", "#38bdf8"])
     compact_mode = payload.get("compact_mode", False)
     if not isinstance(theme, str) or theme not in {"system", "dark", "light"}:
         raise HTTPException(status_code=400, detail="Неизвестная тема оформления.")
     if not isinstance(accent, str) or accent not in {"purple", "blue", "green", "red"}:
         raise HTTPException(status_code=400, detail="Неизвестный цвет акцента.")
+    if (not isinstance(palette, list) or len(palette) != 3
+            or any(not isinstance(color, str) or len(color) != 7 or color[0] != "#"
+                   or any(char not in "0123456789abcdefABCDEF" for char in color[1:]) for color in palette)):
+        raise HTTPException(status_code=400, detail="Палитра должна содержать ровно три HEX-цвета.")
     if not isinstance(compact_mode, bool):
         raise HTTPException(status_code=400, detail="compact_mode должен быть true или false.")
     import sqlite3
     with sqlite3.connect(PANEL_DB_PATH) as db:
         db.execute(
-            """INSERT INTO user_preferences (user_id, theme, accent, compact_mode, updated_at)
-               VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """INSERT INTO user_preferences (user_id, theme, accent, palette, compact_mode, updated_at)
+               VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                ON CONFLICT(user_id) DO UPDATE SET
-               theme=excluded.theme, accent=excluded.accent,
+               theme=excluded.theme, accent=excluded.accent, palette=excluded.palette,
                compact_mode=excluded.compact_mode, updated_at=CURRENT_TIMESTAMP""",
-            (str(user["id"]), theme, accent, int(compact_mode)),
+            (str(user["id"]), theme, accent, json.dumps(palette), int(compact_mode)),
         )
         db.commit()
     return {"ok": True, "preferences": get_user_panel_preferences(str(user["id"]))}
