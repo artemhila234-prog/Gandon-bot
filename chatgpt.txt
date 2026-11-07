@@ -1025,3 +1025,11 @@ D. Важное ограничение API
 - Commit dashboard/app.js: e6ae73b93f4a5b08af61082d90317a34954a4172.
 - В dashboard/index.html обновлён cache-buster app.js на 20261107-shop-nickname-warning1.
 - Для применения обновить dashboard/app.js и dashboard/index.html на втором Dashboard-хостинге, затем Ctrl+F5. Backend менять не требуется.
+
+
+94. ПРОКРУТКА БОКОВОГО МЕНЮ И ПРОВЕРКА ПРАВ ADM ДЛЯ СООБЩЕНИЙ (2026-11-07)
+- По скриншоту на узком/низком экране боковое меню не помещается по высоте: нижние пункты и профиль обрезаются.
+- В dashboard/style.css боковая панель сделана вертикально прокручиваемой (overflow-y:auto, overscroll-behavior, тонкий тематический scrollbar); элементы меню не сжимаются, нижний профиль остаётся достижимым. На мобильных устройствах высота панели ограничена 100dvh, учтена safe-area и включён плавный touch-scroll.
+- Проверены права вкладки «Сообщения»: dashboard/app.js pageMinimumAccess.messages уже равен "adm"; backend dashboard/backend/main.py требует require_access(request, "adm") для списка каналов, истории и отправки. Значит Adm и Full уже имеют доступ, Media/Co.Adm — нет. Backend и JS менять не требуется; не ослаблял серверную проверку.
+- Изменены dashboard/style.css и dashboard/index.html (обновлён cache-buster CSS на 20261107-sidebar-scroll1); добавлен этот раздел в chatgpt.txt.
+- Применение: обновить dashboard/style.css и dashboard/index.html на втором Dashboard-хостинге, затем перезапустить Dashboard при необходимости и выполнить Ctrl+F5. Первый бот-хостинг не менять. Прокрутку и права на live-сайте после синхронизации нужно проверить в браузере.
