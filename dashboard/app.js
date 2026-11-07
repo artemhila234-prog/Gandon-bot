@@ -159,6 +159,20 @@ async function loadSession(){
     startSettingsLiveSync();
     if(initialPage && pageNames[initialPage])showPage(initialPage);
     const letter=avatarLetter(user.username);
+    const avatarUrl=user.avatar
+      ? "https://cdn.discordapp.com/avatars/"+encodeURIComponent(user.id)+"/"+encodeURIComponent(user.avatar)+".png?size=128"
+      : "https://cdn.discordapp.com/embed/avatars/0.png";
+    [sideAvatar,topAvatar].forEach(node=>{
+      if(!node)return;
+      node.replaceChildren();
+      const image=document.createElement("img");
+      image.src=avatarUrl;image.alt="Аватар Discord";
+      image.onerror=()=>{node.textContent=letter;node.classList.add("avatar-fallback")};
+      node.append(image);
+      node.classList.remove("avatar-fallback");
+      node.setAttribute("aria-label","Открыть мой профиль");
+      node.title="Открыть мой профиль";
+    });
     authBadge.textContent="DISCORD ПОДКЛЮЧЁН";
     authBadge.classList.add("authenticated");
     loginButton.hidden=true;
@@ -185,6 +199,11 @@ if(logoutButton){
     await fetch("/auth/logout",{method:"POST",credentials:"same-origin"});
     window.location.href="/";
   });
+}
+if(topAvatar){
+  topAvatar.setAttribute("role","button");topAvatar.setAttribute("tabindex","0");
+  topAvatar.addEventListener("click",openOwnProfile);
+  topAvatar.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();openOwnProfile()}});
 }
 const profileCard=document.querySelector(".user-card");
 if(profileCard){
