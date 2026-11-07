@@ -3,6 +3,7 @@ const content=document.getElementById("pageContent");
 const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
 const overlay=document.getElementById("overlay");
+let currentAccessLevel="none";
 function showPage(page){
   if(!pageNames[page]) return;
   if(page==="access" && !["adm","full"].includes(currentAccessLevel)){return;}
@@ -68,7 +69,6 @@ const sideUserName=document.getElementById("sideUserName");
 const sideUserAccess=document.getElementById("sideUserAccess");
 const topAvatar=document.getElementById("topAvatar");
 const sideAvatar=document.getElementById("sideAvatar");
-let currentAccessLevel="none";
 const accessLabels={none:"Нет доступа",media:"Media",co_adm:"Co.Adm — управление персоналом",adm:"Adm — управление ботом",full:"Full — полный доступ"};
 function avatarLetter(name){return (name||"?").trim().slice(0,1).toUpperCase()}
 async function loadSession(){
