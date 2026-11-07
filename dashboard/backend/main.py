@@ -690,6 +690,20 @@ async def api_console_command(request: Request):
         raise HTTPException(status_code=400, detail="Введи команду длиной до 2000 символов.")
     return await bot_api_request("POST", "/api/internal/console/command", payload={"command": command})
 
+@app.post("/api/console/app-command")
+async def api_console_app_command(request: Request):
+    await require_access(request, "full")
+    payload = await request.json()
+    command = str(payload.get("command", ""))
+    if not command.strip() or len(command) > 2000:
+        raise HTTPException(status_code=400, detail="Введи ввод длиной до 2000 символов.")
+    return await bot_api_request(
+        "POST",
+        "/api/internal/console/app-command",
+        payload={"command": command},
+    )
+
+
 @app.get("/api/players")
 async def api_players(request: Request):
     await require_access(request, "media")
@@ -947,6 +961,23 @@ async def internal_console_command(request: Request):
     command = str(payload.get("command", ""))
     try:
         return await controller["command"](command)
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.post("/api/internal/console/app-command")
+async def internal_console_app_command(request: Request):
+    require_bot_data_secret(request)
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller or not controller.get("app_command"):
+        raise HTTPException(status_code=503, detail="Ввод в приложение не подключён к процессу бота.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос.")
+    command = str(payload.get("command", ""))
+    try:
+        return await controller["app_command"](command)
     except Exception as error:
         raise HTTPException(status_code=400, detail=str(error))
 
