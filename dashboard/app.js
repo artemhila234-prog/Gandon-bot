@@ -79,6 +79,7 @@ async function loadSession(){
     }
     const user=data.user;
     currentAccessLevel=user.access_level||"none";
+    startSettingsLiveSync();
     const letter=avatarLetter(user.username);
     authBadge.textContent="DISCORD ПОДКЛЮЧЁН";
     authBadge.classList.add("authenticated");
@@ -102,6 +103,7 @@ async function loadSession(){
 }
 if(logoutButton){
   logoutButton.addEventListener("click",async()=>{
+    if(wgSettingsLiveTimer){clearInterval(wgSettingsLiveTimer);wgSettingsLiveTimer=null;}
     await fetch("/auth/logout",{method:"POST",credentials:"same-origin"});
     window.location.href="/";
   });
@@ -109,6 +111,46 @@ if(logoutButton){
 loadSession();
 
 
+
+let wgPreferences={theme:"system",accent:"purple",compact_mode:false};
+let wgGlobalSettings={announcement_enabled:false,announcement_text:"",default_theme:"dark"};
+let wgSettingsLiveTimer=null;
+
+function applyWhiteGriefAppearance(){
+  const theme=wgPreferences.theme==="system"?(wgGlobalSettings.default_theme||"dark"):wgPreferences.theme;
+  document.documentElement.dataset.theme=theme;
+  document.documentElement.dataset.accent=wgPreferences.accent||"purple";
+  document.body.classList.toggle("wg-compact",!!wgPreferences.compact_mode);
+}
+function renderGlobalAnnouncement(){
+  const topbar=document.querySelector(".topbar");
+  if(!topbar)return;
+  let banner=document.getElementById("wgGlobalAnnouncement");
+  if(!banner){
+    banner=document.createElement("div");
+    banner.id="wgGlobalAnnouncement";
+    banner.className="wg-global-announcement";
+    topbar.insertAdjacentElement("afterend",banner);
+  }
+  const visible=!!wgGlobalSettings.announcement_enabled&&!!(wgGlobalSettings.announcement_text||"").trim();
+  banner.hidden=!visible;
+  banner.textContent=visible?wgGlobalSettings.announcement_text:"";
+}
+async function refreshWhiteGriefLiveSettings(){
+  try{
+    const response=await fetch("/api/settings/live",{credentials:"same-origin",cache:"no-store"});
+    if(!response.ok)return;
+    const data=await response.json();
+    wgGlobalSettings=data.global_settings||wgGlobalSettings;
+    applyWhiteGriefAppearance();
+    renderGlobalAnnouncement();
+  }catch(error){}
+}
+function startSettingsLiveSync(){
+  refreshWhiteGriefLiveSettings();
+  if(wgSettingsLiveTimer)clearInterval(wgSettingsLiveTimer);
+  wgSettingsLiveTimer=setInterval(refreshWhiteGriefLiveSettings,4000);
+}
 
 async function loadSettings(section){
   const root=section.querySelector("#settingsWorkspace"),refresh=section.querySelector("#refreshSettings");
@@ -121,77 +163,147 @@ async function loadSettings(section){
     const desc=document.createElement("small");desc.textContent=detail;
     head.append(name,badge);card.append(head,desc);return card;
   };
+  const makePanel=(title,description)=>{
+    const panel=document.createElement("section");panel.className="settings-panel";
+    const heading=document.createElement("div");heading.className="settings-panel-heading";
+    const h=document.createElement("h3");h.textContent=title;
+    const d=document.createElement("span");d.className="settings-muted";d.textContent=description||"";
+    heading.append(h,d);panel.append(heading);return panel;
+  };
+  const makeField=(label,control,hint)=>{
+    const wrap=document.createElement("label");wrap.className="settings-field";
+    const name=document.createElement("span");name.className="settings-field-label";name.textContent=label;
+    wrap.append(name,control);
+    if(hint){const small=document.createElement("small");small.textContent=hint;wrap.append(small);}
+    return wrap;
+  };
+  const requestJSON=async(url,body)=>{
+    const response=await fetch(url,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const data=await response.json();
+    if(!response.ok)throw new Error(data.detail||"Не удалось сохранить настройки.");
+    return data;
+  };
   const render=data=>{
     root.replaceChildren();
-    const intro=document.createElement("div");intro.className="settings-intro";
-    const introTitle=document.createElement("strong");introTitle.textContent="Конфигурация WhiteGrief";
-    const introText=document.createElement("p");introText.textContent="Состояние настроек второго хостинга. Секретные значения скрыты; для их изменения используй переменные окружения Bot-Hosting.";
-    intro.append(introTitle,introText);root.append(intro);
-    const summary=document.createElement("div");summary.className="settings-status-grid";
-    const c=data.configuration||{};
-    [
-      ["Discord OAuth",c.oauth,"Вход через Discord · Client ID и Secret"],
-      ["Discord Bot API",c.bot,"Токен бота задан на Dashboard-хостинге"],
-      ["Секрет сессии",c.session_secret,"Защита авторизационных cookie"],
-      ["OAuth Redirect",c.redirect_uri,"Адрес возврата после входа"],
-      ["Синхронизация ролей",c.bot_sync,"Внутренний ключ синхронизации ролей"],
-      ["Связь с ботом",c.bot_api,"Адрес первого хостинга и внутренний API"],
-      ["TikTok Login Kit",c.tiktok_oauth,"Client Key, Secret и Redirect URI"],
-      ["Шифрование TikTok",c.tiktok_encryption,"Ключ шифрования токенов задан"]
-    ].forEach(item=>summary.append(makeStatus(item[0],!!item[1],item[2])));
-    root.append(summary);
-    const guild=document.createElement("section");guild.className="settings-panel";
-    const gh=document.createElement("div");gh.className="settings-panel-heading";
-    const gt=document.createElement("h3");gt.textContent="Discord-сервер";
-    const gm=document.createElement("span");gm.className="settings-muted";gm.textContent=data.guild_name||"WhiteGrief";
-    gh.append(gt,gm);
-    const info=document.createElement("div");info.className="settings-info-grid";
-    [["Название",data.guild_name||"Недоступно"],["Guild ID",data.guild_id||"—"],["Подключение",data.discord_connected?"Discord API доступен":"Нет доступа к Discord API"]].forEach(pair=>{
-      const item=document.createElement("div");item.className="settings-info-item";
-      const small=document.createElement("small");small.textContent=pair[0];
-      const strong=document.createElement("strong");strong.textContent=pair[1];
-      item.append(small,strong);info.append(item);
-    });
-    guild.append(gh,info);root.append(guild);
-    const rolePanel=document.createElement("section");rolePanel.className="settings-panel";
-    const rh=document.createElement("div");rh.className="settings-panel-heading";
-    const rt=document.createElement("h3");rt.textContent="Роли доступа";
-    const rm=document.createElement("span");rm.className="settings-muted";rm.textContent="Текущая карта доступа";
-    rh.append(rt,rm);rolePanel.append(rh);
-    const roleList=document.createElement("div");roleList.className="settings-role-list";
-    (data.roles||[]).forEach(role=>{
-      const row=document.createElement("div");row.className="settings-role-row";
-      const copy=document.createElement("div");copy.className="settings-role-copy";
-      const name=document.createElement("strong");name.textContent=role.name;
-      const id=document.createElement("small");id.textContent="ID: "+role.id;
-      copy.append(name,id);
-      const level=document.createElement("span");level.className="settings-access-level level-"+(role.access_level||"none");level.textContent=role.access_label||"Без доступа";
-      row.append(copy,level);roleList.append(row);
-    });
-    if(!roleList.children.length){const empty=document.createElement("div");empty.className="settings-empty";empty.textContent="Список ролей Discord недоступен.";roleList.append(empty);}
-    rolePanel.append(roleList);root.append(rolePanel);
-    const channelPanel=document.createElement("section");channelPanel.className="settings-panel";
-    const ch=document.createElement("div");ch.className="settings-panel-heading";
-    const ct=document.createElement("h3");ct.textContent="Каналы Discord";
-    const cm=document.createElement("span");cm.className="settings-muted";cm.textContent=(data.channels||[]).length+" текстовых каналов";
-    ch.append(ct,cm);channelPanel.append(ch);
-    const channelList=document.createElement("div");channelList.className="settings-channel-list";
-    (data.channels||[]).forEach(channel=>{
-      const row=document.createElement("div");row.className="settings-channel-row";
-      const hash=document.createElement("span");hash.className="settings-channel-hash";hash.textContent="#";
-      const name=document.createElement("strong");name.textContent=channel.name;
-      const id=document.createElement("small");id.textContent=channel.id;
-      row.append(hash,name,id);channelList.append(row);
-    });
-    if(!channelList.children.length){const empty=document.createElement("div");empty.className="settings-empty";empty.textContent=data.channels_error||"Список каналов недоступен.";channelList.append(empty);}
-    channelPanel.append(channelList);root.append(channelPanel);
-    const note=document.createElement("div");note.className="settings-security-note";
-    note.textContent="Безопасность: секреты, токены и содержимое .env не передаются в браузер. Эта версия настроек работает в режиме просмотра — изменение инфраструктурных параметров выполняется на хостинге.";
-    root.append(note);
+    wgPreferences=data.preferences||wgPreferences;
+    wgGlobalSettings=data.global_settings||wgGlobalSettings;
+    applyWhiteGriefAppearance();renderGlobalAnnouncement();
+
+    const personal=makePanel("Мои настройки","Сохраняются для твоего Discord-аккаунта");
+    const personalGrid=document.createElement("div");personalGrid.className="settings-edit-grid";
+    const theme=document.createElement("select");theme.className="settings-select";
+    [["system","По умолчанию сервера"],["dark","Тёмная"],["light","Светлая"]].forEach(([value,label])=>{const o=document.createElement("option");o.value=value;o.textContent=label;theme.append(o);});
+    theme.value=wgPreferences.theme||"system";
+    const accent=document.createElement("select");accent.className="settings-select";
+    [["purple","Фиолетовый"],["blue","Синий"],["green","Зелёный"],["red","Красный"]].forEach(([value,label])=>{const o=document.createElement("option");o.value=value;o.textContent=label;accent.append(o);});
+    accent.value=wgPreferences.accent||"purple";
+    const compact=document.createElement("input");compact.type="checkbox";compact.checked=!!wgPreferences.compact_mode;
+    const compactLabel=document.createElement("label");compactLabel.className="settings-switch-label";compactLabel.append(compact,document.createTextNode("Компактный интерфейс"));
+    personalGrid.append(makeField("Тема оформления",theme,"Можно использовать тему по умолчанию, заданную администрацией."),makeField("Цвет акцента",accent,"Цвет выделения элементов панели."),makeField("Плотность интерфейса",compactLabel,"Уменьшает отступы между элементами."));
+    personal.append(personalGrid);
+    const personalStatus=document.createElement("small");personalStatus.className="settings-save-status";personalStatus.textContent="Изменения сохраняются автоматически.";
+    personal.append(personalStatus);root.append(personal);
+
+    let savePersonalTimer=null;
+    const savePersonal=async()=>{
+      if(savePersonalTimer)clearTimeout(savePersonalTimer);
+      personalStatus.textContent="Сохраняем…";
+      wgPreferences={theme:theme.value,accent:accent.value,compact_mode:compact.checked};
+      applyWhiteGriefAppearance();
+      try{
+        await requestJSON("/api/settings/preferences",wgPreferences);
+        personalStatus.textContent="Сохранено · применяется сразу";
+      }catch(error){personalStatus.textContent=error.message;}
+    };
+    [theme,accent,compact].forEach(control=>control.addEventListener("change",savePersonal));
+
+    if(data.is_admin){
+      const admin=makePanel("Общие настройки панели","Изменения видны всем пользователям");
+      const adminGrid=document.createElement("div");adminGrid.className="settings-edit-grid";
+      const announce=document.createElement("input");announce.type="checkbox";announce.checked=!!wgGlobalSettings.announcement_enabled;
+      const announceLabel=document.createElement("label");announceLabel.className="settings-switch-label";announceLabel.append(announce,document.createTextNode("Показывать общее уведомление"));
+      const message=document.createElement("textarea");message.className="settings-textarea";message.maxLength=350;message.rows=3;message.placeholder="Напиши объявление для всех пользователей…";message.value=wgGlobalSettings.announcement_text||"";
+      const defaultTheme=document.createElement("select");defaultTheme.className="settings-select";
+      [["dark","Тёмная"],["light","Светлая"]].forEach(([value,label])=>{const o=document.createElement("option");o.value=value;o.textContent=label;defaultTheme.append(o);});
+      defaultTheme.value=wgGlobalSettings.default_theme||"dark";
+      adminGrid.append(makeField("Публичное уведомление",announceLabel,"Показывается вверху панели всем вошедшим участникам."),makeField("Текст уведомления",message,"До 350 символов. Изменение появится у пользователей автоматически."),makeField("Тема по умолчанию",defaultTheme,"Применяется к тем, кто выбрал «По умолчанию сервера»."));
+      const adminActions=document.createElement("div");adminActions.className="settings-admin-actions";
+      const saveAdmin=document.createElement("button");saveAdmin.type="button";saveAdmin.className="console-action-button";saveAdmin.textContent="Сохранить общие настройки";
+      const adminStatus=document.createElement("small");adminStatus.className="settings-save-status";adminStatus.textContent="Только Adm и Full могут менять эти параметры.";
+      saveAdmin.addEventListener("click",async()=>{
+        saveAdmin.disabled=true;adminStatus.textContent="Сохраняем…";
+        try{
+          const saved=await requestJSON("/api/settings/admin",{announcement_enabled:announce.checked,announcement_text:message.value,default_theme:defaultTheme.value});
+          wgGlobalSettings=saved.global_settings||wgGlobalSettings;
+          applyWhiteGriefAppearance();renderGlobalAnnouncement();
+          adminStatus.textContent="Сохранено · обновление у всех пользователей до 4 секунд";
+        }catch(error){adminStatus.textContent=error.message;}
+        finally{saveAdmin.disabled=false;}
+      });
+      adminActions.append(saveAdmin,adminStatus);admin.append(adminGrid,adminActions);root.append(admin);
+
+      const intro=document.createElement("div");intro.className="settings-intro";
+      const introTitle=document.createElement("strong");introTitle.textContent="Техническая конфигурация";
+      const introText=document.createElement("p");introText.textContent="Статусы подключения доступны для просмотра. Секреты и ключи остаются в переменных окружения хостинга и не редактируются через браузер.";
+      intro.append(introTitle,introText);root.append(intro);
+      const summary=document.createElement("div");summary.className="settings-status-grid";
+      const c=data.configuration||{};
+      [
+        ["Discord OAuth",c.oauth,"Вход через Discord · Client ID и Secret"],
+        ["Discord Bot API",c.bot,"Токен бота задан на Dashboard-хостинге"],
+        ["Секрет сессии",c.session_secret,"Защита авторизационных cookie"],
+        ["OAuth Redirect",c.redirect_uri,"Адрес возврата после входа"],
+        ["Синхронизация ролей",c.bot_sync,"Внутренний ключ синхронизации ролей"],
+        ["Связь с ботом",c.bot_api,"Адрес первого хостинга и внутренний API"],
+        ["TikTok Login Kit",c.tiktok_oauth,"Client Key, Secret и Redirect URI"],
+        ["Шифрование TikTok",c.tiktok_encryption,"Ключ шифрования токенов задан"]
+      ].forEach(item=>summary.append(makeStatus(item[0],!!item[1],item[2])));
+      root.append(summary);
+
+      const guild=makePanel("Discord-сервер","WhiteGrief");
+      const info=document.createElement("div");info.className="settings-info-grid";
+      [["Название",data.guild_name||"Недоступно"],["Guild ID",data.guild_id||"—"],["Подключение",data.discord_connected?"Discord API доступен":"Нет доступа к Discord API"]].forEach(pair=>{
+        const item=document.createElement("div");item.className="settings-info-item";
+        const small=document.createElement("small");small.textContent=pair[0];
+        const strong=document.createElement("strong");strong.textContent=pair[1];
+        item.append(small,strong);info.append(item);
+      });
+      guild.append(info);root.append(guild);
+
+      const rolePanel=makePanel("Роли доступа","Текущая карта доступа");
+      const roleList=document.createElement("div");roleList.className="settings-role-list";
+      (data.roles||[]).forEach(role=>{
+        const row=document.createElement("div");row.className="settings-role-row";
+        const copy=document.createElement("div");copy.className="settings-role-copy";
+        const name=document.createElement("strong");name.textContent=role.name;
+        const id=document.createElement("small");id.textContent="ID: "+role.id;
+        copy.append(name,id);
+        const level=document.createElement("span");level.className="settings-access-level level-"+(role.access_level||"none");level.textContent=role.access_label||"Без доступа";
+        row.append(copy,level);roleList.append(row);
+      });
+      if(!roleList.children.length){const empty=document.createElement("div");empty.className="settings-empty";empty.textContent="Список ролей Discord недоступен.";roleList.append(empty);}
+      rolePanel.append(roleList);root.append(rolePanel);
+
+      const channelPanel=makePanel("Каналы Discord",(data.channels||[]).length+" текстовых каналов");
+      const channelList=document.createElement("div");channelList.className="settings-channel-list";
+      (data.channels||[]).forEach(channel=>{
+        const row=document.createElement("div");row.className="settings-channel-row";
+        const hash=document.createElement("span");hash.className="settings-channel-hash";hash.textContent="#";
+        const name=document.createElement("strong");name.textContent=channel.name;
+        const id=document.createElement("small");id.textContent=channel.id;
+        row.append(hash,name,id);channelList.append(row);
+      });
+      if(!channelList.children.length){const empty=document.createElement("div");empty.className="settings-empty";empty.textContent=data.channels_error||"Список каналов недоступен.";channelList.append(empty);}
+      channelPanel.append(channelList);root.append(channelPanel);
+    }else{
+      const note=document.createElement("div");note.className="settings-security-note";
+      note.textContent="Административные настройки и техническая конфигурация доступны только пользователям с уровнем Adm или Full.";
+      root.append(note);
+    }
   };
   const load=async()=>{
     if(refresh){refresh.disabled=true;refresh.textContent="Загрузка…";}
-    root.innerHTML='<div class="empty-state">Получаем актуальные настройки…</div>';
+    root.innerHTML='<div class="empty-state">Получаем настройки…</div>';
     try{
       const response=await fetch("/api/settings",{credentials:"same-origin",cache:"no-store"});
       const data=await response.json();
