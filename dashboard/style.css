@@ -693,3 +693,43 @@ html,body,button,input,textarea,select{font-family:'Inter',Arial,sans-serif}
 .settings-security-note{padding:12px 14px;border:1px solid #3b344c;border-radius:10px;background:#191824;color:#aaa2bb;font-size:9px;line-height:1.65}
 @media(max-width:900px){.settings-status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.settings-status-grid{grid-template-columns:1fr 1fr}.settings-info-grid{grid-template-columns:1fr}.settings-panel{padding:12px}.settings-role-row{align-items:flex-start;flex-direction:column}.settings-channel-row{align-items:flex-start;flex-wrap:wrap}.settings-channel-row small{width:100%;padding-left:18px}}
+
+
+/* Personal and live settings */
+.settings-edit-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.settings-field{display:flex;flex-direction:column;gap:7px;min-width:0;color:#aaa3b8;font-size:10px}
+.settings-field-label{color:#e4deed;font-size:10px;font-weight:750}
+.settings-field>small{color:#827c91;font-size:9px;line-height:1.5}
+.settings-select,.settings-textarea{width:100%;box-sizing:border-box;padding:10px 11px;border:1px solid #393448;border-radius:8px;outline:none;background:#11121b;color:#eee9f8;font:inherit;font-size:11px}
+.settings-select:focus,.settings-textarea:focus{border-color:#8d6bd1;box-shadow:0 0 0 2px #8d6bd122}
+.settings-textarea{resize:vertical;min-height:76px}
+.settings-switch-label{display:flex;align-items:center;gap:9px;min-height:38px;color:#d8d2e4;font-size:10px}
+.settings-switch-label input{width:16px;height:16px;accent-color:#9a78e8}
+.settings-save-status{display:block;margin-top:12px;color:#8e88a5;font-size:9px;line-height:1.5}
+.settings-admin-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+.wg-global-announcement{margin:0 24px 12px;padding:11px 15px;border:1px solid #58417e;border-radius:9px;background:#261e39;color:#e7dcff;font-size:11px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
+.wg-global-announcement[hidden]{display:none}
+:root[data-accent="purple"]{--wg-accent:#9874df;--wg-accent-soft:#302442}
+:root[data-accent="blue"]{--wg-accent:#64a9ed;--wg-accent-soft:#1d3044}
+:root[data-accent="green"]{--wg-accent:#63c995;--wg-accent-soft:#1d3b30}
+:root[data-accent="red"]{--wg-accent:#e77b8b;--wg-accent-soft:#42252e}
+.nav-item.active,.quick-card:hover,.console-mode-tab.active{border-color:var(--wg-accent,#9874df)}
+.nav-item.active{box-shadow:inset 3px 0 var(--wg-accent,#9874df)}
+.settings-status-pill.is-ready{color:var(--wg-accent,#79d8a6)}
+body.wg-compact .panel{padding-top:12px;padding-bottom:12px}
+body.wg-compact .settings-role-row,body.wg-compact .settings-channel-row{padding-top:6px;padding-bottom:6px}
+body.wg-compact .nav-item{padding-top:8px;padding-bottom:8px}
+:root[data-theme="light"] body{background:#eef0f6;color:#252334}
+:root[data-theme="light"] .main-area{background:#eef0f6}
+:root[data-theme="light"] .topbar,:root[data-theme="light"] .panel,:root[data-theme="light"] .settings-panel,:root[data-theme="light"] .settings-status-card{background:#fff;border-color:#d9dbe6;color:#292638}
+:root[data-theme="light"] .sidebar{background:#f8f8fc;border-color:#d9dbe6}
+:root[data-theme="light"] .brand strong,:root[data-theme="light"] .server-info strong,:root[data-theme="light"] .nav-item,:root[data-theme="light"] .panel-heading h2,:root[data-theme="light"] .settings-panel-heading h3,:root[data-theme="light"] .settings-status-head strong,:root[data-theme="light"] .settings-field-label{color:#292638}
+:root[data-theme="light"] .nav-label,:root[data-theme="light"] .settings-muted,:root[data-theme="light"] .settings-status-card>small,:root[data-theme="light"] .settings-field>small{color:#777488}
+:root[data-theme="light"] .settings-intro{background:#f1edfa;border-color:#d8cdec}
+:root[data-theme="light"] .settings-intro strong,:root[data-theme="light"] .settings-intro p{color:#39314b}
+:root[data-theme="light"] .settings-info-item,:root[data-theme="light"] .settings-role-row{background:#f7f7fb;border-color:#e0e1e9}
+:root[data-theme="light"] .settings-info-item strong,:root[data-theme="light"] .settings-role-copy strong{color:#292638}
+:root[data-theme="light"] .settings-select,:root[data-theme="light"] .settings-textarea{background:#fff;color:#292638;border-color:#d5d6e1}
+:root[data-theme="light"] .settings-switch-label{color:#39364a}
+:root[data-theme="light"] .wg-global-announcement{background:#f1edfa;color:#45375e;border-color:#cbb9e9}
+@media(max-width:640px){.settings-edit-grid{grid-template-columns:1fr}.wg-global-announcement{margin-left:12px;margin-right:12px}}
