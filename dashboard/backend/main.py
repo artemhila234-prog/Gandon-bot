@@ -430,6 +430,60 @@ async def api_access_members(request: Request):
     }
 
 
+@app.post("/api/access/members/{user_id}/roles")
+async def api_access_assign_role(user_id: str, request: Request):
+    """Выдать участнику роль Discord из вкладки «Доступ»."""
+    actor = await require_access(request, "adm")
+    if not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный Discord ID участника.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректные данные запроса.")
+    role_id = str(payload.get("role_id") or "") if isinstance(payload, dict) else ""
+    if not role_id.isdigit() or role_id == GUILD_ID:
+        raise HTTPException(status_code=400, detail="Выбери обычную роль сервера.")
+
+    roles = await discord_request("GET", f"/guilds/{GUILD_ID}/roles")
+    role = next((item for item in roles if str(item.get("id")) == role_id), None)
+    if not role:
+        raise HTTPException(status_code=404, detail="Эта роль больше не существует на сервере.")
+    if role.get("managed"):
+        raise HTTPException(status_code=400, detail="Роли интеграций и ботов нельзя выдавать вручную.")
+
+    role_access = get_role_access_map().get(role_id, "none")
+    if role_access == "full" and actor.get("access_level") != "full":
+        raise HTTPException(status_code=403, detail="Только пользователь с уровнем Full может выдавать роль, открывающую доступ Full.")
+
+    bot_user = await discord_request("GET", "/users/@me")
+    bot_member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{bot_user.get('id')}")
+    bot_role_ids = {str(item) for item in bot_member.get("roles", [])}
+    bot_top_position = max(
+        (int(item.get("position") or 0) for item in roles if str(item.get("id")) in bot_role_ids),
+        default=0,
+    )
+    if int(role.get("position") or 0) >= bot_top_position:
+        raise HTTPException(status_code=403, detail="Эта роль находится выше или на одном уровне с ролью бота. Подними роль бота в настройках Discord.")
+
+    member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{user_id}")
+    member_role_ids = {str(item) for item in member.get("roles", [])}
+    if role_id in member_role_ids:
+        return {
+            "ok": True,
+            "already_had_role": True,
+            "message": "У участника уже есть эта роль.",
+            "role": {"id": role_id, "name": role.get("name"), "color": int(role.get("color") or 0)},
+        }
+
+    await discord_request("PUT", f"/guilds/{GUILD_ID}/members/{user_id}/roles/{role_id}")
+    return {
+        "ok": True,
+        "already_had_role": False,
+        "message": f"Роль «{role.get('name') or 'Без названия'}» выдана участнику.",
+        "role": {"id": role_id, "name": role.get("name"), "color": int(role.get("color") or 0)},
+    }
+
+
 @app.get("/api/settings")
 async def api_settings(request: Request):
     user = await require_user(request)
