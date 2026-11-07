@@ -145,6 +145,18 @@ async function refreshWhiteGriefLiveSettings(){
     wgPreferences=data.preferences||wgPreferences;
     applyWhiteGriefAppearance();
     renderGlobalAnnouncement();
+    const liveTheme=document.getElementById("wgPersonalTheme");
+    const liveAccent=document.getElementById("wgPersonalAccent");
+    const liveCompact=document.getElementById("wgPersonalCompact");
+    const liveAnnouncement=document.getElementById("wgAdminAnnouncementEnabled");
+    const liveMessage=document.getElementById("wgAdminAnnouncementText");
+    const liveDefaultTheme=document.getElementById("wgAdminDefaultTheme");
+    if(liveTheme&&document.activeElement!==liveTheme)liveTheme.value=wgPreferences.theme||"system";
+    if(liveAccent&&document.activeElement!==liveAccent)liveAccent.value=wgPreferences.accent||"purple";
+    if(liveCompact&&document.activeElement!==liveCompact)liveCompact.checked=!!wgPreferences.compact_mode;
+    if(liveAnnouncement&&document.activeElement!==liveAnnouncement)liveAnnouncement.checked=!!wgGlobalSettings.announcement_enabled;
+    if(liveMessage&&document.activeElement!==liveMessage)liveMessage.value=wgGlobalSettings.announcement_text||"";
+    if(liveDefaultTheme&&document.activeElement!==liveDefaultTheme)liveDefaultTheme.value=wgGlobalSettings.default_theme||"dark";
   }catch(error){}
 }
 function startSettingsLiveSync(){
@@ -192,13 +204,13 @@ async function loadSettings(section){
 
     const personal=makePanel("Мои настройки","Сохраняются для твоего Discord-аккаунта");
     const personalGrid=document.createElement("div");personalGrid.className="settings-edit-grid";
-    const theme=document.createElement("select");theme.className="settings-select";
+    const theme=document.createElement("select");theme.id="wgPersonalTheme";theme.className="settings-select";
     [["system","По умолчанию сервера"],["dark","Тёмная"],["light","Светлая"]].forEach(([value,label])=>{const o=document.createElement("option");o.value=value;o.textContent=label;theme.append(o);});
     theme.value=wgPreferences.theme||"system";
-    const accent=document.createElement("select");accent.className="settings-select";
+    const accent=document.createElement("select");accent.id="wgPersonalAccent";accent.className="settings-select";
     [["purple","Фиолетовый"],["blue","Синий"],["green","Зелёный"],["red","Красный"]].forEach(([value,label])=>{const o=document.createElement("option");o.value=value;o.textContent=label;accent.append(o);});
     accent.value=wgPreferences.accent||"purple";
-    const compact=document.createElement("input");compact.type="checkbox";compact.checked=!!wgPreferences.compact_mode;
+    const compact=document.createElement("input");compact.id="wgPersonalCompact";compact.type="checkbox";compact.checked=!!wgPreferences.compact_mode;
     const compactLabel=document.createElement("label");compactLabel.className="settings-switch-label";compactLabel.append(compact,document.createTextNode("Компактный интерфейс"));
     personalGrid.append(makeField("Тема оформления",theme,"Можно использовать тему по умолчанию, заданную администрацией."),makeField("Цвет акцента",accent,"Цвет выделения элементов панели."),makeField("Плотность интерфейса",compactLabel,"Уменьшает отступы между элементами."));
     personal.append(personalGrid);
@@ -221,10 +233,10 @@ async function loadSettings(section){
     if(data.is_admin){
       const admin=makePanel("Общие настройки панели","Изменения видны всем пользователям");
       const adminGrid=document.createElement("div");adminGrid.className="settings-edit-grid";
-      const announce=document.createElement("input");announce.type="checkbox";announce.checked=!!wgGlobalSettings.announcement_enabled;
+      const announce=document.createElement("input");announce.id="wgAdminAnnouncementEnabled";announce.type="checkbox";announce.checked=!!wgGlobalSettings.announcement_enabled;
       const announceLabel=document.createElement("label");announceLabel.className="settings-switch-label";announceLabel.append(announce,document.createTextNode("Показывать общее уведомление"));
-      const message=document.createElement("textarea");message.className="settings-textarea";message.maxLength=350;message.rows=3;message.placeholder="Напиши объявление для всех пользователей…";message.value=wgGlobalSettings.announcement_text||"";
-      const defaultTheme=document.createElement("select");defaultTheme.className="settings-select";
+      const message=document.createElement("textarea");message.id="wgAdminAnnouncementText";message.className="settings-textarea";message.maxLength=350;message.rows=3;message.placeholder="Напиши объявление для всех пользователей…";message.value=wgGlobalSettings.announcement_text||"";
+      const defaultTheme=document.createElement("select");defaultTheme.id="wgAdminDefaultTheme";defaultTheme.className="settings-select";
       [["dark","Тёмная"],["light","Светлая"]].forEach(([value,label])=>{const o=document.createElement("option");o.value=value;o.textContent=label;defaultTheme.append(o);});
       defaultTheme.value=wgGlobalSettings.default_theme||"dark";
       adminGrid.append(makeField("Публичное уведомление",announceLabel,"Показывается вверху панели всем вошедшим участникам."),makeField("Текст уведомления",message,"До 350 символов. Изменение появится у пользователей автоматически."),makeField("Тема по умолчанию",defaultTheme,"Применяется к тем, кто выбрал «По умолчанию сервера»."));
