@@ -446,6 +446,8 @@ async def api_save_admin_settings(request: Request):
         payload = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Ожидался объект настроек.")
     announcement_enabled = payload.get("announcement_enabled", False)
     announcement_text = payload.get("announcement_text", "")
     default_theme = payload.get("default_theme", "dark")
@@ -472,8 +474,6 @@ async def api_save_admin_settings(request: Request):
         db.commit()
     return {"ok": True, "global_settings": get_global_panel_settings()}
 
-
-async def bot_api_request
 
 async def bot_api_request(method: str, path: str, *, payload: dict[str, Any] | None = None) -> Any:
     if not BOT_API_URL or not BOT_DATA_API_SECRET:
