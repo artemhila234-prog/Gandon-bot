@@ -20,7 +20,8 @@ REPORT_CHANNEL_ID = 1231958902474678364
 JOIN_CHANNEL_ID = 1551952140929601576
 CATEGORY_ID = 1551950227865608292
 SHOP_CHANNEL_ID = 1564188124844662814  # ID канала для логов покупок
-AUDIT_LOG_CHANNEL_ID = 1567159721398370457  # Канал полного журнала действий
+AUDIT_LOG_CHANNEL_ID = 1532858499418030151  # Канал полного журнала действий
+ROLE_ANNOUNCEMENT_CHANNEL_ID = 1532858494657495201  # Уведомления о выданных ролях
 LOGS_DIR = "logs"
 LATEST_LOG_FILE = os.path.join(LOGS_DIR, "latest.log")
 WARN_LOG_CHANNEL_ID = 1546125784026972262  # Единый канал журнала варнов
@@ -2051,19 +2052,65 @@ async def audit_member_remove(member):
 async def audit_member_update(before, after):
     if after.guild.id not in ALLOWED_GUILDS:
         return
-    changes = []
-    if before.nick != after.nick:
-        changes.append(f"Ник: {before.nick or before.name} → {after.nick or after.name}")
+
     before_roles = {r.id: r for r in before.roles}
     after_roles = {r.id: r for r in after.roles}
     added = [r for rid, r in after_roles.items() if rid not in before_roles]
     removed = [r for rid, r in before_roles.items() if rid not in after_roles]
+
+    changes = []
+    if before.nick != after.nick:
+        changes.append(f"Ник: {before.nick or before.name} → {after.nick or after.name}")
     if added:
         changes.append("Выданы роли: " + ", ".join(f"{r.name} ({r.id})" for r in added))
     if removed:
         changes.append("Сняты роли: " + ", ".join(f"{r.name} ({r.id})" for r in removed))
-    if changes:
-        write_audit_log("ИЗМЕНЕНИЕ УЧАСТНИКА", audit_member_label(after) + "\n" + "\n".join(changes), after.guild.id)
+
+    if not changes:
+        return
+
+    issuer = None
+    if added or removed:
+        try:
+            await asyncio.sleep(0.8)
+            async for entry in after.guild.audit_logs(
+                limit=10,
+                action=discord.AuditLogAction.member_role_update
+            ):
+                if (
+                    getattr(entry.target, "id", None) == after.id
+                    and (datetime.now(timezone.utc) - entry.created_at).total_seconds() <= 15
+                ):
+                    issuer = entry.user
+                    break
+        except (discord.Forbidden, discord.HTTPException) as error:
+            print(f"[ROLE AUDIT ERROR] Не удалось определить выдавшего роль: {error}", flush=True)
+
+    issuer_text = f"<@{issuer.id}> (ID: {issuer.id})" if issuer else "Не удалось определить"
+    details = audit_member_label(after) + "\n" + "\n".join(changes)
+    if added or removed:
+        details += f"\nКто изменил роли: {issuer_text}"
+        write_audit_log("ИЗМЕНЕНИЕ РОЛЕЙ", details, after.guild.id)
+    else:
+        write_audit_log("ИЗМЕНЕНИЕ УЧАСТНИКА", details, after.guild.id)
+
+    if added:
+        channel = after.guild.get_channel(ROLE_ANNOUNCEMENT_CHANNEL_ID)
+        if channel is None:
+            channel = bot.get_channel(ROLE_ANNOUNCEMENT_CHANNEL_ID)
+        if channel is not None:
+            embed = discord.Embed(
+                title="Изменение ролей",
+                color=discord.Color.from_rgb(46, 204, 170),
+                timestamp=datetime.now(timezone.utc)
+            )
+            embed.add_field(name="Кто", value=after.mention, inline=False)
+            embed.add_field(name="Выданы", value=", ".join(role.mention for role in added)[:1024], inline=False)
+            embed.add_field(name="Изменил", value=issuer_text, inline=False)
+            try:
+                await channel.send(embed=embed)
+            except (discord.Forbidden, discord.HTTPException) as error:
+                print(f"[ROLE ANNOUNCEMENT ERROR] Не удалось отправить уведомление: {error}", flush=True)
 
 
 @bot.listen("on_guild_channel_create")
