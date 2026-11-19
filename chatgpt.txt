@@ -1210,3 +1210,6 @@ D. Важное ограничение API
 - Commit helper: `556511ada8836e2df49fd1ec8d03c00aff657cff`; commit защиты колонки отпуска: `b079af7d4b097894d981b3be4c58d87c8780689f`; commit зависимостей: `b3927b59019bca15831e5e94b2104ee898d2937a`; commit документации: `a2cdb6cf7e2d28fe04f9bd86f8d5c8bd92437241`.
 - Важно: это пока отдельный helper, он ещё не подключён к обработчикам принятия заявок, варнов и изменения баланса. Реальная запись в Google Sheets не проверена, поскольку нет credentials и доступа service account к таблице.
 - Требуется создать Google Cloud Service Account, включить Google Sheets API, дать его email права Editor на таблицу и задать JSON credentials в переменную окружения `GOOGLE_SERVICE_ACCOUNT_JSON` (не сохранять JSON ключ в GitHub). Spreadsheet ID в `GASTWORLD_SHEETS_ID`. Не публиковать ключ в чате.
+
+
+111. Google Sheets credentials: пользователь создал JSON-ключ Service Account и подтвердил, что email сервисного аккаунта уже добавлен в доступ к таблице. Для безопасного подключения добавлена поддержка переменной `GOOGLE_SERVICE_ACCOUNT_FILE` в `aaaa/gastworld_sheets.py` — путь к загруженному на Bot-Hosting JSON-файлу; альтернативно поддерживается `GOOGLE_SERVICE_ACCOUNT_JSON`. Ключ не загружать в GitHub и не отправлять в чат. Commit: `fc57d75bea5b84c4f4e78246844a39eabd09bf9c`.
