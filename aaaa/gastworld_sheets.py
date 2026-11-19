@@ -100,18 +100,16 @@ def sync_staff_row(
     safe_url = channel_url.replace('"', '""')
     nickname_formula = f'=HYPERLINK("{safe_url}","{safe_name}")'
 
-    # B:H. F (Отпуск) stays empty until that feature is defined.
+    # Update B:E and G:H separately so the future "Отпуск" column (F)
+    # is never cleared or overwritten by routine synchronization.
     worksheet.update(
-        range_name=f"B{target_row}:H{target_row}",
-        values=[[
-            nickname_formula,
-            position,
-            channel_url,
-            int(warns),
-            "",
-            discord_id,
-            int(points),
-        ]],
+        range_name=f"B{target_row}:E{target_row}",
+        values=[[nickname_formula, position, channel_url, int(warns)]],
+        value_input_option="USER_ENTERED",
+    )
+    worksheet.update(
+        range_name=f"G{target_row}:H{target_row}",
+        values=[[discord_id, int(points)]],
         value_input_option="USER_ENTERED",
     )
     return target_row
