@@ -1,7 +1,8 @@
 """Google Sheets sync for the GastWorld media staff roster.
 
 Credentials are supplied only through the host environment:
-  GOOGLE_SERVICE_ACCOUNT_JSON  - complete service-account JSON (never commit it)
+  GOOGLE_SERVICE_ACCOUNT_FILE - path to uploaded service-account JSON (recommended)
+  GOOGLE_SERVICE_ACCOUNT_JSON - complete service-account JSON (alternative)
   GASTWORLD_SHEETS_ID          - spreadsheet ID
   GASTWORLD_SHEETS_WORKSHEET   - worksheet title (default: Таблица КП)
 
@@ -34,22 +35,28 @@ def _worksheet():
         ) from exc
 
     raw_credentials = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+    credentials_file = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "").strip()
     spreadsheet_id = os.getenv("GASTWORLD_SHEETS_ID", "").strip()
     worksheet_name = os.getenv("GASTWORLD_SHEETS_WORKSHEET", STAFF_WORKSHEET).strip()
 
-    if not raw_credentials or not spreadsheet_id:
+    if not raw_credentials and not credentials_file:
         raise SheetsConfigError(
-            "Не заданы GOOGLE_SERVICE_ACCOUNT_JSON и/или GASTWORLD_SHEETS_ID."
+            "Задай GOOGLE_SERVICE_ACCOUNT_FILE (путь к JSON-файлу) "
+            "или GOOGLE_SERVICE_ACCOUNT_JSON."
         )
+    if not spreadsheet_id:
+        raise SheetsConfigError("Не задан GASTWORLD_SHEETS_ID.")
 
     try:
-        credentials_info = json.loads(raw_credentials)
-    except json.JSONDecodeError as exc:
+        if credentials_file:
+            client = gspread.service_account(filename=credentials_file)
+        else:
+            credentials_info = json.loads(raw_credentials)
+            client = gspread.service_account_from_dict(credentials_info)
+    except (json.JSONDecodeError, OSError, ValueError) as exc:
         raise SheetsConfigError(
-            "GOOGLE_SERVICE_ACCOUNT_JSON должен содержать корректный JSON service account."
+            "Не удалось прочитать JSON-ключ Google Service Account."
         ) from exc
-
-    client = gspread.service_account_from_dict(credentials_info)
     spreadsheet = client.open_by_key(spreadsheet_id)
     return spreadsheet.worksheet(worksheet_name)
 
