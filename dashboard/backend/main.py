@@ -21,8 +21,8 @@ CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN", "")
 REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8000/auth/callback")
-# OAuth, членство, роли и доступ к панели всегда проверяются на первом сервере GastWorld.
-GUILD_ID = "1546125037545988207"
+# OAuth, членство, роли и доступ к панели всегда проверяются на первом сервере GastWorld (1492974397001171176).
+GUILD_ID = "1492974397001171176"
 PLAYER_LIST_ROLE_ID = "1546125522675962027"
 AUDIT_LOG_CHANNEL_ID = os.getenv("AUDIT_LOG_CHANNEL_ID", "1546125784026972262")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "")
