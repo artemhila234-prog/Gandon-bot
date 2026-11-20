@@ -168,7 +168,7 @@ except sqlite3.OperationalError:
     pass
 conn.commit()
 
-print(f"🗄️ База WhiteGrief: {os.path.abspath(DB_PATH)}", flush=True)
+print(f"🗄️ База GastWorld: {os.path.abspath(DB_PATH)}", flush=True)
 
 # ================== БОТ ==================
 intents = discord.Intents.default()
@@ -457,7 +457,7 @@ class TikTokVerifyView(discord.ui.View):
 @app_commands.describe(profile_url="Ссылка на твой TikTok-профиль")
 async def tiktok_link_command(interaction: discord.Interaction, profile_url: str):
     if not is_allowed_guild(interaction):
-        await interaction.response.send_message("❌ Команда доступна только на сервере WhiteGrief.", ephemeral=True)
+        await interaction.response.send_message("❌ Команда доступна только на сервере GastWorld.", ephemeral=True)
         return
     match = TIKTOK_PROFILE_RE.match(profile_url.strip())
     if not match:
@@ -481,7 +481,7 @@ async def tiktok_link_command(interaction: discord.Interaction, profile_url: str
     await interaction.response.send_message(
         f"**Привязка TikTok — шаг 1 из 3**\n\n"
         f"1. Добавь этот код в BIO профиля **@{username}**:\n## {code}\n"
-        "2. Нажми Подключить TikTok и разреши доступ приложению WhiteGrief.\n"
+        "2. Нажми Подключить TikTok и разреши доступ приложению GastWorld.\n"
         "3. Вернись сюда и нажми Проверить.\n\nСсылка и код действуют 15 минут.",
         view=TikTokVerifyView(interaction.user.id, connect_url), ephemeral=True
     )
@@ -505,9 +505,9 @@ def ticket_accepting(guild_id):
 def ticket_embed_panel(guild_id=None):
     guild_id = int(guild_id or TICKET_ALLOWED_GUILDS[0])
     accepting = ticket_accepting(guild_id)
-    description = ("Нашёл баг или ошибку в Discord-боте либо на сайте WhiteGrief?\\n\\nНажми **«Создать тикет»** ниже и опиши проблему — команда поддержки увидит обращение и поможет разобраться.\\n\\nУкажи, что произошло и как повторить ошибку. При необходимости приложи скриншоты. Для каждой проблемы создавай отдельный тикет." if accepting else "Приём новых обращений временно закрыт.\\n\\nСуществующие тикеты продолжают работать. Попробуй отправить обращение позже.")
-    embed = discord.Embed(title="❗ Поддержка WhiteGrief", description=description, color=0xFFFFFF)
-    embed.set_footer(text="WhiteGrief • Служба поддержки")
+    description = ("Нашёл баг или ошибку в Discord-боте либо на сайте GastWorld?\\n\\nНажми **«Создать тикет»** ниже и опиши проблему — команда поддержки увидит обращение и поможет разобраться.\\n\\nУкажи, что произошло и как повторить ошибку. При необходимости приложи скриншоты. Для каждой проблемы создавай отдельный тикет." if accepting else "Приём новых обращений временно закрыт.\\n\\nСуществующие тикеты продолжают работать. Попробуй отправить обращение позже.")
+    embed = discord.Embed(title="❗ Поддержка GastWorld", description=description, color=0xFFFFFF)
+    embed.set_footer(text="GastWorld • Служба поддержки")
     return embed
 
 class TicketCreateModal(discord.ui.Modal, title="Новое обращение"):
@@ -527,19 +527,19 @@ class TicketCreateModal(discord.ui.Modal, title="Новое обращение")
                 await interaction.followup.send(f"У тебя уже есть открытый тикет: {old_channel.mention}", ephemeral=True); return
             conn.execute("UPDATE support_tickets SET status='closed' WHERE channel_id=?", (str(old[0]),)); conn.commit()
         category = discord.utils.get(guild.categories, name=TICKET_CATEGORY_NAME)
-        if category is None: category = await guild.create_category(TICKET_CATEGORY_NAME, reason="Категория тикетов WhiteGrief")
+        if category is None: category = await guild.create_category(TICKET_CATEGORY_NAME, reason="Категория тикетов GastWorld")
         overwrites = {guild.default_role: discord.PermissionOverwrite(view_channel=False), interaction.user: discord.PermissionOverwrite(view_channel=True,send_messages=True,read_message_history=True,attach_files=True,embed_links=True)}
         if guild.me: overwrites[guild.me] = discord.PermissionOverwrite(view_channel=True,send_messages=True,manage_channels=True,read_message_history=True)
         for role_id in set(STAFF_ROLES)|set(MOD_ROLE_IDS)|{1567181454947917864,1567181456059535380,1567181457212833822}:
             role = guild.get_role(role_id)
             if role: overwrites[role] = discord.PermissionOverwrite(view_channel=True,send_messages=True,read_message_history=True)
         slug = re.sub(r"[^a-z0-9-]+","-",interaction.user.name.lower()).strip("-")[:35] or "user"
-        channel = await guild.create_text_channel(name=f"📌・тикет-{slug}",category=category,topic=f"WhiteGrief ticket | user_id={interaction.user.id} | status=open",overwrites=overwrites,reason=f"Тикет от {interaction.user}")
+        channel = await guild.create_text_channel(name=f"📌・тикет-{slug}",category=category,topic=f"GastWorld ticket | user_id={interaction.user.id} | status=open",overwrites=overwrites,reason=f"Тикет от {interaction.user}")
         conn.execute("INSERT INTO support_tickets(channel_id,guild_id,user_id,username,subject,description,status) VALUES(?,?,?,?,?,?,'open')",(str(channel.id),str(guild.id),str(interaction.user.id),str(interaction.user),str(self.subject.value),str(self.description.value))); conn.commit()
         embed = discord.Embed(title=f"🎫 {self.subject.value}",description=self.description.value,color=0x8B5CF6)
         embed.add_field(name="Автор",value=f"{interaction.user.mention}\nID: {interaction.user.id}",inline=True)
         embed.add_field(name="Статус",value="🟢 Открыт",inline=True)
-        embed.set_footer(text="WhiteGrief • Тикет поддержки")
+        embed.set_footer(text="GastWorld • Тикет поддержки")
         await channel.send(content=f"{interaction.user.mention} · команда поддержки",embed=embed,view=TicketControlView())
         await interaction.followup.send(f"✅ Тикет создан: {channel.mention}",ephemeral=True)
 
@@ -587,7 +587,7 @@ async def set_ticket_status(channel_id,status,actor="Dashboard"):
         except (discord.NotFound,discord.Forbidden): member=None
     if member:
         await channel.set_permissions(member,view_channel=True,send_messages=(status=="open"),read_message_history=True,attach_files=(status=="open"))
-    await channel.edit(topic=f"WhiteGrief ticket | user_id={row[1]} | status={status}")
+    await channel.edit(topic=f"GastWorld ticket | user_id={row[1]} | status={status}")
     # Синхронизируем Embed в самом тикете, независимо от того, откуда нажали кнопку.
     status_labels={"open":"🟢 Открыт","closed":"🔒 Закрыт","resolved":"✅ Решено"}
     status_colors={"open":0xFFFFFF,"closed":0x777777,"resolved":0xBDBDBD}
@@ -612,11 +612,11 @@ async def set_ticket_status(channel_id,status,actor="Dashboard"):
 
 async def ensure_ticket_system(guild):
     category=discord.utils.get(guild.categories,name=TICKET_CATEGORY_NAME)
-    if category is None: category=await guild.create_category(TICKET_CATEGORY_NAME,reason="Категория тикетов WhiteGrief")
+    if category is None: category=await guild.create_category(TICKET_CATEGORY_NAME,reason="Категория тикетов GastWorld")
     overwrites={guild.default_role:discord.PermissionOverwrite(view_channel=True,send_messages=False,read_message_history=True)}
     if guild.me: overwrites[guild.me]=discord.PermissionOverwrite(view_channel=True,send_messages=True,manage_channels=True,read_message_history=True)
     panel=discord.utils.get(guild.text_channels,name=TICKET_PANEL_CHANNEL_NAME)
-    if panel is None: panel=await guild.create_text_channel(TICKET_PANEL_CHANNEL_NAME,category=category,overwrites=overwrites,reason="Панель тикетов WhiteGrief")
+    if panel is None: panel=await guild.create_text_channel(TICKET_PANEL_CHANNEL_NAME,category=category,overwrites=overwrites,reason="Панель тикетов GastWorld")
     else:
         if panel.category_id!=category.id: await panel.edit(category=category)
         await panel.edit(overwrites=overwrites)
@@ -628,7 +628,7 @@ async def ensure_ticket_system(guild):
         except (discord.NotFound,ValueError): pass
     if panel_message is None:
         async for candidate in panel.history(limit=50):
-            if candidate.author==bot.user and candidate.embeds and candidate.embeds[0].title=="❗ Поддержка WhiteGrief": panel_message=candidate; break
+            if candidate.author==bot.user and candidate.embeds and candidate.embeds[0].title=="❗ Поддержка GastWorld": panel_message=candidate; break
     if panel_message is None: panel_message=await panel.send(embed=ticket_embed_panel(guild.id),view=TicketPanelView(guild.id))
     else: await panel_message.edit(embed=ticket_embed_panel(guild.id),view=TicketPanelView(guild.id))
     conn.execute("UPDATE support_ticket_config SET panel_message_id=? WHERE guild_id=?",(str(panel_message.id),str(guild.id))); conn.commit()
@@ -1033,7 +1033,7 @@ async def warn(interaction: discord.Interaction, игрок: discord.Member, п�
     embed.add_field(name="Количество варнов", value=f"{current_warns} → {new_warns}", inline=False)
     embed.add_field(name="Причина", value=причина[:1000], inline=False)
     embed.add_field(name="Источник", value="Discord-команда /warn", inline=False)
-    embed.set_footer(text="WhiteGrief • Журнал модерации")
+    embed.set_footer(text="GastWorld • Журнал модерации")
     await interaction.response.send_message("✅ Варн выдан и записан в единый журнал.", ephemeral=True)
     log_channel = interaction.guild.get_channel(WARN_LOG_CHANNEL_ID)
     if log_channel is None:
@@ -1094,7 +1094,7 @@ async def unwarn(interaction: discord.Interaction, игрок: discord.Member, �
     embed.add_field(name="Количество варнов", value=f"{current_warns} → {new_warns}", inline=False)
     embed.add_field(name="Причина", value=причина[:1000], inline=False)
     embed.add_field(name="Источник", value="Discord-команда /unwarn", inline=False)
-    embed.set_footer(text="WhiteGrief • Журнал модерации")
+    embed.set_footer(text="GastWorld • Журнал модерации")
     await interaction.response.send_message("✅ Варн снят и записан в единый журнал.", ephemeral=True)
     log_channel = interaction.guild.get_channel(WARN_LOG_CHANNEL_ID)
     if log_channel is None:
@@ -1220,7 +1220,7 @@ async def accept(ctx):
         if legacy_media_role is not None:
             media_role = legacy_media_role
             try:
-                await media_role.edit(name="Media", reason="Миграция роли доступа WhiteGrief")
+                await media_role.edit(name="Media", reason="Миграция роли доступа GastWorld")
             except discord.Forbidden:
                 pass
     if media_role is None:
@@ -1230,7 +1230,7 @@ async def accept(ctx):
                 colour=discord.Colour(0x8B5CF6),
                 permissions=discord.Permissions.none(),
                 hoist=True,
-                reason="Базовая роль доступа WhiteGrief Control Panel",
+                reason="Базовая роль доступа GastWorld Control Panel",
             )
             print(f"✅ Создана роль Media (ID: {media_role.id})")
         except discord.Forbidden:
@@ -1276,7 +1276,7 @@ async def accept(ctx):
 
         # Приветственная Embed-панель для нового участника Медиа.
         welcome_embed = discord.Embed(
-            title="🎬 WHITEGRIEF MEDIA",
+            title="🎬 GASTWORLD MEDIA",
             description=(
                 f"**Добро пожаловать в команду Медиа, {member.mention}!**\n"
                 "Рады видеть тебя среди нас. Здесь собрана важная информация о работе, баллах и покупках."
@@ -1315,10 +1315,10 @@ async def accept(ctx):
         )
         welcome_embed.add_field(
             name="🔥 СНИМАЙ • ПУБЛИКУЙ • ЗАРАБАТЫВАЙ",
-            value="**Твои ролики — твой вклад в развитие WhiteGrief Media!**",
+            value="**Твои ролики — твой вклад в развитие GastWorld Media!**",
             inline=False
         )
-        welcome_embed.set_footer(text="WHITEGRIEF MEDIA • Удачной работы!")
+        welcome_embed.set_footer(text="GASTWORLD MEDIA • Удачной работы!")
         await channel.send(content=f"Привет, {member.mention}! Ты попал в команду Медиа.", embed=welcome_embed)
         await original_msg.clear_reaction('🕐')
         await original_msg.add_reaction('✅')
@@ -1328,7 +1328,7 @@ async def accept(ctx):
             title="✅ ЗАЯВКА ОДОБРЕНА",
             description=(
                 f"{member.mention} успешно принят в команду "
-                f"**WhiteGrief Media**!"
+                f"**GastWorld Media**!"
             ),
             color=discord.Color.from_rgb(0, 255, 0),
             timestamp=discord.utils.utcnow()
@@ -1368,7 +1368,7 @@ async def accept(ctx):
         )
 
         accepted_embed.set_footer(
-            text=f"WHITEGRIEF MEDIA • Принял: {author.display_name}"
+            text=f"GASTWORLD MEDIA • Принял: {author.display_name}"
         )
 
         await ctx.send(embed=accepted_embed)
@@ -1430,7 +1430,7 @@ async def on_message(message):
         border = "╔" + "═" * 68 + "╗"
         bottom = "╚" + "═" * 68 + "╝"
         print(f"\n{cyan}{border}{reset}", flush=True)
-        print(f"{cyan}║{reset} {purple}WHITEGRIEF • LIVE CHAT{reset} {gray}{timestamp}{reset}", flush=True)
+        print(f"{cyan}║{reset} {purple}GASTWORLD • LIVE CHAT{reset} {gray}{timestamp}{reset}", flush=True)
         print(f"{cyan}╠" + "═" * 68 + f"╣{reset}", flush=True)
         print(f"{cyan}║{reset} Канал: {green}#{channel_name}{reset} <#{message.channel.id}>  {gray}(ID: {message.channel.id}){reset}", flush=True)
         print(f"{cyan}║{reset} {author_type}: {author_color}{author_name}{reset} <@{message.author.id}>  {gray}(ID: {message.author.id}){reset}", flush=True)
@@ -1541,7 +1541,7 @@ async def on_message(message):
             await message.add_reaction('🕐')
             approver_role = message.guild.get_role(APPROVER_ROLE_ID)
             application_embed = discord.Embed(
-                title="📩 НОВАЯ ЗАЯВКА В WHITEGRIEF MEDIA",
+                title="📩 НОВАЯ ЗАЯВКА В GASTWORLD MEDIA",
                 description=(
                     f"Игрок {message.author.mention} отправил заявку и ожидает рассмотрения.\n"
                     "Пожалуйста, проверьте данные и примите решение."
@@ -1557,7 +1557,7 @@ async def on_message(message):
                 value="Ответьте на исходное сообщение игрока командой **!принят**.",
                 inline=False
             )
-            application_embed.set_footer(text="WHITEGRIEF MEDIA • Заявки на вступление")
+            application_embed.set_footer(text="GASTWORLD MEDIA • Заявки на вступление")
             content = approver_role.mention if approver_role else None
             await message.channel.send(content=content, embed=application_embed)
         else:
@@ -1624,7 +1624,7 @@ async def on_raw_reaction_add(payload):
 _console_reader_started = False
 
 async def execute_application_console_command(raw: str) -> str:
-    """Выполняет ввод именно как команду приложения WhiteGrief."""
+    """Выполняет ввод именно как команду приложения GastWorld."""
     line = str(raw if raw is not None else "").strip()
     if not line:
         return "❌ Введи хотя бы один символ."
@@ -1636,7 +1636,7 @@ async def execute_application_console_command(raw: str) -> str:
 
     if command == "/help":
         return (
-            "Команды приложения WhiteGrief:\n"
+            "Команды приложения GastWorld:\n"
             "/text <ID канала> <сообщение> — отправить сообщение\n"
             "/channels — список текстовых каналов и их ID\n"
             "/delete pending_requests — удалить все ожидающие заявки\n"
@@ -1822,7 +1822,7 @@ async def on_ready():
 
 
 
-# ================== РОЛИ ДОСТУПА WHITEGRIEF CONTROL PANEL ==================
+# ================== РОЛИ ДОСТУПА GASTWORLD CONTROL PANEL ==================
 CONTROL_PANEL_SYNC_URL = os.getenv("CONTROL_PANEL_SYNC_URL", "").strip()
 CONTROL_PANEL_SYNC_SECRET = os.getenv("CONTROL_PANEL_SYNC_SECRET", "").strip()
 
@@ -1844,7 +1844,7 @@ async def ensure_control_panel_roles(guild: discord.Guild) -> None:
             role = discord.utils.get(guild.roles, name="Media » уровень доступа")
             if role is not None:
                 try:
-                    await role.edit(name="Media", reason="Переименование роли доступа WhiteGrief")
+                    await role.edit(name="Media", reason="Переименование роли доступа GastWorld")
                 except discord.Forbidden:
                     print("⚠️ Не удалось переименовать старую роль Media; проверь иерархию ролей.")
         if role is None:
@@ -1855,7 +1855,7 @@ async def ensure_control_panel_roles(guild: discord.Guild) -> None:
                     permissions=discord.Permissions.none(),
                     hoist=True,
                     mentionable=False,
-                    reason="Настройка уровней доступа WhiteGrief Control Panel",
+                    reason="Настройка уровней доступа GastWorld Control Panel",
                 )
                 print(f"✅ Создана роль доступа: {role.name} (ID: {role.id})")
             except discord.Forbidden:
@@ -1873,7 +1873,7 @@ async def ensure_control_panel_roles(guild: discord.Guild) -> None:
         print("⚠️ Не все роли доступа найдены/созданы; синхронизация с сайтом пропущена.")
         return
 
-    print("🔐 Роли доступа WhiteGrief:")
+    print("🔐 Роли доступа GastWorld:")
     for role_id, info in role_payload.items():
         print(f"   {info['name']} — {role_id} [{info['access_level']}]")
 
@@ -1891,7 +1891,7 @@ async def ensure_control_panel_roles(guild: discord.Guild) -> None:
             ) as response:
                 if response.status == 200:
                     result = await response.json()
-                    print(f"✅ ID ролей переданы WhiteGrief Control Panel ({result.get('synced', 0)} ролей).")
+                    print(f"✅ ID ролей переданы GastWorld Control Panel ({result.get('synced', 0)} ролей).")
                 else:
                     detail = (await response.text())[:300]
                     print(f"❌ Сайт не принял ID ролей: HTTP {response.status}: {detail}")
@@ -1975,8 +1975,8 @@ def write_audit_log(title, details, guild_id=None):
             if guild and guild.icon:
                 embed.set_author(name=guild.name, icon_url=guild.icon.url)
             else:
-                embed.set_author(name="WHITEGRIEF • SERVER AUDIT")
-            embed.set_footer(text="WHITEGRIEF AUDIT")
+                embed.set_author(name="GASTWORLD • SERVER AUDIT")
+            embed.set_footer(text="GASTWORLD AUDIT")
             await channel.send(embed=embed)
         except Exception as error:
             print(f"[AUDIT DISCORD ERROR] {error}", flush=True)
@@ -1991,7 +1991,7 @@ def audit_member_label(member):
 async def audit_message_create(message):
     if message.guild is None or message.guild.id not in ALLOWED_GUILDS:
         return
-    # Сообщения самого WhiteGrief и остальных ботов не засоряют аудит и live-консоль.
+    # Сообщения самого GastWorld и остальных ботов не засоряют аудит и live-консоль.
     if message.author.bot:
         return
     if not message.content.strip() and not message.attachments and not message.embeds:
@@ -2300,7 +2300,7 @@ def setup_session_logs():
     # Один потокобезопасный замок защищает общий файл stdout и stderr.
     sys.stdout = TimestampedTee(sys.__stdout__, log_file, lock)
     sys.stderr = TimestampedTee(sys.__stderr__, log_file, lock)
-    print("========== WHITEGRIEF BOT SESSION STARTED ==========", flush=True)
+    print("========== GASTWORLD BOT SESSION STARTED ==========", flush=True)
 
 
 if not TOKEN:
@@ -2314,7 +2314,7 @@ async def panel_console_status():
         "process_started_at": BOT_PROCESS_STARTED_AT,
         "process_id": os.getpid(),
         "online": bool(bot.is_ready() and not bot.is_closed()),
-        "bot_name": str(bot.user) if bot.user else "WhiteGrief",
+        "bot_name": str(bot.user) if bot.user else "GastWorld",
         "guild_name": guild.name if guild else "Сервер не найден",
         "guild_count": len(bot.guilds),
         "latency_ms": round(bot.latency * 1000) if bot.is_ready() else None,
@@ -2400,7 +2400,7 @@ async def panel_restart_bot():
 
     def replace_process():
         try:
-            print("♻️ [ПАНЕЛЬ] Выполняю os.execv для повторного запуска WhiteGrief…", flush=True)
+            print("♻️ [ПАНЕЛЬ] Выполняю os.execv для повторного запуска GastWorld…", flush=True)
             os.execv(sys.executable, argv)
         except Exception as error:
             print(f"❌ [ПАНЕЛЬ] Не удалось перезапустить процесс: {type(error).__name__}: {error}", flush=True)
@@ -2476,7 +2476,7 @@ async def run_services():
     )
     web_server = uvicorn.Server(config)
 
-    print(f"🌐 Запускаю WhiteGrief Control Panel на порту {port}...", flush=True)
+    print(f"🌐 Запускаю GastWorld Control Panel на порту {port}...", flush=True)
     bot_task = asyncio.create_task(bot.start(TOKEN), name="discord-bot")
     web_task = asyncio.create_task(web_server.serve(), name="control-panel")
 
