@@ -1435,41 +1435,39 @@ async def process_verification_decision(interaction, applicant_id, *, accepted):
     except discord.HTTPException as error:
         print(f"⚠️ [ВЕРИФИКАЦИЯ] Ошибка изменения ника: {error}", flush=True)
 
-    # Базовые роли выдаются только на первом сервере, как и раньше.
+    # Комплект ролей выдаётся на первом сервере в зависимости от площадки.
+    first_server_role_ids = (
+        (1493615940741365881, 1573343622986862602, 1493196315205566545, 1492975006446260306)
+        if position == "TT"
+        else (1493615940741365881, 1573343622986862602, 1493196315205566545, 1492975112985645166)
+    )
     roles_to_add = [
-        guild.get_role(role_id)
-        for role_id in ROLES_TO_GIVE
-        if guild.get_role(role_id) is not None
+        role for role_id in first_server_role_ids
+        if (role := guild.get_role(role_id)) is not None
     ]
-    media_role = discord.utils.get(guild.roles, name="Media")
-    if media_role is None:
-        legacy_media_role = discord.utils.get(guild.roles, name="Media » уровень доступа")
-        if legacy_media_role is not None:
-            media_role = legacy_media_role
-            try:
-                await media_role.edit(name="Media", reason="Миграция роли доступа GastWorld")
-            except discord.Forbidden:
-                pass
-    if media_role is None:
+    missing_roles = [
+        role_id for role_id in first_server_role_ids
+        if guild.get_role(role_id) is None
+    ]
+    if missing_roles:
+        print(f"⚠️ [ВЕРИФИКАЦИЯ] На первом сервере не найдены роли: {missing_roles}", flush=True)
+    try:
+        if roles_to_add:
+            await applicant.add_roles(*roles_to_add, reason=f"Заявка {position} одобрена: {interaction.user}")
+    except discord.Forbidden:
+        await interaction.followup.send("Не удалось выдать роли на первом сервере. Проверьте права и иерархию ролей бота.", ephemeral=True)
+        return
+    except discord.HTTPException as error:
+        await interaction.followup.send(f"Ошибка выдачи ролей на первом сервере: {error}", ephemeral=True)
+        return
+
+    # После успешной верификации снимаем общую роль, указанную для обеих площадок.
+    obsolete_role = guild.get_role(1520158772067041314)
+    if obsolete_role and obsolete_role in applicant.roles:
         try:
-            media_role = await guild.create_role(
-                name="Media",
-                colour=discord.Colour(0x8B5CF6),
-                permissions=discord.Permissions.none(),
-                hoist=True,
-                reason="Базовая роль доступа GastWorld Control Panel"
-            )
-        except discord.Forbidden:
-            await interaction.followup.send("Не удалось создать роль Media на первом сервере. Проверьте права бота.", ephemeral=True)
-            return
-    if media_role not in applicant.roles and media_role not in roles_to_add:
-        roles_to_add.append(media_role)
-    if roles_to_add:
-        try:
-            await applicant.add_roles(*roles_to_add, reason=f"Заявка одобрена: {interaction.user}")
-        except discord.Forbidden:
-            await interaction.followup.send("Не удалось выдать роли на первом сервере. Проверьте иерархию ролей бота.", ephemeral=True)
-            return
+            await applicant.remove_roles(obsolete_role, reason=f"Верификация {position} завершена: {interaction.user}")
+        except discord.HTTPException as error:
+            print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось снять роль 1520158772067041314: {error}", flush=True)
 
     pending_role = guild.get_role(PENDING_APPLICATION_ROLE_ID)
     if pending_role and pending_role in applicant.roles:
