@@ -1521,3 +1521,10 @@ NaN: `pip install ... -r requirements.txt` затем `python3 -m uvicorn aaaa.b
 - При запуске через `python3 -m uvicorn aaaa.bot:app` обнаружена ошибка `ModuleNotFoundError: No module named 'gastworld_sheets'`: модуль расположен в `aaaa/gastworld_sheets.py`, а импорт в `aaaa/bot.py` искал его в корне проекта.
 - Исправлен импорт на `from aaaa.gastworld_sheets import sync_staff_row, remove_staff_row`.
 - Коммит исправления `aaaa/bot.py`: a76e587577e3b56e39751b6b64575a8cf4fda297. Нужно обновить этот файл на Bot-Hosting и перезапустить процесс; успешный запуск пока не подтверждён.
+
+
+148. Исправление пропуска синхронизации новых участников с Google Sheets (2026-11-20)
+- По логам запуска Discord-бот и обработчик одобрения работают, но строка в Google Sheets не создавалась.
+- Причина в `set_personal_channel()`: функция делала только UPDATE таблицы `users`. Для нового участника строки ещё не было, поэтому `get_personal_channel()` возвращал None и синхронизация молча прекращалась до обращения к Google API.
+- Исправлено на INSERT ... ON CONFLICT DO UPDATE; добавлены отдельные диагностические логи для отсутствующего профиля/личного канала.
+- Коммит `aaaa/bot.py`: 00102619d8373db1859c5564ed2bd912baac5e13. После обновления файла и повторного одобрения/повторного запуска синхронизации нужно проверить лог `[GOOGLE SHEETS]`. Если конфигурация Google API не задана или доступ к таблице не выдан, теперь должна появиться конкретная ошибка вместо тихого пропуска.
