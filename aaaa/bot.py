@@ -709,6 +709,7 @@ def purge_user_data(user_id):
         # Keep pending applications even if player data is purged.
         # Moderators must still be able to approve or reject the saved request.
         conn.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM media_staff_profiles WHERE user_id = ?", (user_id,))
     pending_apps.pop(user_id, None)
 
 async def reconcile_server_players(guild):
@@ -758,6 +759,10 @@ load_pending_requests()
 @bot.event
 async def on_member_remove(member):
     if member.guild.id == 1492974397001171176:
+        try:
+            await asyncio.to_thread(remove_staff_row, member.id)
+        except Exception as error:
+            print(f"⚠️ [GOOGLE SHEETS] Не удалось удалить строку {member.id}: {error}", flush=True)
         purge_user_data(member.id)
         print(f"🧹 Удалены данные ушедшего участника {member.id}")
 
@@ -769,6 +774,10 @@ async def on_member_update(before, after):
     had_role = any(role.id == kept_role_id for role in before.roles)
     has_role = any(role.id == kept_role_id for role in after.roles)
     if had_role and not has_role:
+        try:
+            await asyncio.to_thread(remove_staff_row, after.id)
+        except Exception as error:
+            print(f"⚠️ [GOOGLE SHEETS] Не удалось удалить строку {after.id}: {error}", flush=True)
         purge_user_data(after.id)
         print(f"🧹 Удалены данные участника {after.id}: снята роль игрока")
 
@@ -1241,6 +1250,12 @@ async def snyat(interaction: discord.Interaction, игрок: discord.Member, п
 
     try:
         await игрок.kick(reason=f"Снят через /snyat от {interaction.user.display_name}: {причина}")
+        try:
+            await asyncio.to_thread(remove_staff_row, игрок.id)
+        except Exception as error:
+            print(f"⚠️ [GOOGLE SHEETS] Не удалось удалить строку {игрок.id}: {error}", flush=True)
+        conn.execute("DELETE FROM media_staff_profiles WHERE user_id = ?", (int(игрок.id),))
+        conn.commit()
         time_str = get_msk_time_str()
         embed = discord.Embed(
             title="🚫 Снят с Команды Проекта!",
@@ -1268,9 +1283,9 @@ def normalize_media_position(value):
 def is_valid_media_profile_url(url, position):
     value = str(url or "").strip().lower()
     if position == "TT":
-        return bool(re.match(r"^https?://(?:www\\.)?tiktok\\.com/@[a-z0-9._-]+/?(?:\\?.*)?$", value))
+        return bool(re.match(r"^https?://(?:www\.)?tiktok\.com/@[a-z0-9._-]+/?(?:\\?.*)?$", value))
     if position == "YT":
-        return bool(re.match(r"^https?://(?:www\\.)?youtube\\.com/(?:@[a-z0-9._-]+|channel/[a-z0-9_-]+|c/[a-z0-9._-]+|user/[a-z0-9._-]+)/?(?:\\?.*)?$", value))
+        return bool(re.match(r"^https?://(?:www\.)?youtube\.com/(?:@[a-z0-9._-]+|channel/[a-z0-9_-]+|c/[a-z0-9._-]+|user/[a-z0-9._-]+)/?(?:\\?.*)?$", value))
     return False
 
 
@@ -1356,6 +1371,8 @@ async def ensure_verification_guide(guild):
     if guide_message is None:
         guide_message = await channel.send(embed=verification_guide_embed())
         print(f"📌 [ВЕРИФИКАЦИЯ] Создана инструкция в #{channel.name}.", flush=True)
+    else:
+        await guide_message.edit(embed=verification_guide_embed())
 
     conn.execute(
         "INSERT INTO verification_guide_config(channel_id,message_id) VALUES(?,?) "
