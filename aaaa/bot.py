@@ -241,7 +241,11 @@ def add_purchase(user_id, item, price):
     conn.commit()
 
 def set_personal_channel(user_id, channel_id):
-    cursor.execute('UPDATE users SET personal_channel_id = ? WHERE user_id = ?', (channel_id, user_id))
+    cursor.execute(
+        'INSERT INTO users (user_id, personal_channel_id) VALUES (?, ?) '
+        'ON CONFLICT(user_id) DO UPDATE SET personal_channel_id = excluded.personal_channel_id',
+        (int(user_id), int(channel_id))
+    )
     conn.commit()
 
 def get_personal_channel(user_id):
@@ -255,7 +259,11 @@ async def sync_staff_member_to_sheets(member):
     try:
         profile = conn.execute("SELECT nickname, position, profile_url FROM media_staff_profiles WHERE user_id = ?", (int(member.id),)).fetchone()
         channel_id = get_personal_channel(member.id)
-        if not profile or not channel_id:
+        if not profile:
+            print(f"⚠️ [GOOGLE SHEETS] Не найден профиль участника {member.id} в media_staff_profiles.", flush=True)
+            return
+        if not channel_id:
+            print(f"⚠️ [GOOGLE SHEETS] Не найден личный канал участника {member.id} в users.", flush=True)
             return
         nickname, position, profile_url = profile
         data = get_user_data(member.id)
