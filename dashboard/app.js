@@ -49,19 +49,19 @@ function showPage(page){
       section.innerHTML='<div class="panel-heading"><div><h2>Тикеты поддержки</h2><p>Обращения игроков из Discord · управление статусами</p></div><button class="text-button" id="refreshTickets">↻ Обновить</button></div><div class="ticket-toolbar"><div><strong id="ticketAcceptanceState">Проверяем приём…</strong><p>Закрытие приёма блокирует только создание новых обращений. Текущие тикеты продолжат работать.</p></div><button class="ticket-action-button" id="toggleTicketAcceptance" type="button" disabled>Загрузка…</button></div><div id="ticketsResult" class="tickets-list"><div class="empty-state">Загружаем тикеты…</div></div>';
       loadTickets(section);
     } else if(page==="messages"){
-      section.innerHTML='<div class="panel-heading"><div><h2>Сообщения Discord</h2><p>Отправка обычных сообщений и Embed от имени WhiteGrief</p></div><button class="text-button" id="refreshMessageChannels">Обновить каналы</button></div><div id="messagesResult" class="messages-workspace"><div class="empty-state">Загружаем каналы Discord…</div></div>';
+      section.innerHTML='<div class="panel-heading"><div><h2>Сообщения Discord</h2><p>Отправка обычных сообщений и Embed от имени GastWorld</p></div><button class="text-button" id="refreshMessageChannels">Обновить каналы</button></div><div id="messagesResult" class="messages-workspace"><div class="empty-state">Загружаем каналы Discord…</div></div>';
       loadMessages(section);
     } else if(page==="console"){
       section.innerHTML='<div class="panel-heading"><div><h2>Управление ботом</h2><p>Состояние Discord-подключения и безопасные действия управления.</p></div><button class="text-button" id="refreshConsole">↻ Обновить</button></div><div id="consoleWorkspace" class="console-workspace"><div class="empty-state">Подключаемся к боту…</div></div>';
       loadConsole(section);
     } else if(page==="access"){
-      section.innerHTML='<div class="panel-heading"><div><h2>Доступ к серверу</h2><p>Все участники WhiteGrief и назначенные им Discord-роли</p></div><button class="text-button" id="refreshAccess">↻ Обновить</button></div><div id="accessWorkspace" class="access-workspace"><div class="empty-state">Загружаем участников сервера…</div></div>';
+      section.innerHTML='<div class="panel-heading"><div><h2>Доступ к серверу</h2><p>Все участники GastWorld и назначенные им Discord-роли</p></div><button class="text-button" id="refreshAccess">↻ Обновить</button></div><div id="accessWorkspace" class="access-workspace"><div class="empty-state">Загружаем участников сервера…</div></div>';
       loadAccess(section);
     } else if(page==="settings"){
-       section.innerHTML='<div class="panel-heading"><div><h2>Настройки системы</h2><p>Подключения, роли доступа, Discord-каналы и интеграции WhiteGrief.</p></div><button class="text-button" id="refreshSettings">↻ Обновить</button></div><div id="settingsWorkspace" class="settings-workspace"><div class="empty-state">Проверяем конфигурацию…</div></div>';
+       section.innerHTML='<div class="panel-heading"><div><h2>Настройки системы</h2><p>Подключения, роли доступа, Discord-каналы и интеграции GastWorld.</p></div><button class="text-button" id="refreshSettings">↻ Обновить</button></div><div id="settingsWorkspace" class="settings-workspace"><div class="empty-state">Проверяем конфигурацию…</div></div>';
        loadSettings(section);
     } else if(page==="logs"){
-      section.innerHTML='<div class="panel-heading"><div><h2>Папка logs/</h2><p>Все файлы журналов бота. Выбери файл, чтобы открыть просмотрщик.</p></div><button class="text-button" id="refreshLogs">↻ Обновить</button></div><div class="logs-browser-toolbar"><div class="logs-folder-path"><span class="folder-icon">▰</span><span>WhiteGrief</span><span class="muted">/</span><strong>logs/</strong></div><input id="logsFileSearch" class="panel-search" placeholder="Найти файл…"></div><div class="logs-summary" id="logsSummary">Загрузка списка файлов…</div><div id="logsResult" class="logs-file-grid"><div class="empty-state">Загружаем файлы…</div></div>';
+      section.innerHTML='<div class="panel-heading"><div><h2>Папка logs/</h2><p>Все файлы журналов бота. Выбери файл, чтобы открыть просмотрщик.</p></div><button class="text-button" id="refreshLogs">↻ Обновить</button></div><div class="logs-browser-toolbar"><div class="logs-folder-path"><span class="folder-icon">▰</span><span>GastWorld</span><span class="muted">/</span><strong>logs/</strong></div><input id="logsFileSearch" class="panel-search" placeholder="Найти файл…"></div><div class="logs-summary" id="logsSummary">Загрузка списка файлов…</div><div id="logsResult" class="logs-file-grid"><div class="empty-state">Загружаем файлы…</div></div>';
       loadLogs(section);
 
     }
@@ -132,7 +132,7 @@ function openOwnProfile(){
   (user.role_names||[]).forEach(name=>{const chip=document.createElement("span");chip.textContent=name;chips.append(chip)});
   if(!chips.childElementCount){const chip=document.createElement("span");chip.textContent="Роли не найдены";chips.append(chip)}
   roles.append(chips);
-  const footer=document.createElement("div");footer.className="wg-profile-footer";const note=document.createElement("span");note.textContent="Профиль Discord · WhiteGrief";const done=document.createElement("button");done.type="button";done.className="wg-profile-done";done.textContent="Закрыть";footer.append(note,done);
+  const footer=document.createElement("div");footer.className="wg-profile-footer";const note=document.createElement("span");note.textContent="Профиль Discord · GastWorld";const done=document.createElement("button");done.type="button";done.className="wg-profile-done";done.textContent="Закрыть";footer.append(note,done);
   dialog.append(head,details,roles,footer);overlay.append(dialog);document.body.append(overlay);
   const closeModal=()=>overlay.remove();close.addEventListener("click",closeModal);done.addEventListener("click",closeModal);
   overlay.addEventListener("click",event=>{if(event.target===overlay)closeModal()});
@@ -240,7 +240,7 @@ let wgPreferences={theme:"system",accent:"purple",palette:["#8b5cf6","#ec4899","
 let wgGlobalSettings={announcement_enabled:false,announcement_text:"",default_theme:"dark"};
 let wgSettingsLiveTimer=null;
 
-function applyWhiteGriefAppearance(){
+function applyGastWorldAppearance(){
   const root=document.documentElement;
   const theme=wgPreferences.theme==="system"?(wgGlobalSettings.default_theme||"dark"):wgPreferences.theme;
   const fallback=["#8b5cf6","#ec4899","#38bdf8"];
@@ -277,7 +277,7 @@ function renderGlobalAnnouncement(){
   banner.hidden=!visible;
   banner.textContent=visible?wgGlobalSettings.announcement_text:"";
 }
-async function refreshWhiteGriefLiveSettings(){
+async function refreshGastWorldLiveSettings(){
   try{
     const response=await fetch("/api/settings/live",{credentials:"same-origin",cache:"no-store"});
     if(!response.ok)return;
@@ -287,7 +287,7 @@ async function refreshWhiteGriefLiveSettings(){
     wgGlobalSettings=data.global_settings||wgGlobalSettings;
     wgPreferences=data.preferences||wgPreferences;
     if(paletteControlFocused&&localPalette)wgPreferences.palette=localPalette;
-    applyWhiteGriefAppearance();
+    applyGastWorldAppearance();
     renderGlobalAnnouncement();
     const liveTheme=document.getElementById("wgPersonalTheme");
     const livePalette=[1,2,3].map(index=>document.getElementById("wgPaletteColor"+index));
@@ -304,9 +304,9 @@ async function refreshWhiteGriefLiveSettings(){
   }catch(error){}
 }
 function startSettingsLiveSync(){
-  refreshWhiteGriefLiveSettings();
+  refreshGastWorldLiveSettings();
   if(wgSettingsLiveTimer)clearInterval(wgSettingsLiveTimer);
-  wgSettingsLiveTimer=setInterval(refreshWhiteGriefLiveSettings,4000);
+  wgSettingsLiveTimer=setInterval(refreshGastWorldLiveSettings,4000);
 }
 
 async function loadSettings(section){
@@ -345,12 +345,12 @@ async function loadSettings(section){
     const hero=document.createElement("div");hero.className="settings-hero";
     const heroIcon=document.createElement("div");heroIcon.className="settings-hero-icon";heroIcon.textContent="✦";
     const heroCopy=document.createElement("div");heroCopy.className="settings-hero-copy";
-    const eyebrow=document.createElement("span");eyebrow.textContent="WHITEGRIEF CONTROL CENTER";
+    const eyebrow=document.createElement("span");eyebrow.textContent="GASTWORLD CONTROL CENTER";
     const heroTitle=document.createElement("strong");heroTitle.textContent="Центр настроек";
     const heroText=document.createElement("p");heroText.textContent="Настрой внешний вид панели, общие параметры и подключение Discord.";heroCopy.append(eyebrow,heroTitle,heroText);hero.append(heroIcon,heroCopy);root.append(hero);
     wgPreferences=data.preferences||wgPreferences;
     wgGlobalSettings=data.global_settings||wgGlobalSettings;
-    applyWhiteGriefAppearance();renderGlobalAnnouncement();
+    applyGastWorldAppearance();renderGlobalAnnouncement();
 
     const personal=makePanel("Мои настройки","Сохраняются для твоего Discord-аккаунта");
     const personalGrid=document.createElement("div");personalGrid.className="settings-edit-grid";
@@ -379,7 +379,7 @@ async function loadSettings(section){
       if(savePersonalTimer)clearTimeout(savePersonalTimer);
       personalStatus.textContent="Сохраняем…";
       wgPreferences={theme:theme.value,accent:wgPreferences.accent||"purple",palette:paletteInputs.map(input=>input.value),compact_mode:compact.checked};
-      applyWhiteGriefAppearance();
+      applyGastWorldAppearance();
       try{
         await requestJSON("/api/settings/preferences",wgPreferences);
         personalStatus.textContent="Сохранено · применяется сразу";
@@ -390,7 +390,7 @@ async function loadSettings(section){
       palettePreview.style.setProperty("--preview-b",paletteInputs[1].value);
       palettePreview.style.setProperty("--preview-c",paletteInputs[2].value);
     };
-    paletteInputs.forEach(control=>control.addEventListener("input",()=>{updatePalettePreview();wgPreferences.palette=paletteInputs.map(input=>input.value);applyWhiteGriefAppearance();}));
+    paletteInputs.forEach(control=>control.addEventListener("input",()=>{updatePalettePreview();wgPreferences.palette=paletteInputs.map(input=>input.value);applyGastWorldAppearance();}));
     paletteInputs.forEach(control=>control.addEventListener("change",savePersonal));
     updatePalettePreview();
     [theme,compact].forEach(control=>control.addEventListener("change",savePersonal));
@@ -413,7 +413,7 @@ async function loadSettings(section){
         try{
           const saved=await requestJSON("/api/settings/admin",{announcement_enabled:announce.checked,announcement_text:message.value,default_theme:defaultTheme.value});
           wgGlobalSettings=saved.global_settings||wgGlobalSettings;
-          applyWhiteGriefAppearance();renderGlobalAnnouncement();
+          applyGastWorldAppearance();renderGlobalAnnouncement();
           adminStatus.textContent="Сохранено · обновление у всех пользователей до 4 секунд";
         }catch(error){adminStatus.textContent=error.message;}
         finally{saveAdmin.disabled=false;}
@@ -438,7 +438,7 @@ async function loadSettings(section){
       ].forEach(item=>summary.append(makeStatus(item[0],!!item[1],item[2])));
       root.append(summary);
 
-      const guild=makePanel("Discord-сервер","WhiteGrief");
+      const guild=makePanel("Discord-сервер","GastWorld");
       const info=document.createElement("div");info.className="settings-info-grid";
       [["Название",data.guild_name||"Недоступно"],["Guild ID",data.guild_id||"—"],["Подключение",data.discord_connected?"Discord API доступен":"Нет доступа к Discord API"]].forEach(pair=>{
         const item=document.createElement("div");item.className="settings-info-item";
@@ -572,7 +572,7 @@ async function loadAccess(section){
         const close=()=>backdrop.remove();
         const closeButton=document.createElement("button");closeButton.type="button";closeButton.className="access-role-modal-close";closeButton.textContent="×";closeButton.setAttribute("aria-label","Закрыть");closeButton.addEventListener("click",close);
         const emblem=document.createElement("div");emblem.className="access-role-modal-emblem";emblem.textContent="✦";
-        const eyebrow=document.createElement("div");eyebrow.className="access-role-modal-eyebrow";eyebrow.textContent="WHITEGRIEF · УПРАВЛЕНИЕ РОЛЯМИ";
+        const eyebrow=document.createElement("div");eyebrow.className="access-role-modal-eyebrow";eyebrow.textContent="GASTWORLD · УПРАВЛЕНИЕ РОЛЯМИ";
         const title=document.createElement("h2");title.textContent="Выдать роль";
         const description=document.createElement("p");description.className="access-role-modal-description";description.textContent="Выбери роль Discord для участника "+(member.display_name||member.username)+".";
         const field=document.createElement("label");field.className="access-role-modal-field";
@@ -588,7 +588,7 @@ async function loadAccess(section){
           previewText.textContent=selected?"Будет выдана роль «"+selected.name+"».":"После выдачи роль появится в карточке участника.";
           previewDot.style.background=selected&&selected.color?"#"+selected.color.toString(16).padStart(6,"0"):"";
         });
-        const notice=document.createElement("div");notice.className="access-role-modal-notice";notice.textContent="Выдача выполняется ботом WhiteGrief. Discord проверяет права и иерархию ролей.";
+        const notice=document.createElement("div");notice.className="access-role-modal-notice";notice.textContent="Выдача выполняется ботом GastWorld. Discord проверяет права и иерархию ролей.";
         const footer=document.createElement("div");footer.className="access-role-modal-footer";
         const cancel=document.createElement("button");cancel.type="button";cancel.className="access-role-modal-cancel";cancel.textContent="Отмена";cancel.addEventListener("click",close);
         const confirm=document.createElement("button");confirm.type="button";confirm.className="access-role-modal-confirm";confirm.textContent="✦ Выдать роль";confirm.disabled=!available.length;
@@ -679,17 +679,17 @@ async function loadConsole(section){
   const root=section.querySelector("#consoleWorkspace"),refresh=section.querySelector("#refreshConsole");
   if(!root)return;
   let pollBusy=false,outputPollBusy=false,commandBusy=false,history=[],historyIndex=0,lastConsoleLineId=0;
-  const actions=[["sync_commands","Синхронизировать slash-команды","Обновит команды WhiteGrief на Discord-сервере."],["sync_roles","Синхронизировать роли доступа","Проверит и обновит роли доступа Control Panel."],["refresh_presence","Обновить активность бота","Повторно установит статус «/shop | модерация»."]];
+  const actions=[["sync_commands","Синхронизировать slash-команды","Обновит команды GastWorld на Discord-сервере."],["sync_roles","Синхронизировать роли доступа","Проверит и обновит роли доступа Control Panel."],["refresh_presence","Обновить активность бота","Повторно установит статус «/shop | модерация»."]];
   const append=(output,text,tone="")=>{const line=document.createElement("div");if(tone)line.className="console-output-"+tone;line.textContent=text;output.append(line);while(output.children.length>800)output.firstElementChild.remove();output.scrollTop=output.scrollHeight;};
   const render=data=>{
     const status=data.status||{},workspace=document.createElement("div");workspace.className="console-workspace-inner";
     const cards=document.createElement("div");cards.className="console-status-grid";
-    [["СОСТОЯНИЕ",status.online?"В сети":"Не в сети",status.online?"online":"offline"],["DISCORD",status.bot_name||"WhiteGrief",""],["СЕРВЕР",status.guild_name||"—",""],["ЗАДЕРЖКА",status.latency_ms==null?"—":status.latency_ms+" мс",""]].forEach(([label,value,tone])=>{const card=document.createElement("article");card.className="console-status-card";const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=value;if(tone)strong.classList.add(tone);card.append(small,strong);cards.append(card);});
+    [["СОСТОЯНИЕ",status.online?"В сети":"Не в сети",status.online?"online":"offline"],["DISCORD",status.bot_name||"GastWorld",""],["СЕРВЕР",status.guild_name||"—",""],["ЗАДЕРЖКА",status.latency_ms==null?"—":status.latency_ms+" мс",""]].forEach(([label,value,tone])=>{const card=document.createElement("article");card.className="console-status-card";const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=value;if(tone)strong.classList.add(tone);card.append(small,strong);cards.append(card);});
     const controls=document.createElement("div");controls.className="console-controls";const heading=document.createElement("div");heading.className="console-section-heading";const h=document.createElement("h3");h.textContent="Быстрые действия";const note=document.createElement("span");note.textContent=currentAccessLevel==="full"?"Полный доступ: команды, действия и перезапуск":"Adm: просмотр, быстрые действия и перезапуск · ввод команд доступен только Full";heading.append(h,note);controls.append(heading);
     actions.forEach(([key,label,description])=>{const card=document.createElement("div");card.className="console-action-card";const copy=document.createElement("div");copy.className="console-action-copy";const title=document.createElement("strong");title.textContent=label;const desc=document.createElement("small");desc.textContent=description;copy.append(title,desc);const button=document.createElement("button");button.type="button";button.className="console-action-button";button.textContent="Выполнить";button.disabled=!status.online||!["adm","full"].includes(currentAccessLevel);button.title=!["adm","full"].includes(currentAccessLevel)?"Требуется уровень Adm":(!status.online?"Бот не подключён":"");button.addEventListener("click",async()=>{button.disabled=true;button.textContent="Выполняется…";try{const response=await fetch("/api/console/action",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:key})});const result=await response.json();if(!response.ok)throw new Error(result.detail||"Действие не выполнено.");showToast(result.message||"Действие выполнено.");await poll();}catch(error){showToast(error.message||"Ошибка управления.");}finally{button.textContent="Выполнить";button.disabled=!status.online||!["adm","full"].includes(currentAccessLevel);}});card.append(copy,button);controls.append(card);});
-    const terminal=document.createElement("section");terminal.className="console-terminal";const top=document.createElement("div");top.className="console-terminal-top";const terminalTitle=document.createElement("div");terminalTitle.className="console-terminal-title";const led=document.createElement("i");led.className=status.online?"online":"";const termName=document.createElement("strong");termName.textContent="Терминал WhiteGrief · host";terminalTitle.append(led,termName);const tools=document.createElement("div");tools.className="console-terminal-tools";
+    const terminal=document.createElement("section");terminal.className="console-terminal";const top=document.createElement("div");top.className="console-terminal-top";const terminalTitle=document.createElement("div");terminalTitle.className="console-terminal-title";const led=document.createElement("i");led.className=status.online?"online":"";const termName=document.createElement("strong");termName.textContent="Терминал GastWorld · host";terminalTitle.append(led,termName);const tools=document.createElement("div");tools.className="console-terminal-tools";
     const clear=document.createElement("button");clear.type="button";clear.className="console-tool-button";clear.textContent="Очистить";clear.addEventListener("click",()=>{output.replaceChildren();append(output,"Терминал очищен. Напиши help для списка команд.","muted");});if(currentAccessLevel==="full")tools.append(clear);top.append(terminalTitle,tools);
-    const output=document.createElement("div");output.className="console-terminal-output";append(output,"WhiteGrief Host Terminal","system");append(output,"Подключение к процессу бота установлено.","muted");append(output,currentAccessLevel==="full"?"Full: команды shell выполняются на первом хостинге. Любые символы передаются без фильтрации.":"Режим просмотра: вывод хостинга доступен, ввод команд отключён для Adm.","muted");
+    const output=document.createElement("div");output.className="console-terminal-output";append(output,"GastWorld Host Terminal","system");append(output,"Подключение к процессу бота установлено.","muted");append(output,currentAccessLevel==="full"?"Full: команды shell выполняются на первом хостинге. Любые символы передаются без фильтрации.":"Режим просмотра: вывод хостинга доступен, ввод команд отключён для Adm.","muted");
     const form=document.createElement("form");form.className="console-command-form";const prompt=document.createElement("label");prompt.className="console-command-prompt";prompt.textContent="container~";const input=document.createElement("input");input.className="console-command-input";input.type="text";input.autocomplete="off";input.spellcheck=false;input.placeholder="Введите команду или символ…";input.disabled=currentAccessLevel!=="full";const run=document.createElement("button");run.type="submit";run.className="console-action-button";run.textContent="Выполнить";run.disabled=currentAccessLevel!=="full";form.append(prompt,input,run);
     const restartRow=document.createElement("div");restartRow.className="console-restart-row";const restartHint=document.createElement("small");restartHint.textContent="Перезапуск заменит текущий процесс бота и временно отключит Discord.";const restart=document.createElement("button");restart.type="button";restart.className="console-restart-button";restart.textContent="↻ Перезапустить бота";restart.disabled=!["adm","full"].includes(currentAccessLevel);restart.addEventListener("click",()=>{
       const previous=document.getElementById("consoleRestartModal");if(previous)previous.remove();
@@ -697,7 +697,7 @@ async function loadConsole(section){
       const dialog=document.createElement("div");dialog.className="action-modal-card";dialog.setAttribute("role","dialog");dialog.setAttribute("aria-modal","true");dialog.setAttribute("aria-labelledby","consoleRestartTitle");
       const close=document.createElement("button");close.type="button";close.className="action-modal-close";close.textContent="×";close.setAttribute("aria-label","Закрыть");
       const icon=document.createElement("div");icon.className="action-modal-icon";icon.textContent="↻";
-      const eyebrow=document.createElement("div");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="WHITEGRIEF CONTROL PANEL";
+      const eyebrow=document.createElement("div");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="GASTWORLD CONTROL PANEL";
       const title=document.createElement("h2");title.id="consoleRestartTitle";title.textContent="Перезапустить бота?";
       const description=document.createElement("p");description.className="action-modal-description";description.textContent="Discord-бот временно отключится и запустится заново. Панель может на несколько секунд потерять соединение.";
       const note=document.createElement("div");note.className="action-modal-note";note.textContent="Перезапуск затронет весь процесс бота и встроенного API. Продолжить?";
@@ -753,14 +753,14 @@ async function loadConsole(section){
     const shellPane=document.createElement("div");shellPane.className="console-mode-pane";
     const appPane=document.createElement("div");appPane.className="console-mode-pane";appPane.hidden=true;
     const appOutput=document.createElement("div");appOutput.className="console-terminal-output console-app-output";
-    append(appOutput,"WhiteGrief Application Input","system");
+    append(appOutput,"GastWorld Application Input","system");
     append(appOutput,"Ввод передаётся обработчику приложения. Неизвестные команды тоже принимаются и возвращают ответ приложения.","muted");
     const appForm=document.createElement("form");appForm.className="console-command-form";
-    const appPrompt=document.createElement("label");appPrompt.className="console-command-prompt";appPrompt.textContent="WhiteGrief>";
+    const appPrompt=document.createElement("label");appPrompt.className="console-command-prompt";appPrompt.textContent="GastWorld>";
     const appInput=document.createElement("input");appInput.className="console-command-input";appInput.type="text";appInput.autocomplete="off";appInput.spellcheck=false;appInput.placeholder="Введите команду приложения или любой текст…";appInput.disabled=currentAccessLevel!=="full";
     const appRun=document.createElement("button");appRun.type="submit";appRun.className="console-action-button";appRun.textContent="Выполнить";appRun.disabled=currentAccessLevel!=="full";
     appForm.append(appPrompt,appInput,appRun);
-    const appFoot=document.createElement("div");appFoot.className="console-terminal-foot";appFoot.textContent="Ввод в приложение · произвольная строка до 2000 символов · доступ Full. Команда обрабатывается логикой WhiteGrief, а не Linux.";
+    const appFoot=document.createElement("div");appFoot.className="console-terminal-foot";appFoot.textContent="Ввод в приложение · произвольная строка до 2000 символов · доступ Full. Команда обрабатывается логикой GastWorld, а не Linux.";
     appPane.append(appOutput,appForm,appFoot);
     const foot=document.createElement("div");foot.className="console-terminal-foot";foot.textContent=currentAccessLevel==="full"?"Shell · Linux первого хостинга · произвольные команды и символы · доступ Full. Команды могут изменять файлы и настройки сервера.":"Adm: live-просмотр вывода первого хостинга, быстрые действия и перезапуск. Команды доступны только Full.";
     shellPane.append(output);
@@ -776,7 +776,7 @@ async function loadConsole(section){
       if(!command.trim()||commandBusy)return;
       if(command.toLowerCase()==="clear"){appOutput.replaceChildren();append(appOutput,"Вывод приложения очищен.","muted");appInput.value="";return;}
       if(currentAccessLevel!=="full"){append(appOutput,"Недостаточно прав. Требуется уровень Full.","error");return;}
-      commandBusy=true;append(appOutput,"WhiteGrief> "+command,"command");appInput.value="";appRun.disabled=true;appRun.textContent="…";
+      commandBusy=true;append(appOutput,"GastWorld> "+command,"command");appInput.value="";appRun.disabled=true;appRun.textContent="…";
       try{
         const response=await fetch("/api/console/app-command",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({command})});
         const result=await response.json();
@@ -805,7 +805,7 @@ async function loadConsole(section){
       // Ошибки короткого опроса не засоряют терминал; статус соединения виден в карточках.
     }finally{outputPollBusy=false;}
   };
-  const poll=async()=>{if(pollBusy)return;pollBusy=true;try{const data=await apiGet("/api/console"),status=data.status||{};const strong=root.querySelectorAll(".console-status-card strong");if(strong[0]){strong[0].textContent=status.online?"В сети":"Не в сети";strong[0].className=status.online?"online":"offline";}if(strong[1])strong[1].textContent=status.bot_name||"WhiteGrief";if(strong[2])strong[2].textContent=status.guild_name||"—";if(strong[3])strong[3].textContent=status.latency_ms==null?"—":status.latency_ms+" мс";const led=root.querySelector(".console-terminal-title i");if(led)led.className=status.online?"online":"";}catch(error){const output=root.querySelector(".console-terminal-output");if(output)append(output,"[соединение] "+error.message,"error");}finally{pollBusy=false;}await pollOutput();};
+  const poll=async()=>{if(pollBusy)return;pollBusy=true;try{const data=await apiGet("/api/console"),status=data.status||{};const strong=root.querySelectorAll(".console-status-card strong");if(strong[0]){strong[0].textContent=status.online?"В сети":"Не в сети";strong[0].className=status.online?"online":"offline";}if(strong[1])strong[1].textContent=status.bot_name||"GastWorld";if(strong[2])strong[2].textContent=status.guild_name||"—";if(strong[3])strong[3].textContent=status.latency_ms==null?"—":status.latency_ms+" мс";const led=root.querySelector(".console-terminal-title i");if(led)led.className=status.online?"online":"";}catch(error){const output=root.querySelector(".console-terminal-output");if(output)append(output,"[соединение] "+error.message,"error");}finally{pollBusy=false;}await pollOutput();};
   refresh?.addEventListener("click",async()=>{refresh.disabled=true;refresh.textContent="Загрузка…";await poll();refresh.disabled=false;refresh.textContent="↻ Обновить";});
   try{const data=await apiGet("/api/console");render(data);await pollOutput();}catch(error){root.replaceChildren();const msg=document.createElement("div");msg.className="console-error";msg.textContent="Не удалось подключиться к консоли: "+error.message;root.append(msg);}
   const timer=window.setInterval(()=>{if(!section.isConnected){window.clearInterval(timer);return;}if(!document.hidden){poll();pollOutput();}},1800);
@@ -932,7 +932,7 @@ async function loadPlayers(section){
       const avatar=document.createElement("div");avatar.className="discord-member-avatar";
       if(p.avatar_url){const img=document.createElement("img");img.src=p.avatar_url;img.alt="";img.loading="lazy";img.onerror=()=>{avatar.textContent=(p.username||"?").slice(0,1).toUpperCase();};avatar.append(img);}else avatar.textContent=(p.username||"?").slice(0,1).toUpperCase();
       const identity=document.createElement("div");identity.className="discord-member-identity";
-      const name=document.createElement("strong");name.textContent=p.username||"Участник WhiteGrief";
+      const name=document.createElement("strong");name.textContent=p.username||"Участник GastWorld";
       const sub=document.createElement("span");sub.textContent=(p.discord_username?"@"+p.discord_username+" · ":"")+"ID: "+p.user_id;identity.append(name,sub);
       const balance=document.createElement("div");balance.className="discord-member-balance";balance.innerHTML="<small>БАЛАНС</small>";
       const balanceValue=document.createElement("strong");balanceValue.textContent=Number(p.balance||0).toLocaleString("ru-RU")+" ✧";balance.append(balanceValue);
@@ -959,7 +959,7 @@ function openWarnDialog(userId,action){
   const modal=document.createElement("div");modal.id="warnActionModal";modal.className="warn-modal";
   const dialog=document.createElement("form");dialog.className="warn-modal-card";dialog.setAttribute("role","dialog");dialog.setAttribute("aria-modal","true");
   const close=document.createElement("button");close.type="button";close.className="warn-modal-close";close.textContent="×";close.setAttribute("aria-label","Закрыть");
-  const eyebrow=document.createElement("span");eyebrow.className="warn-modal-eyebrow";eyebrow.textContent="WHITEGRIEF • MODERATION";
+  const eyebrow=document.createElement("span");eyebrow.className="warn-modal-eyebrow";eyebrow.textContent="GASTWORLD • MODERATION";
   const title=document.createElement("h2");title.textContent=isAdd?"Выдать предупреждение":"Снять предупреждение";
   const description=document.createElement("p");description.className="warn-modal-description";description.textContent="Игрок Discord ID: "+userId+". Укажи причину действия.";
   const label=document.createElement("label");label.className="warn-modal-label";label.textContent="Причина";
@@ -999,7 +999,7 @@ async function loadRequests(section){
       const data=await apiGet("/api/requests");requests=data.requests||[];
       const wrap=document.createElement("div");wrap.className="requests-workspace";
       const hero=document.createElement("div");hero.className="requests-hero";
-      hero.innerHTML='<div class="requests-hero-copy"><span class="requests-kicker">WHITEGRIEF • APPLICATION CENTER</span><h2>Центр заявок</h2><p>Все обращения сообщества собраны в одном месте.</p></div><div class="requests-hero-symbol" aria-hidden="true">▤</div>';
+      hero.innerHTML='<div class="requests-hero-copy"><span class="requests-kicker">GASTWORLD • APPLICATION CENTER</span><h2>Центр заявок</h2><p>Все обращения сообщества собраны в одном месте.</p></div><div class="requests-hero-symbol" aria-hidden="true">▤</div>';
       const stats=document.createElement("div");stats.className="requests-stats";
       const stat=document.createElement("div");stat.className="requests-stat";stat.innerHTML='<span>ВСЕГО В ОЧЕРЕДИ</span><strong>'+requests.length+'</strong><small>заявок загружено</small>';stats.append(stat);
       const toolbar=document.createElement("div");toolbar.className="requests-toolbar";
@@ -1051,7 +1051,7 @@ function openApproveDialog(userId,onApprove){
   const card=document.createElement("section");card.className="action-modal-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");card.setAttribute("aria-labelledby","approveDialogTitle");
   const close=document.createElement("button");close.type="button";close.className="action-modal-close";close.textContent="×";close.setAttribute("aria-label","Закрыть");
   const icon=document.createElement("div");icon.className="action-modal-icon";icon.textContent="✦";
-  const eyebrow=document.createElement("span");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="WHITEGRIEF • APPLICATION CENTER";
+  const eyebrow=document.createElement("span");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="GASTWORLD • APPLICATION CENTER";
   const title=document.createElement("h2");title.id="approveDialogTitle";title.textContent="Одобрить заявку?";
   const description=document.createElement("p");description.className="action-modal-description";description.textContent="Пользователь Discord ID: "+userId;
   const note=document.createElement("div");note.className="action-modal-note";note.textContent="Будут выданы роли, изменён ник и создан личный канал. Это действие изменит данные на Discord-сервере.";
@@ -1082,7 +1082,7 @@ function openRejectDialog(userId,onReject){
   const modal=document.createElement("div");modal.id="rejectActionModal";modal.className="action-modal";
   const card=document.createElement("section");card.className="action-modal-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
   const close=document.createElement("button");close.type="button";close.className="action-modal-close";close.textContent="×";
-  const eyebrow=document.createElement("span");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="WHITEGRIEF • APPLICATION CENTER";
+  const eyebrow=document.createElement("span");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="GASTWORLD • APPLICATION CENTER";
   const title=document.createElement("h2");title.textContent="Отклонить заявку?";
   const description=document.createElement("p");description.className="action-modal-description";description.textContent="Discord ID: "+userId;
   const note=document.createElement("div");note.className="action-modal-note";note.textContent="Заявка будет отклонена, роль «Ожидание верификации» будет снята, а пользователю придёт уведомление в личные сообщения. С сервера он исключён не будет.";
@@ -1119,7 +1119,7 @@ async function loadShop(section){
       const icons={kit:"⚔️",донат:"👑",кейс:"🎁",услуга:"📜"};
       const categoryNames={kit:"Наборы",донат:"Привилегии",кейс:"Кейсы",услуга:"Услуги"};
       const hero=document.createElement("div");hero.className="shop-hero";
-      hero.innerHTML='<div class="shop-hero-copy"><span class="shop-kicker">WHITEGRIEF • REWARDS</span><h2>Магазин</h2><p>Выбирай награды, наборы и привилегии за баллы.</p><span class="shop-hero-note">✦ Твой прогресс — твои преимущества</span></div><div class="shop-hero-art" aria-hidden="true"><span class="hero-orbit orbit-one">✦</span><span class="hero-crown">👑</span><span class="hero-orbit orbit-two">✧</span></div>';
+      hero.innerHTML='<div class="shop-hero-copy"><span class="shop-kicker">GASTWORLD • REWARDS</span><h2>Магазин</h2><p>Выбирай награды, наборы и привилегии за баллы.</p><span class="shop-hero-note">✦ Твой прогресс — твои преимущества</span></div><div class="shop-hero-art" aria-hidden="true"><span class="hero-orbit orbit-one">✦</span><span class="hero-crown">👑</span><span class="hero-orbit orbit-two">✧</span></div>';
       const tools=document.createElement("div");tools.className="shop-toolbar";
       const filters=document.createElement("div");filters.className="shop-filters";
       const search=document.createElement("input");search.className="shop-search";search.placeholder="⌕  Найти товар…";search.setAttribute("aria-label","Поиск товара");
@@ -1276,7 +1276,7 @@ async function loadMessages(section){
             <select id="messageChannel" class="messages-control"></select>
           </label>
           <label class="messages-label">Текст сообщения <span>необязательно; подпись отправителя добавится автоматически</span>
-            <textarea id="messageContent" class="messages-control" rows="4" maxlength="1750" placeholder="Напиши сообщение от имени WhiteGrief…"></textarea>
+            <textarea id="messageContent" class="messages-control" rows="4" maxlength="1750" placeholder="Напиши сообщение от имени GastWorld…"></textarea>
           </label>
           <label class="messages-label">Файлы <span>можно добавлять по несколько раз — файлы объединяются; до 10 файлов, до 8 МБ каждый, всего до 25 МБ</span>
             <input id="messageFiles" class="messages-control messages-file-input" type="file" multiple>
@@ -1284,7 +1284,7 @@ async function loadMessages(section){
           <div id="messageFilesPreview" class="messages-attachments-preview" hidden></div>
           <div class="messages-section-caption">EMBED-ПАНЕЛЬ <span>необязательно</span></div>
           <label class="messages-label">Заголовок Embed
-            <input id="embedTitle" class="messages-control" maxlength="256" placeholder="Например: WHITEGRIEF • ОБЪЯВЛЕНИЕ">
+            <input id="embedTitle" class="messages-control" maxlength="256" placeholder="Например: GASTWORLD • ОБЪЯВЛЕНИЕ">
           </label>
           <label class="messages-label">Описание Embed
             <textarea id="embedDescription" class="messages-control" rows="5" maxlength="4096" placeholder="Текст внутри Embed…"></textarea>
@@ -1294,7 +1294,7 @@ async function loadMessages(section){
           </label>
           <div class="messages-form-footer"><span id="messageStatus" class="messages-status">Отправка доступна уровням Adm и Full.</span><button id="sendDiscordMessage" class="messages-send-button" type="button">Отправить в Discord</button></div>
         </div>
-        <aside class="messages-preview-wrap"><div class="messages-preview-heading">ПРЕДПРОСМОТР</div><div class="messages-preview-meta"><span class="messages-meta-item"><small>ОТПРАВИТЕЛЬ ПАНЕЛИ</small><strong id="messagePreviewSender">Администратор</strong></span><span class="messages-meta-arrow">→</span><span class="messages-meta-item"><small>КАНАЛ ПОЛУЧАТЕЛЬ</small><strong id="messagePreviewChannel">общий-чат</strong></span></div><div class="discord-preview"><div class="discord-preview-avatar">W</div><div class="discord-preview-body"><strong>WhiteGrief <small>БОТ</small></strong><p id="messagePreviewContent" class="discord-preview-content">Текст сообщения появится здесь.</p><div id="embedPreview" class="discord-embed-preview" hidden><div id="embedPreviewTitle" class="discord-embed-title"></div><div id="embedPreviewDescription" class="discord-embed-description"></div></div></div></div><div id="messagePreviewImageWrap" class="discord-image-preview" hidden><img id="messagePreviewImage" alt="Изображение к сообщению"></div><div id="messagePreviewAttribution" class="discord-attribution-preview">— Отправитель: Администратор<br>Отправлено через WhiteGrief Control Panel</div></div><p class="messages-preview-note">Внизу сообщения автоматически появится подпись отправителя.</p></aside>
+        <aside class="messages-preview-wrap"><div class="messages-preview-heading">ПРЕДПРОСМОТР</div><div class="messages-preview-meta"><span class="messages-meta-item"><small>ОТПРАВИТЕЛЬ ПАНЕЛИ</small><strong id="messagePreviewSender">Администратор</strong></span><span class="messages-meta-arrow">→</span><span class="messages-meta-item"><small>КАНАЛ ПОЛУЧАТЕЛЬ</small><strong id="messagePreviewChannel">общий-чат</strong></span></div><div class="discord-preview"><div class="discord-preview-avatar">W</div><div class="discord-preview-body"><strong>GastWorld <small>БОТ</small></strong><p id="messagePreviewContent" class="discord-preview-content">Текст сообщения появится здесь.</p><div id="embedPreview" class="discord-embed-preview" hidden><div id="embedPreviewTitle" class="discord-embed-title"></div><div id="embedPreviewDescription" class="discord-embed-description"></div></div></div></div><div id="messagePreviewImageWrap" class="discord-image-preview" hidden><img id="messagePreviewImage" alt="Изображение к сообщению"></div><div id="messagePreviewAttribution" class="discord-attribution-preview">— Отправитель: Администратор<br>Отправлено через GastWorld Control Panel</div></div><p class="messages-preview-note">Внизу сообщения автоматически появится подпись отправителя.</p></aside>
       </div><section class="messages-incoming"><div class="messages-incoming-head"><div><h3>Сообщения игроков</h3><p>Входящие сообщения из выбранного Discord-канала</p></div><button id="refreshIncomingMessages" class="text-button" type="button">Обновить</button></div><div id="incomingMessagesFeed" class="messages-incoming-feed"><div class="empty-state">Загружаем сообщения…</div></div></section>`;
     const channelSelect=root.querySelector("#messageChannel");
     channels.forEach(ch=>{
@@ -1314,7 +1314,7 @@ async function loadMessages(section){
       previewChannel.textContent=selected?selected.textContent.split(" / ").pop():"канал";
       const senderLabel=data.sender?.username||"Администратор";
       previewSender.textContent=senderLabel;
-      attributionPreview.innerHTML="— Отправитель: "+senderLabel.replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]))+"<br>Отправлено через WhiteGrief Control Panel";
+      attributionPreview.innerHTML="— Отправитель: "+senderLabel.replace(/[&<>"]/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]))+"<br>Отправлено через GastWorld Control Panel";
     };
     [content,title,description,color].forEach(el=>el.addEventListener("input",updatePreview));
     channelSelect.addEventListener("change",updatePreview);
@@ -1389,7 +1389,7 @@ async function loadMessages(section){
           const head=document.createElement("div");head.className="incoming-message-head";
           const identity=document.createElement("div");identity.className="incoming-message-identity";
           const author=document.createElement("strong");author.textContent=message.author||"Игрок";
-          const channelBadge=document.createElement("span");channelBadge.className="incoming-message-channel";channelBadge.textContent="В WhiteGrief";
+          const channelBadge=document.createElement("span");channelBadge.className="incoming-message-channel";channelBadge.textContent="В GastWorld";
           identity.append(author,channelBadge);
           const time=document.createElement("time");
           const date=new Date(message.timestamp);time.textContent=Number.isNaN(date.getTime())?"":date.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
