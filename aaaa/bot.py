@@ -1283,9 +1283,9 @@ def normalize_media_position(value):
 def is_valid_media_profile_url(url, position):
     value = str(url or "").strip().lower()
     if position == "TT":
-        return bool(re.match(r"^https?://(?:www\.)?tiktok\.com/@[a-z0-9._-]+/?(?:\\?.*)?$", value))
+        return bool(re.match(r"^https?://(?:www\.)?tiktok\.com/@[a-z0-9._-]+/?(?:\?.*)?$", value))
     if position == "YT":
-        return bool(re.match(r"^https?://(?:www\.)?youtube\.com/(?:@[a-z0-9._-]+|channel/[a-z0-9_-]+|c/[a-z0-9._-]+|user/[a-z0-9._-]+)/?(?:\\?.*)?$", value))
+        return bool(re.match(r"^https?://(?:www\.)?youtube\.com/(?:@[a-z0-9._-]+|channel/[a-z0-9_-]+|c/[a-z0-9._-]+|user/[a-z0-9._-]+)/?(?:\?.*)?$", value))
     return False
 
 
