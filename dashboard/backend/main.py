@@ -357,7 +357,17 @@ async def discord_request(method: str, path: str, *, payload: dict[str, Any] | N
     if response.status_code == 403:
         raise HTTPException(status_code=502, detail="Боту не хватает прав или его роль ниже роли участника.")
     if response.status_code >= 400:
-        raise HTTPException(status_code=502, detail=f"Ошибка Discord API ({response.status_code}).")
+        try:
+            error_data = response.json()
+        except ValueError:
+            error_data = {}
+        discord_message = str(error_data.get("message") or response.text or "без описания")[:500]
+        discord_code = error_data.get("code")
+        code_suffix = f", код {discord_code}" if discord_code is not None else ""
+        raise HTTPException(
+            status_code=502,
+            detail=f"Discord API отклонил запрос ({response.status_code}{code_suffix}) на {method} {path}: {discord_message}",
+        )
     return response.json() if response.content else None
 
 
@@ -1613,9 +1623,9 @@ async def internal_approve_request(user_id: str, request: Request):
         new_nick = f"{nick} | {position}"[:32]
         await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"nick": new_nick})
         roles.update({
-            "1546125522675962027",  # Команда медиа
+            "1493196315205566545",  # Команда медиа (актуальная роль первого сервера)
             "1546125519240564797",  # 🔮» Media
-            "1567181453479903405",  # Media » уровень доступа
+            "1573343622986862602",  # Media » уровень доступа (актуальная роль первого сервера)
         })
         roles.discard("1567152429093363782")  # Снять ожидание верификации
         await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(roles)})
@@ -1635,7 +1645,7 @@ async def internal_approve_request(user_id: str, request: Request):
             db.execute("INSERT INTO users (user_id, balance, warns, personal_channel_id) VALUES (?, 0, 0, ?) ON CONFLICT(user_id) DO UPDATE SET personal_channel_id = excluded.personal_channel_id", (int(user_id), int(channel_id)))
             db.execute("DELETE FROM pending_requests WHERE request_type = 'join' AND user_id = ?", (int(user_id),))
             db.commit()
-        await discord_request("PUT", f"/channels/1551952140929601576/messages/{message_id}/reactions/%E2%9C%85/@me")
+        await discord_request("PUT", f"/channels/1563918554829422704/messages/{message_id}/reactions/%E2%9C%85/@me")
         accepted = {
             "embeds": [{
                 "title": "✅ ЗАЯВКА ОДОБРЕНА",
@@ -1653,7 +1663,7 @@ async def internal_approve_request(user_id: str, request: Request):
             }],
             "allowed_mentions": {"parse": [], "users": []},
         }
-        await discord_request("POST", f"/channels/1551952140929601576/messages", payload=accepted)
+        await discord_request("POST", f"/channels/1563918554829422704/messages", payload=accepted)
         welcome = {
             "content": f"Привет, <@{user_id}>! Ты попал в команду Медиа.",
             "embeds": [{
