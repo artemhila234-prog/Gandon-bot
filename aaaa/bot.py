@@ -22,7 +22,8 @@ CATEGORY_ID = 1551950227865608292
 VERIFICATION_GUILD_ID = 1492974397001171176
 SECONDARY_ROLE_GUILD_ID = 1454858971084230822
 VERIFICATION_REVIEW_ROLE_ID = 1493607029053587647
-VERIFICATION_TT_ROLE_ID = 1519405529028624455
+VERIFICATION_COMMON_ROLE_ID = 1573415226186010795
+VERIFICATION_TT_ROLE_ID = 1573415527932629173
 VERIFICATION_YT_ROLE_ID = 1556575041657774100
 SHOP_CHANNEL_ID = 1573032052666663032  # Единый канал логов GastWorld
 AUDIT_LOG_CHANNEL_ID = 1573032052666663032  # Единый канал логов GastWorld
@@ -1477,10 +1478,10 @@ async def process_verification_decision(interaction, applicant_id, *, accepted):
         except discord.HTTPException as error:
             print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось снять роль ожидания: {error}", flush=True)
 
-    # Только должностная роль выдаётся на втором сервере.
+    # На втором сервере выдаём общую роль и роль выбранной площадки.
     secondary_guild = bot.get_guild(SECONDARY_ROLE_GUILD_ID)
     if secondary_guild is None:
-        print(f"❌ [ВЕРИФИКАЦИЯ] Второй сервер {SECONDARY_ROLE_GUILD_ID} недоступен; роль {position} не выдана.", flush=True)
+        print(f"❌ [ВЕРИФИКАЦИЯ] Второй сервер {SECONDARY_ROLE_GUILD_ID} недоступен; комплект ролей {position} не выдан.", flush=True)
     else:
         secondary_member = secondary_guild.get_member(int(applicant_id))
         if secondary_member is None:
@@ -1488,18 +1489,22 @@ async def process_verification_decision(interaction, applicant_id, *, accepted):
                 secondary_member = await secondary_guild.fetch_member(int(applicant_id))
             except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                 secondary_member = None
-        role_id = VERIFICATION_TT_ROLE_ID if position == "TT" else VERIFICATION_YT_ROLE_ID
-        secondary_role = secondary_guild.get_role(role_id)
+        platform_role_id = VERIFICATION_TT_ROLE_ID if position.strip().casefold() in {"tt", "тт", "tiktok", "тикток"} else VERIFICATION_YT_ROLE_ID
+        role_ids = (VERIFICATION_COMMON_ROLE_ID, platform_role_id)
         if secondary_member is None:
-            print(f"⚠️ [ВЕРИФИКАЦИЯ] Пользователь {applicant_id} не состоит на втором сервере; роль {position} не выдана.", flush=True)
-        elif secondary_role is None:
-            print(f"⚠️ [ВЕРИФИКАЦИЯ] Роль {position} ({role_id}) не найдена на втором сервере.", flush=True)
-        elif secondary_role not in secondary_member.roles:
-            try:
-                await secondary_member.add_roles(secondary_role, reason=f"GastWorld Media: заявка одобрена на первом сервере ({position})")
-                print(f"✅ [ВЕРИФИКАЦИЯ] На втором сервере выдана роль {position} пользователю {applicant_id}.", flush=True)
-            except discord.HTTPException as error:
-                print(f"❌ [ВЕРИФИКАЦИЯ] Не удалось выдать роль {position} на втором сервере: {error}", flush=True)
+            print(f"⚠️ [ВЕРИФИКАЦИЯ] Пользователь {applicant_id} не состоит на втором сервере; комплект ролей {position} не выдан.", flush=True)
+        else:
+            for role_id in role_ids:
+                secondary_role = secondary_guild.get_role(role_id)
+                if secondary_role is None:
+                    print(f"⚠️ [ВЕРИФИКАЦИЯ] Роль {role_id} не найдена на втором сервере.", flush=True)
+                    continue
+                if secondary_role not in secondary_member.roles:
+                    try:
+                        await secondary_member.add_roles(secondary_role, reason=f"GastWorld Media: заявка одобрена на первом сервере ({position})")
+                        print(f"✅ [ВЕРИФИКАЦИЯ] На втором сервере выдана роль {role_id} пользователю {applicant_id}.", flush=True)
+                    except discord.HTTPException as error:
+                        print(f"❌ [ВЕРИФИКАЦИЯ] Не удалось выдать роль {role_id} пользователю {applicant_id}: {error}", flush=True)
 
     category = guild.get_channel(CATEGORY_ID) if CATEGORY_ID else None
     channel_name = re.sub(r"[^a-z0-9а-яё_-]+", "-", nick.casefold()).strip("-")[:90] or f"media-{applicant_id}"
