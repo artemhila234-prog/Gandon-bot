@@ -1659,7 +1659,6 @@ async def internal_approve_request(user_id: str, request: Request):
         else:
             secondary_role_status = f"unknown_position: {position}"
             print(f"⚠️ [ЗАЯВКИ] Неизвестная должность '{position}' у заявки {user_id}; роль второго сервера не выбрана.", flush=True)
-        await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(roles)})
         channel_payload = {
             "name": nick.lower().replace(" ", "-")[:90],
             "type": 0,
