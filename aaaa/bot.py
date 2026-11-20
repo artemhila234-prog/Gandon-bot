@@ -73,6 +73,8 @@ PROTECTED_ROLE_IDS = [
 ]
 
 PLAYER_ROLE_ID = 1539269779267915827
+MEDIA_TEAM_ROLE_ID = 1493196315205566500
+MEDIA_TEAM_AUTO_ROLE_ID = 1573343622986862600
 APPROVER_ROLE_ID = 1535261711450378330
 PENDING_APPLICATION_ROLE_ID = 1567152429093363782  # Роль ожидания одобрения заявки
 APPROVER_POINTS_ROLE_IDS = [
@@ -740,6 +742,48 @@ async def on_member_update(before, after):
     if had_role and not has_role:
         purge_user_data(after.id)
         print(f"🧹 Удалены данные участника {after.id}: снята роль игрока")
+
+# ================== АВТОРОЛЬ ДЛЯ КОМАНДЫ МЕДИА ==================
+async def sync_media_team_member_role(guild):
+    team_role = guild.get_role(MEDIA_TEAM_ROLE_ID)
+    required_role = guild.get_role(MEDIA_TEAM_AUTO_ROLE_ID)
+    if team_role is None:
+        print(f"⚠️ [ИГРОКИ] Не найдена роль Команда медиа {MEDIA_TEAM_ROLE_ID}.", flush=True)
+        return
+    if required_role is None:
+        print(f"⚠️ [ИГРОКИ] Не найдена роль для автоматической выдачи {MEDIA_TEAM_AUTO_ROLE_ID}.", flush=True)
+        return
+    updated = 0
+    async for member in guild.fetch_members(limit=None):
+        if member.bot or team_role not in member.roles or required_role in member.roles:
+            continue
+        try:
+            await member.add_roles(required_role, reason="Автовыдача роли участнику Команды медиа")
+            updated += 1
+            print(f"✅ [ИГРОКИ] Выдана роль {required_role.name} участнику {member} ({member.id}).", flush=True)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            print(f"❌ [ИГРОКИ] Не удалось выдать роль {required_role.id} участнику {member.id}: {error}", flush=True)
+    print(f"🔄 [ИГРОКИ] Проверка Команды медиа завершена. Выдано ролей: {updated}.", flush=True)
+
+
+@bot.listen("on_member_update")
+async def auto_assign_media_team_role(before, after):
+    if after.guild.id != VERIFICATION_GUILD_ID:
+        return
+    had_team_role = any(role.id == MEDIA_TEAM_ROLE_ID for role in before.roles)
+    has_team_role = any(role.id == MEDIA_TEAM_ROLE_ID for role in after.roles)
+    has_required_role = any(role.id == MEDIA_TEAM_AUTO_ROLE_ID for role in after.roles)
+    if has_team_role and not had_team_role and not has_required_role:
+        role = after.guild.get_role(MEDIA_TEAM_AUTO_ROLE_ID)
+        if role is None:
+            print(f"⚠️ [ИГРОКИ] Не найдена роль для автоматической выдачи {MEDIA_TEAM_AUTO_ROLE_ID}.", flush=True)
+            return
+        try:
+            await after.add_roles(role, reason="Автовыдача роли участнику Команды медиа")
+            print(f"✅ [ИГРОКИ] Выдана роль {role.name} участнику {after} ({after.id}).", flush=True)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            print(f"❌ [ИГРОКИ] Не удалось выдать роль {role.id} участнику {after.id}: {error}", flush=True)
+
 
 # ================== ВЫДАЧА PLAYER ПРИ ВХОДЕ ==================
 @bot.event
@@ -1917,6 +1961,15 @@ async def on_ready():
                 except Exception as e:
                     print(f"❌ Не удалось выполнить очистку данных игроков: {e}")
         bot._player_data_reconciled = True
+
+    if not getattr(bot, "_media_team_roles_synced", False):
+        media_guild = bot.get_guild(VERIFICATION_GUILD_ID)
+        if media_guild:
+            try:
+                await sync_media_team_member_role(media_guild)
+            except Exception as error:
+                print(f"❌ [ИГРОКИ] Ошибка синхронизации ролей Команды медиа: {error}", flush=True)
+        bot._media_team_roles_synced = True
     if not _console_reader_started:
         _console_reader_started = True
         asyncio.create_task(console_input_loop())
