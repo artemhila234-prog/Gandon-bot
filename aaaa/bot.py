@@ -90,6 +90,8 @@ STAFF_ROLES = [
 ]
 
 ALLOWED_GUILDS = [1546125037545988207]
+# Роли доступа сайта всегда создаются и синхронизируются на первом сервере.
+ACCESS_ROLES_GUILD_ID = 1546125037545988207
 
 # Тикеты также доступны на новом сервере GastWorld; остальные ограничения бота не меняются.
 TICKET_ALLOWED_GUILDS = [1492974397001171176]
@@ -1933,11 +1935,12 @@ async def on_ready():
     else:
         print(f"⚠️ [ВЕРИФИКАЦИЯ] Первый сервер {VERIFICATION_GUILD_ID} не найден.", flush=True)
 
-    # Автоматически создаём роли доступа и синхронизируем их ID с сайтом.
-    for access_guild_id in ALLOWED_GUILDS:
-        access_guild = bot.get_guild(access_guild_id)
-        if access_guild:
-            await ensure_control_panel_roles(access_guild)
+    # Роли доступа сайта обслуживаются только на первом сервере.
+    access_guild = bot.get_guild(ACCESS_ROLES_GUILD_ID)
+    if access_guild:
+        await ensure_control_panel_roles(access_guild)
+    else:
+        print(f"❌ [РОЛИ САЙТА] Первый сервер {ACCESS_ROLES_GUILD_ID} не найден. Проверь, что бот добавлен на него.", flush=True)
 
     # Тикет-система имеет отдельный список серверов и не меняет ограничения остальных функций.
     for ticket_guild_id in TICKET_ALLOWED_GUILDS:
