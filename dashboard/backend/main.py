@@ -1632,7 +1632,7 @@ async def internal_approve_request(user_id: str, request: Request):
         channel_payload = {
             "name": nick.lower().replace(" ", "-")[:90],
             "type": 0,
-            "parent_id": "1551950227865608292",
+            "parent_id": "1573332011739779164",
             "permission_overwrites": [
                 {"id": GUILD_ID, "type": 0, "deny": "1024"},
                 {"id": user_id, "type": 1, "allow": "68608"},
