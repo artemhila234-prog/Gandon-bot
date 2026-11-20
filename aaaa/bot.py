@@ -8,7 +8,7 @@ from collections import deque
 import uvicorn
 from discord import app_commands
 from discord.ext import commands
-from gastworld_sheets import sync_staff_row, remove_staff_row
+from aaaa.gastworld_sheets import sync_staff_row, remove_staff_row
 import sqlite3
 import json
 import os
