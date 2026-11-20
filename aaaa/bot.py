@@ -708,7 +708,16 @@ def load_pending_requests():
         except (TypeError, json.JSONDecodeError):
             continue
         if request_type == "join":
-            pending_apps[user_id] = data
+            # Старые заявки без Embed-панели не должны блокировать повторную подачу.
+            if data.get("panel_message_id") and int(data.get("guild_id", 0)) == VERIFICATION_GUILD_ID:
+                pending_apps[int(user_id)] = data
+            else:
+                conn.execute(
+                    "DELETE FROM pending_requests WHERE request_type = 'join' AND user_id = ?",
+                    (int(user_id),)
+                )
+                print(f"ℹ️ [ВЕРИФИКАЦИЯ] Старая заявка {user_id} сброшена: можно подать заново.", flush=True)
+    conn.commit()
 
 load_pending_requests()
 
@@ -1233,19 +1242,29 @@ async def ensure_verification_guide(guild):
         except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
             guide_message = None
 
+    def is_existing_guide(candidate):
+        parts = [candidate.content or ""]
+        for candidate_embed in candidate.embeds:
+            parts.extend([candidate_embed.title or "", candidate_embed.description or ""])
+            parts.extend(field.name + " " + field.value for field in candidate_embed.fields)
+            if candidate_embed.footer and candidate_embed.footer.text == "GASTWORLD_VERIFICATION_GUIDE_V1":
+                return True
+        body = " ".join(parts).casefold()
+        return "1. ник" in body and "2. должность" in body and "3. возраст" in body
+
     if guide_message is None:
         try:
-            async for candidate in channel.history(limit=200):
-                if (
-                    candidate.author == bot.user
-                    and candidate.embeds
-                    and candidate.embeds[0].footer
-                    and candidate.embeds[0].footer.text == "GASTWORLD_VERIFICATION_GUIDE_V1"
-                ):
+            for candidate in await channel.pins():
+                if is_existing_guide(candidate):
                     guide_message = candidate
                     break
+            if guide_message is None:
+                async for candidate in channel.history(limit=200):
+                    if is_existing_guide(candidate):
+                        guide_message = candidate
+                        break
         except (discord.Forbidden, discord.HTTPException) as error:
-            print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось проверить историю канала: {error}", flush=True)
+            print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось проверить закреплённые сообщения/историю: {error}", flush=True)
 
     if guide_message is None:
         guide_message = await channel.send(embed=verification_guide_embed())
