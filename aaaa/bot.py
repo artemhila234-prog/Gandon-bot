@@ -2465,7 +2465,7 @@ async def run_services():
         },
     }
 
-    port = int(os.getenv("PORT", "25321"))
+    port = int(os.getenv("SERVER_PORT") or os.getenv("PORT") or "25819")
     config = uvicorn.Config(
         panel_app,
         host="0.0.0.0",
