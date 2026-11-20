@@ -1,14 +1,14 @@
-# WhiteGrief Control Panel
+# GastWorld Control Panel
 
-Веб-панель для управления Discord-ботом WhiteGrief. Фронтенд и backend размещаются отдельно от Bot-Hosting, где работает сам бот.
+Веб-панель для управления Discord-ботом GastWorld. Фронтенд и backend размещаются отдельно от Bot-Hosting, где работает сам бот.
 
 ## Текущая стадия
 
 - Тёмный адаптивный интерфейс.
 - Discord OAuth2 вход.
-- Проверка, что пользователь состоит на Discord-сервере WhiteGrief.
+- Проверка, что пользователь состоит на Discord-сервере GastWorld.
 - Получение ролей пользователя через Discord API на серверной стороне.
-- Проверка членства в Discord-сервере WhiteGrief: участники вне сервера не получают доступ.
+- Проверка членства в Discord-сервере GastWorld: участники вне сервера не получают доступ.
 - Четыре уровня доступа: `Media`, `Co.Adm`, `Adm`, `Full`; без одной из этих ролей участник получает `None` (нет доступа).
 - Бот автоматически создаёт роли `Media`, `Co.Adm » уровень доступа`, `Adm » уровень доступа`, `Full » уровень доступа`.
 - После успешного одобрения заявки `!принят` бот автоматически выдаёт участнику роль `Media` и снимает временную роль ожидания.
@@ -24,7 +24,7 @@
 
 1. Создай Discord Application в Discord Developer Portal.
 2. В разделе OAuth2 добавь Redirect URL: `http://localhost:8000/auth/callback`.
-3. Убедись, что бот WhiteGrief находится на сервере и может просматривать участников и роли.
+3. Убедись, что бот GastWorld находится на сервере и может просматривать участников и роли.
 4. Скопируй `.env.example` в `dashboard/backend/.env` (или создай этот файл вручную) и заполни настройки. Не загружай настоящий `.env` в GitHub.
 5. Установи зависимости и запусти backend:
 
@@ -44,7 +44,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 - `DISCORD_CLIENT_ID` — Application ID Discord-приложения.
 - `DISCORD_CLIENT_SECRET` — OAuth2 Client Secret.
 - `DISCORD_BOT_TOKEN` — токен бота, только на backend-хостинге.
-- `DISCORD_GUILD_ID` — ID Discord-сервера WhiteGrief.
+- `DISCORD_GUILD_ID` — ID Discord-сервера GastWorld.
 - `DISCORD_REDIRECT_URI` — полный адрес callback, он должен совпадать с Discord Developer Portal.
 - `SESSION_SECRET` — случайный длинный секрет для подписи cookie.
 - `COOKIE_HTTPS_ONLY=true` — включать в production за HTTPS.
