@@ -86,6 +86,9 @@ STAFF_ROLES = [
 
 ALLOWED_GUILDS = [1546125037545988207]
 
+# Тикеты также доступны на новом сервере GastWorld; остальные ограничения бота не меняются.
+TICKET_ALLOWED_GUILDS = [1492974397001171176]
+
 # ================== БАЗА ДАННЫХ ==================
 # База хранится рядом с bot.py; путь можно задать через BOT_DB_PATH.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -499,8 +502,9 @@ def ticket_accepting(guild_id):
     row = conn.execute("SELECT accepting FROM support_ticket_config WHERE guild_id=?", (str(guild_id),)).fetchone()
     return bool(row[0]) if row else True
 
-def ticket_embed_panel():
-    accepting = ticket_accepting(ALLOWED_GUILDS[0])
+def ticket_embed_panel(guild_id=None):
+    guild_id = int(guild_id or TICKET_ALLOWED_GUILDS[0])
+    accepting = ticket_accepting(guild_id)
     description = ("Нашёл баг или ошибку в Discord-боте либо на сайте WhiteGrief?\\n\\nНажми **«Создать тикет»** ниже и опиши проблему — команда поддержки увидит обращение и поможет разобраться.\\n\\nУкажи, что произошло и как повторить ошибку. При необходимости приложи скриншоты. Для каждой проблемы создавай отдельный тикет." if accepting else "Приём новых обращений временно закрыт.\\n\\nСуществующие тикеты продолжают работать. Попробуй отправить обращение позже.")
     embed = discord.Embed(title="❗ Поддержка WhiteGrief", description=description, color=0xFFFFFF)
     embed.set_footer(text="WhiteGrief • Служба поддержки")
@@ -512,8 +516,8 @@ class TicketCreateModal(discord.ui.Modal, title="Новое обращение")
     async def on_submit(self, interaction):
         await interaction.response.defer(ephemeral=True, thinking=True)
         guild = interaction.guild
-        if guild is None or guild.id not in ALLOWED_GUILDS:
-            await interaction.followup.send("Тикеты доступны только на сервере WhiteGrief.", ephemeral=True); return
+        if guild is None or guild.id not in TICKET_ALLOWED_GUILDS:
+            await interaction.followup.send("Тикеты доступны только на сервере GastWorld.", ephemeral=True); return
         if not ticket_accepting(guild.id):
             await interaction.followup.send("🚫 Приём новых тикетов сейчас закрыт. Попробуй позже.", ephemeral=True); return
         old = conn.execute("SELECT channel_id FROM support_tickets WHERE guild_id=? AND user_id=? AND status='open'", (str(guild.id),str(interaction.user.id))).fetchone()
@@ -540,9 +544,10 @@ class TicketCreateModal(discord.ui.Modal, title="Новое обращение")
         await interaction.followup.send(f"✅ Тикет создан: {channel.mention}",ephemeral=True)
 
 class TicketPanelView(discord.ui.View):
-    def __init__(self):
+    def __init__(self, guild_id=None):
         super().__init__(timeout=None)
-        accepting = ticket_accepting(ALLOWED_GUILDS[0])
+        guild_id = int(guild_id or TICKET_ALLOWED_GUILDS[0])
+        accepting = ticket_accepting(guild_id)
         button = discord.ui.Button(label="Создать тикет" if accepting else "Приём закрыт",style=discord.ButtonStyle.secondary,emoji="🎫",custom_id=TICKET_PANEL_CUSTOM_ID,disabled=not accepting)
         button.callback = self.create
         self.add_item(button)
@@ -624,8 +629,8 @@ async def ensure_ticket_system(guild):
     if panel_message is None:
         async for candidate in panel.history(limit=50):
             if candidate.author==bot.user and candidate.embeds and candidate.embeds[0].title=="❗ Поддержка WhiteGrief": panel_message=candidate; break
-    if panel_message is None: panel_message=await panel.send(embed=ticket_embed_panel(),view=TicketPanelView())
-    else: await panel_message.edit(embed=ticket_embed_panel(),view=TicketPanelView())
+    if panel_message is None: panel_message=await panel.send(embed=ticket_embed_panel(guild.id),view=TicketPanelView(guild.id))
+    else: await panel_message.edit(embed=ticket_embed_panel(guild.id),view=TicketPanelView(guild.id))
     conn.execute("UPDATE support_ticket_config SET panel_message_id=? WHERE guild_id=?",(str(panel_message.id),str(guild.id))); conn.commit()
     print(f"🎫 [ТИКЕТЫ] Панель готова: #{panel.name}; категория {category.name}",flush=True)
 
@@ -1767,7 +1772,8 @@ async def on_ready():
         asyncio.create_task(console_input_loop())
 
     if not getattr(bot, "_ticket_views_registered", False):
-        bot.add_view(TicketPanelView())
+        for ticket_guild_id in TICKET_ALLOWED_GUILDS:
+            bot.add_view(TicketPanelView(ticket_guild_id))
         bot.add_view(TicketControlView())
         bot._ticket_views_registered = True
 
@@ -1776,10 +1782,17 @@ async def on_ready():
         access_guild = bot.get_guild(access_guild_id)
         if access_guild:
             await ensure_control_panel_roles(access_guild)
+
+    # Тикет-система имеет отдельный список серверов и не меняет ограничения остальных функций.
+    for ticket_guild_id in TICKET_ALLOWED_GUILDS:
+        ticket_guild = bot.get_guild(ticket_guild_id)
+        if ticket_guild:
             try:
-                await ensure_ticket_system(access_guild)
+                await ensure_ticket_system(ticket_guild)
             except Exception as error:
-                print(f"❌ [ТИКЕТЫ] Ошибка настройки: {error}", flush=True)
+                print(f"❌ [ТИКЕТЫ] Ошибка настройки на {ticket_guild_id}: {error}", flush=True)
+        else:
+            print(f"⚠️ [ТИКЕТЫ] Сервер GastWorld {ticket_guild_id} не найден в подключении бота.", flush=True)
 
     # Регистрируем команды только как серверные (guild commands).
     # Старые глобальные команды удаляем ниже, чтобы Discord не показывал
