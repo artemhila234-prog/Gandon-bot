@@ -1622,12 +1622,28 @@ async def internal_approve_request(user_id: str, request: Request):
         roles = {str(x) for x in member.get("roles", [])}
         new_nick = f"{nick} | {position}"[:32]
         await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"nick": new_nick})
-        roles.update({
-            "1493196315205566545",  # Команда медиа (актуальная роль первого сервера)
-            "1546125519240564797",  # 🔮» Media
-            "1573343622986862602",  # Media » уровень доступа (актуальная роль первого сервера)
-        })
-        roles.discard("1567152429093363782")  # Снять ожидание верификации
+        normalized_position = position.casefold().strip()
+        if normalized_position in {"tt", "тт", "tiktok", "тикток"}:
+            first_server_role_ids = (
+                "1493615940741365881",
+                "1573343622986862602",
+                "1493196315205566545",
+                "1492975006446260306",
+            )
+        elif normalized_position in {"yt", "ютуб", "youtube"}:
+            first_server_role_ids = (
+                "1493615940741365881",
+                "1573343622986862602",
+                "1493196315205566545",
+                "1492975112985645166",
+            )
+        else:
+            raise HTTPException(status_code=409, detail=f"Неизвестная должность в заявке: {position}")
+
+        roles.update(first_server_role_ids)
+        # После успешной верификации снимаем обе роли ожидания/предварительной проверки.
+        roles.discard("1520158772067041314")
+        roles.discard("1567152429093363782")
         await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(roles)})
 
         # На втором сервере выдаём общую роль и роль выбранной площадки.
