@@ -93,7 +93,7 @@ ALLOWED_GUILDS = [1546125037545988207]
 # Роли доступа сайта всегда создаются и синхронизируются на первом сервере.
 ACCESS_ROLES_GUILD_ID = 1546125037545988207
 
-# Тикеты также доступны на новом сервере GastWorld; остальные ограничения бота не меняются.
+# Тикет-система работает исключительно на первом сервере.
 TICKET_ALLOWED_GUILDS = [1546125037545988207]
 
 # ================== БАЗА ДАННЫХ ==================
@@ -1906,6 +1906,8 @@ async def console_input_loop():
 async def on_ready():
     global _console_reader_started
     print(f'Бот {bot.user} запущен!')
+    connected = ", ".join(f"{guild.name} ({guild.id})" for guild in bot.guilds) or "нет серверов"
+    print(f"🌐 Discord-серверы, видимые боту: {connected}", flush=True)
     if not getattr(bot, "_player_data_reconciled", False):
         for guild_id in ALLOWED_GUILDS:
             guild = bot.get_guild(guild_id)
@@ -1951,7 +1953,7 @@ async def on_ready():
             except Exception as error:
                 print(f"❌ [ТИКЕТЫ] Ошибка настройки на {ticket_guild_id}: {error}", flush=True)
         else:
-            print(f"⚠️ [ТИКЕТЫ] Сервер GastWorld {ticket_guild_id} не найден в подключении бота.", flush=True)
+            print(f"⚠️ [ТИКЕТЫ] Первый сервер {ticket_guild_id} не найден в подключении бота.", flush=True)
 
     # Регистрируем команды только как серверные (guild commands).
     # Старые глобальные команды удаляем ниже, чтобы Discord не показывал
