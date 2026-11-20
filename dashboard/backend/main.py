@@ -1629,6 +1629,37 @@ async def internal_approve_request(user_id: str, request: Request):
         })
         roles.discard("1567152429093363782")  # Снять ожидание верификации
         await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(roles)})
+
+        # Должностная роль выдаётся на втором сервере, по сохранённой должности заявки.
+        secondary_guild_id = "1454858971084230822"
+        secondary_role_ids = {
+            "tt": "1519405529028624455",
+            "тт": "1519405529028624455",
+            "tiktok": "1519405529028624455",
+            "тикток": "1519405529028624455",
+            "yt": "1556575041657774100",
+            "ютуб": "1556575041657774100",
+            "youtube": "1556575041657774100",
+        }
+        normalized_position = position.casefold().strip()
+        secondary_role_id = secondary_role_ids.get(normalized_position)
+        secondary_role_status = "not_applicable"
+        if secondary_role_id:
+            try:
+                await discord_request("GET", f"/guilds/{secondary_guild_id}/members/{user_id}")
+                await discord_request(
+                    "PUT",
+                    f"/guilds/{secondary_guild_id}/members/{user_id}/roles/{secondary_role_id}",
+                )
+                secondary_role_status = "granted"
+                print(f"✅ [ЗАЯВКИ] Выдана должностная роль {normalized_position.upper()} ({secondary_role_id}) на сервере {secondary_guild_id} пользователю {user_id}.", flush=True)
+            except HTTPException as exc:
+                secondary_role_status = f"failed: {exc.detail}"
+                print(f"❌ [ЗАЯВКИ] Не удалось выдать должностную роль {normalized_position.upper()} ({secondary_role_id}) на сервере {secondary_guild_id} пользователю {user_id}: {exc.detail}", flush=True)
+        else:
+            secondary_role_status = f"unknown_position: {position}"
+            print(f"⚠️ [ЗАЯВКИ] Неизвестная должность '{position}' у заявки {user_id}; роль второго сервера не выбрана.", flush=True)
+        await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(roles)})
         channel_payload = {
             "name": nick.lower().replace(" ", "-")[:90],
             "type": 0,
@@ -1687,7 +1718,7 @@ async def internal_approve_request(user_id: str, request: Request):
             "allowed_mentions": {"parse": [], "users": [user_id]},
         }
         await discord_request("POST", f"/channels/{channel_id}/messages", payload=welcome)
-        return {"ok": True, "user_id": user_id, "username": target_name, "actor_name": actor_name}
+        return {"ok": True, "user_id": user_id, "username": target_name, "actor_name": actor_name, "secondary_role": secondary_role_status}
     except HTTPException:
         raise
     except (sqlite3.Error, json.JSONDecodeError, KeyError, TypeError) as exc:
