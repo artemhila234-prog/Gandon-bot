@@ -23,8 +23,8 @@ BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN", "")
 REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8000/auth/callback")
 # OAuth, членство, роли и доступ к панели всегда проверяются на первом сервере GastWorld (1492974397001171176).
 GUILD_ID = "1492974397001171176"
-PLAYER_LIST_ROLE_ID = "1493196315205566500"  # Роль «Команда медиа» для вкладки «Игроки»
-AUDIT_LOG_CHANNEL_ID = os.getenv("AUDIT_LOG_CHANNEL_ID", "1546125784026972262")
+PLAYER_LIST_ROLE_ID = "1493196315205566545"  # Роль «Команда медиа» для вкладки «Игроки»
+AUDIT_LOG_CHANNEL_ID = os.getenv("AUDIT_LOG_CHANNEL_ID", "1573032052666663032")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "")
 BOT_SYNC_SECRET = os.getenv("BOT_SYNC_SECRET", "")
 BOT_API_URL = os.getenv("BOT_API_URL", "").rstrip("/")
@@ -343,7 +343,7 @@ WARN_ROLE_IDS = {1: "1546125538198823033", 2: "1546125541571043398", 3: "1546125
 PROTECTED_ROLE_IDS = {"1546125455633944598", "1546125498340614195", "1546125488496451686", "1546125469093732372", "1546125465482174484", "1547654044263252038", "1546125472897961984", "1546125480321749053", "1550200782177968178"}
 
 def bot_database_path() -> str:
-    return os.getenv("BOT_DB_PATH", os.path.join(os.path.dirname(BASE_DIR), "bot_data.db"))
+    return os.getenv("BOT_DB_PATH", os.path.join(os.path.dirname(BASE_DIR), "aaaa", "bot_data.db"))
 
 async def discord_request(method: str, path: str, *, payload: dict[str, Any] | None = None) -> Any:
     if not BOT_TOKEN:
