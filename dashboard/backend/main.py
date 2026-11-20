@@ -843,20 +843,35 @@ async def api_ticket_status(channel_id: str, request: Request):
     })
 
 
+MESSAGE_GUILDS = {
+    "1492974397001171176": "Первый сервер · GastWorld MEDIA",
+    "1454858971084230822": "Второй сервер · GastWorld",
+}
+
+
 @app.get("/api/messages/channels")
-async def api_message_channels(request: Request):
+async def api_message_channels(request: Request, guild_id: str = "1492974397001171176"):
     user = await require_access(request, "adm")
-    channels = await discord_request("GET", f"/guilds/{GUILD_ID}/channels")
+    guild_id = str(guild_id).strip()
+    if guild_id not in MESSAGE_GUILDS:
+        raise HTTPException(status_code=400, detail="Выбран неизвестный Discord-сервер.")
+    channels = await discord_request("GET", f"/guilds/{guild_id}/channels")
     items = []
     for channel in channels if isinstance(channels, list) else []:
-        if channel.get("type") in (0, 5) and str(channel.get("guild_id", GUILD_ID)) == GUILD_ID:
+        if channel.get("type") in (0, 5) and str(channel.get("guild_id", guild_id)) == guild_id:
             items.append({
                 "id": str(channel.get("id", "")),
                 "name": str(channel.get("name", "")),
                 "parent_name": str(channel.get("parent_name") or ""),
             })
     items.sort(key=lambda item: (item["parent_name"].casefold(), item["name"].casefold()))
-    return {"channels": items, "sender": {"username": user.get("username", "Администратор"), "discord_username": user.get("discord_username", "")}}
+    return {
+        "guild_id": guild_id,
+        "guild_name": MESSAGE_GUILDS[guild_id],
+        "servers": [{"id": key, "name": value} for key, value in MESSAGE_GUILDS.items()],
+        "channels": items,
+        "sender": {"username": user.get("username", "Администратор"), "discord_username": user.get("discord_username", "")},
+    }
 
 
 @app.get("/api/messages/history")
@@ -866,12 +881,13 @@ async def api_message_history(request: Request, channel_id: str):
     if not channel_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID канала.")
     channel = await discord_request("GET", f"/channels/{channel_id}")
-    if str(channel.get("guild_id", "")) != GUILD_ID:
-        raise HTTPException(status_code=403, detail="Этот канал не принадлежит серверу GastWorld.")
+    guild_id = str(channel.get("guild_id", ""))
+    if guild_id not in MESSAGE_GUILDS:
+        raise HTTPException(status_code=403, detail="История доступна только для двух серверов GastWorld.")
     raw_messages = await discord_request("GET", f"/channels/{channel_id}/messages?limit=50")
     channel_names = {}
     try:
-        guild_channels = await discord_request("GET", f"/guilds/{GUILD_ID}/channels")
+        guild_channels = await discord_request("GET", f"/guilds/{guild_id}/channels")
         if isinstance(guild_channels, list):
             channel_names = {str(c.get("id")): str(c.get("name") or "канал") for c in guild_channels}
     except Exception:
@@ -1032,8 +1048,8 @@ async def api_send_message(request: Request):
     if not content and not payload.get("embeds") and not discord_files:
         raise HTTPException(status_code=400, detail="Добавь текст, Embed или хотя бы один файл.")
     channel = await discord_request("GET", f"/channels/{channel_id}")
-    if str(channel.get("guild_id", "")) != GUILD_ID or channel.get("type") not in (0, 5):
-        raise HTTPException(status_code=400, detail="Можно отправлять только в текстовые каналы GastWorld.")
+    if str(channel.get("guild_id", "")) not in MESSAGE_GUILDS or channel.get("type") not in (0, 5):
+        raise HTTPException(status_code=400, detail="Можно отправлять только в текстовые каналы двух серверов GastWorld.")
 
     if discord_files:
         files_payload = {f"files[{index}]": item for index, item in enumerate(discord_files)}
