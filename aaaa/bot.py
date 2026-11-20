@@ -18,7 +18,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 # --- Каналы и категории ---
 REPORT_CHANNEL_ID = 1231958902474678364
 JOIN_CHANNEL_ID = 1563918554829422704
-CATEGORY_ID = 1551950227865608292
+CATEGORY_ID = 1573332011739779164  # Категория личных каналов медиа на первом сервере
 VERIFICATION_GUILD_ID = 1492974397001171176
 SECONDARY_ROLE_GUILD_ID = 1454858971084230822
 VERIFICATION_REVIEW_ROLE_ID = 1493607029053587647
@@ -1505,6 +1505,17 @@ async def process_verification_decision(interaction, applicant_id, *, accepted):
                         print(f"❌ [ВЕРИФИКАЦИЯ] Не удалось выдать роль {role_id} пользователю {applicant_id}: {error}", flush=True)
 
     category = guild.get_channel(CATEGORY_ID) if CATEGORY_ID else None
+    if category is None and CATEGORY_ID:
+        try:
+            category = await guild.fetch_channel(CATEGORY_ID)
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException) as error:
+            print(f"❌ [ВЕРИФИКАЦИЯ] Не удалось получить категорию личных каналов {CATEGORY_ID}: {error}", flush=True)
+            await interaction.followup.send("Не удалось найти категорию для личного канала. Канал не создан, чтобы не разместить его вне категории.", ephemeral=True)
+            return
+    if not isinstance(category, discord.CategoryChannel) or category.guild.id != guild.id:
+        print(f"❌ [ВЕРИФИКАЦИЯ] ID {CATEGORY_ID} не является категорией на первом сервере.", flush=True)
+        await interaction.followup.send("Указанная категория личных каналов не найдена на этом сервере. Канал не создан.", ephemeral=True)
+        return
     channel_name = re.sub(r"[^a-z0-9а-яё_-]+", "-", nick.casefold()).strip("-")[:90] or f"media-{applicant_id}"
     overwrites = {
         guild.default_role: discord.PermissionOverwrite(read_messages=False),
