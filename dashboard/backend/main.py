@@ -1630,35 +1630,37 @@ async def internal_approve_request(user_id: str, request: Request):
         roles.discard("1567152429093363782")  # Снять ожидание верификации
         await discord_request("PATCH", f"/guilds/{GUILD_ID}/members/{user_id}", payload={"roles": sorted(roles)})
 
-        # Должностная роль выдаётся на втором сервере, по сохранённой должности заявки.
+        # На втором сервере выдаём общую роль и роль выбранной площадки.
         secondary_guild_id = "1454858971084230822"
-        secondary_role_ids = {
-            "tt": "1519405529028624455",
-            "тт": "1519405529028624455",
-            "tiktok": "1519405529028624455",
-            "тикток": "1519405529028624455",
+        common_secondary_role_id = "1573415226186010795"
+        platform_role_ids = {
+            "tt": "1573415527932629173",
+            "тт": "1573415527932629173",
+            "tiktok": "1573415527932629173",
+            "тикток": "1573415527932629173",
             "yt": "1556575041657774100",
             "ютуб": "1556575041657774100",
             "youtube": "1556575041657774100",
         }
         normalized_position = position.casefold().strip()
-        secondary_role_id = secondary_role_ids.get(normalized_position)
+        platform_role_id = platform_role_ids.get(normalized_position)
         secondary_role_status = "not_applicable"
-        if secondary_role_id:
+        if platform_role_id:
             try:
                 await discord_request("GET", f"/guilds/{secondary_guild_id}/members/{user_id}")
-                await discord_request(
-                    "PUT",
-                    f"/guilds/{secondary_guild_id}/members/{user_id}/roles/{secondary_role_id}",
-                )
+                for role_id in (common_secondary_role_id, platform_role_id):
+                    await discord_request(
+                        "PUT",
+                        f"/guilds/{secondary_guild_id}/members/{user_id}/roles/{role_id}",
+                    )
+                    print(f"✅ [ЗАЯВКИ] Выдана роль {role_id} на втором сервере пользователю {user_id}.", flush=True)
                 secondary_role_status = "granted"
-                print(f"✅ [ЗАЯВКИ] Выдана должностная роль {normalized_position.upper()} ({secondary_role_id}) на сервере {secondary_guild_id} пользователю {user_id}.", flush=True)
             except HTTPException as exc:
                 secondary_role_status = f"failed: {exc.detail}"
-                print(f"❌ [ЗАЯВКИ] Не удалось выдать должностную роль {normalized_position.upper()} ({secondary_role_id}) на сервере {secondary_guild_id} пользователю {user_id}: {exc.detail}", flush=True)
+                print(f"❌ [ЗАЯВКИ] Не удалось выдать комплект ролей TT/YT на сервере {secondary_guild_id} пользователю {user_id}: {exc.detail}", flush=True)
         else:
             secondary_role_status = f"unknown_position: {position}"
-            print(f"⚠️ [ЗАЯВКИ] Неизвестная должность '{position}' у заявки {user_id}; роль второго сервера не выбрана.", flush=True)
+            print(f"⚠️ [ЗАЯВКИ] Неизвестная должность '{position}' у заявки {user_id}; роли второго сервера не выбраны.", flush=True)
         channel_payload = {
             "name": nick.lower().replace(" ", "-")[:90],
             "type": 0,
