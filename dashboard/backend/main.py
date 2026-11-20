@@ -23,7 +23,7 @@ BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN", "")
 REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8000/auth/callback")
 # OAuth, членство, роли и доступ к панели всегда проверяются на первом сервере GastWorld (1492974397001171176).
 GUILD_ID = "1492974397001171176"
-PLAYER_LIST_ROLE_ID = "1546125522675962027"
+PLAYER_LIST_ROLE_ID = "1493196315205566500"  # Роль «Команда медиа» для вкладки «Игроки»
 AUDIT_LOG_CHANNEL_ID = os.getenv("AUDIT_LOG_CHANNEL_ID", "1546125784026972262")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "")
 BOT_SYNC_SECRET = os.getenv("BOT_SYNC_SECRET", "")
@@ -1204,7 +1204,7 @@ async def api_players(request: Request):
     }
 
     try:
-        # Получаем всех участников сервера постранично, затем оставляем только нужную роль.
+        # Получаем всех участников первого сервера и оставляем только роль «Команда медиа».
         members = []
         after = "0"
         while True:
