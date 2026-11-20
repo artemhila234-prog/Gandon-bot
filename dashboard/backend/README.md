@@ -1,12 +1,12 @@
-# WhiteGrief Control Panel — backend
+# GastWorld Control Panel — backend
 
-FastAPI backend for the dashboard. Discord OAuth2 login is implemented, with server-side membership and role verification against the configured WhiteGrief Discord server.
+FastAPI backend for the dashboard. Discord OAuth2 login is implemented, with server-side membership and role verification against the configured GastWorld Discord server.
 
 ## Local setup
 
 1. Create a Discord application in the Discord Developer Portal.
 2. In OAuth2 settings, add the exact redirect URL: `http://localhost:8000/auth/callback`.
-3. Invite the existing WhiteGrief bot to the server if it is not already there. It must be able to view server members. Enable the Server Members Intent for the bot in the Developer Portal if required by your bot configuration.
+3. Invite the existing GastWorld bot to the server if it is not already there. It must be able to view server members. Enable the Server Members Intent for the bot in the Developer Portal if required by your bot configuration.
 4. Copy `.env.example` to `.env` and fill in the OAuth client ID, client secret, bot token, and a long random session secret.
 5. Install and run:
 
