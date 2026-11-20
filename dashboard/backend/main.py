@@ -112,7 +112,7 @@ def get_role_access_map() -> dict[str, str]:
         ).fetchall()
     return {str(role_id): level for role_id, level in rows}
 
-app = FastAPI(title="WhiteGrief Control Panel API")
+app = FastAPI(title="GastWorld Control Panel API")
 if not SESSION_SECRET:
     # Local-only fallback. Set a long random SESSION_SECRET before deployment.
     SESSION_SECRET = secrets.token_urlsafe(48)
@@ -192,7 +192,7 @@ async def refresh_session_user(request: Request) -> dict[str, Any] | None:
 async def require_user(request: Request) -> dict[str, Any]:
     user = await refresh_session_user(request)
     if not user:
-        raise HTTPException(status_code=401, detail="Нет доступа. Войди через Discord и проверь роль WhiteGrief.")
+        raise HTTPException(status_code=401, detail="Нет доступа. Войди через Discord и проверь роль GastWorld.")
     return user
 
 
@@ -297,14 +297,14 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
         guild_roles = await discord_get(f"/guilds/{GUILD_ID}/roles", BOT_TOKEN, bot=True)
     except HTTPException as exc:
         if "404" in str(exc.detail):
-            raise HTTPException(status_code=403, detail="Ты не состоишь на Discord-сервере WhiteGrief.")
+            raise HTTPException(status_code=403, detail="Ты не состоишь на Discord-сервере GastWorld.")
         raise
 
     member_role_ids = [str(role_id) for role_id in member.get("roles", [])]
     role_names = {str(role["id"]): role["name"] for role in guild_roles}
     access = calculate_access(member_role_ids)
     if access == "none":
-        raise HTTPException(status_code=403, detail="У тебя нет роли доступа WhiteGrief Control Panel. Обратись к администрации Media.")
+        raise HTTPException(status_code=403, detail="У тебя нет роли доступа GastWorld Control Panel. Обратись к администрации Media.")
 
     request.session.clear()
     request.session["user"] = {
@@ -454,7 +454,7 @@ async def api_access_members(request: Request):
         "assignable_roles": assignable_roles,
         "total_members": len(members),
         "total_roles": len(role_items),
-        "guild_name": "WhiteGrief",
+        "guild_name": "GastWorld",
         "guild_id": GUILD_ID,
     }
 
@@ -524,7 +524,7 @@ async def api_settings(request: Request):
         "global_settings": get_global_panel_settings(),
         "configuration": configuration_status() if is_admin else None,
         "guild_id": GUILD_ID if is_admin else None,
-        "guild_name": "WhiteGrief" if is_admin else None,
+        "guild_name": "GastWorld" if is_admin else None,
         "discord_connected": False,
         "roles": [],
         "channels": [],
@@ -866,7 +866,7 @@ async def api_message_history(request: Request, channel_id: str):
         raise HTTPException(status_code=400, detail="Некорректный ID канала.")
     channel = await discord_request("GET", f"/channels/{channel_id}")
     if str(channel.get("guild_id", "")) != GUILD_ID:
-        raise HTTPException(status_code=403, detail="Этот канал не принадлежит серверу WhiteGrief.")
+        raise HTTPException(status_code=403, detail="Этот канал не принадлежит серверу GastWorld.")
     raw_messages = await discord_request("GET", f"/channels/{channel_id}/messages?limit=50")
     channel_names = {}
     try:
@@ -977,7 +977,7 @@ async def api_send_message(request: Request):
     if not sender_id.isdigit():
         raise HTTPException(status_code=400, detail="Не удалось определить Discord ID отправителя. Перезайди в панель.")
     sender_mention = f"<@{sender_id}>"
-    attribution = f"-# Отправитель: {sender_mention} · WhiteGrief Control Panel"
+    attribution = f"-# Отправитель: {sender_mention} · GastWorld Control Panel"
     has_embed = isinstance(embed_data, dict) and bool(str(embed_data.get("title", "")).strip() or str(embed_data.get("description", "")).strip())
     if has_embed:
         embed_description = str(embed_data.get("description", "")).strip()
@@ -1032,7 +1032,7 @@ async def api_send_message(request: Request):
         raise HTTPException(status_code=400, detail="Добавь текст, Embed или хотя бы один файл.")
     channel = await discord_request("GET", f"/channels/{channel_id}")
     if str(channel.get("guild_id", "")) != GUILD_ID or channel.get("type") not in (0, 5):
-        raise HTTPException(status_code=400, detail="Можно отправлять только в текстовые каналы WhiteGrief.")
+        raise HTTPException(status_code=400, detail="Можно отправлять только в текстовые каналы GastWorld.")
 
     if discord_files:
         files_payload = {f"files[{index}]": item for index, item in enumerate(discord_files)}
@@ -1397,7 +1397,7 @@ async def internal_console(request: Request):
     require_bot_data_secret(request)
     controller = getattr(app.state, "bot_controller", None)
     if not controller:
-        return {"status": {"online": False, "bot_name": "WhiteGrief", "guild_name": "Нет подключения к процессу бота", "guild_count": 0, "latency_ms": None}, "available": False}
+        return {"status": {"online": False, "bot_name": "GastWorld", "guild_name": "Нет подключения к процессу бота", "guild_count": 0, "latency_ms": None}, "available": False}
     try:
         status = await controller["status"]()
     except Exception as error:
@@ -1622,7 +1622,7 @@ async def internal_approve_request(user_id: str, request: Request):
         accepted = {
             "embeds": [{
                 "title": "✅ ЗАЯВКА ОДОБРЕНА",
-                "description": f"<@{user_id}> успешно принят в команду **WhiteGrief Media**!",
+                "description": f"<@{user_id}> успешно принят в команду **GastWorld Media**!",
                 "color": 65280,
                 "fields": [
                     {"name": "🎮 Игровой ник", "value": nick, "inline": True},
@@ -1631,7 +1631,7 @@ async def internal_approve_request(user_id: str, request: Request):
                     {"name": "🚀 Следующий шаг", "value": "Загляни в личный канал, ознакомься с инструкциями и приступай к работе!", "inline": False},
                     {"name": "Одобрил", "value": f"{actor_name} (<@{actor_id}>)", "inline": False},
                 ],
-                "footer": {"text": f"WHITEGRIEF MEDIA • Принял: {actor_name}"},
+                "footer": {"text": f"GASTWORLD MEDIA • Принял: {actor_name}"},
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }],
             "allowed_mentions": {"parse": [], "users": []},
@@ -1640,7 +1640,7 @@ async def internal_approve_request(user_id: str, request: Request):
         welcome = {
             "content": f"Привет, <@{user_id}>! Ты попал в команду Медиа.",
             "embeds": [{
-                "title": "🎬 WHITEGRIEF MEDIA",
+                "title": "🎬 GASTWORLD MEDIA",
                 "description": (
                     f"**Добро пожаловать в команду Медиа, <@{user_id}>!**\n"
                     "Рады видеть тебя среди нас. Здесь собрана важная информация о работе, баллах и покупках."
@@ -1653,9 +1653,9 @@ async def internal_approve_request(user_id: str, request: Request):
                     {"name": "💰 2. ПОЛУЧЕНИЕ БАЛЛОВ", "value": "**1.** Твой никнейм: `(твой ник в игре)`\n**2.** Сколько хочешь получить баллов: `(количество)`\n**3.** Ссылка на ролик: `(ссылка)`", "inline": False},
                     {"name": "🛒 3. ПОКУПКА ЗА БАЛЛЫ", "value": "**1.** Твой никнейм: `(твой ник в игре)`\n**2.** Что хочешь купить: `(название товара)`", "inline": False},
                     {"name": "⭐ НЕСКОЛЬКО ВАЖНЫХ СОВЕТОВ", "value": "• Проверяй ссылки перед отправкой.\n• Указывай точное количество баллов.\n• Перед покупкой проверяй баланс.\n• Сохраняй ссылки на опубликованные ролики.", "inline": False},
-                    {"name": "🔥 СНИМАЙ • ПУБЛИКУЙ • ЗАРАБАТЫВАЙ", "value": "**Твои ролики — твой вклад в развитие WhiteGrief Media!**", "inline": False},
+                    {"name": "🔥 СНИМАЙ • ПУБЛИКУЙ • ЗАРАБАТЫВАЙ", "value": "**Твои ролики — твой вклад в развитие GastWorld Media!**", "inline": False},
                 ],
-                "footer": {"text": "WHITEGRIEF MEDIA • Удачной работы!"},
+                "footer": {"text": "GASTWORLD MEDIA • Удачной работы!"},
             }],
             "allowed_mentions": {"parse": [], "users": [user_id]},
         }
@@ -1709,7 +1709,7 @@ async def internal_reject_request(user_id: str, request: Request):
                         {"name": "Должность", "value": str(app_data.get("position", "Не указана"))[:100], "inline": True},
                         {"name": "Отклонил", "value": f"{actor_name} (<@{actor_id}>)", "inline": False},
                     ],
-                    "footer": {"text": "WHITEGRIEF MEDIA • Заявки на вступление"},
+                    "footer": {"text": "GASTWORLD MEDIA • Заявки на вступление"},
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }],
                 "allowed_mentions": {"parse": [], "users": []},
@@ -1727,17 +1727,17 @@ async def internal_reject_request(user_id: str, request: Request):
             dm_channel_id = str(dm_channel["id"])
             dm_message = {
                 "embeds": [{
-                    "title": "❌ Заявка в WhiteGrief Media отклонена",
+                    "title": "❌ Заявка в GastWorld Media отклонена",
                     "description": (
                         "К сожалению, по итогам рассмотрения твоя заявка **не была одобрена**.\n\n"
-                        "Спасибо за интерес к команде **WhiteGrief Media** и за потраченное время. "
+                        "Спасибо за интерес к команде **GastWorld Media** и за потраченное время. "
                         "Не расстраивайся: это не повод останавливаться. "
                         "Если хочешь узнать подробности решения или получить рекомендации, "
                         "можешь обратиться к администрации проекта.\n\n"
                         "Желаем удачи!"
                     ),
                     "color": 14495300,
-                    "footer": {"text": "WHITEGRIEF MEDIA • Уведомление по заявке"},
+                    "footer": {"text": "GASTWORLD MEDIA • Уведомление по заявке"},
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }]
             }
@@ -1828,7 +1828,7 @@ async def internal_shop_purchase(request: Request):
                     (int(user_id),)
                 ).fetchone()
                 if not row:
-                    raise HTTPException(status_code=409, detail="У тебя пока нет личного канала WhiteGrief. Обратись к администрации.")
+                    raise HTTPException(status_code=409, detail="У тебя пока нет личного канала GastWorld. Обратись к администрации.")
                 balance, personal_channel_id = int(row[0] or 0), row[1]
                 if not personal_channel_id:
                     raise HTTPException(status_code=409, detail="Личный Discord-канал не найден. Обратись к администрации.")
@@ -1836,7 +1836,7 @@ async def internal_shop_purchase(request: Request):
                     raise HTTPException(status_code=409, detail=f"Недостаточно баллов. Нужно {price}, у тебя {balance}.")
                 channel = await discord_request("GET", f"/channels/{int(personal_channel_id)}")
                 if str(channel.get("guild_id", "")) != GUILD_ID:
-                    raise HTTPException(status_code=409, detail="Личный канал не принадлежит серверу WhiteGrief.")
+                    raise HTTPException(status_code=409, detail="Личный канал не принадлежит серверу GastWorld.")
                 balance_after = balance - price
                 db.execute("UPDATE users SET balance=? WHERE user_id=?", (balance_after, int(user_id)))
                 cursor = db.execute(
@@ -1859,7 +1859,7 @@ async def internal_shop_purchase(request: Request):
                 return {"ok": True, "purchase_id": order_id, "balance": balance_after, "notification_sent": False,
                         "message": "Покупка сохранена, но личный канал не найден."}
             embed = {
-                "title": "🛍️ Покупка через WhiteGrief Control Panel",
+                "title": "🛍️ Покупка через GastWorld Control Panel",
                 "description": f"**{display_name}** совершил покупку на сайте.",
                 "color": 0x8B5CF6,
                 "fields": [
@@ -1870,7 +1870,7 @@ async def internal_shop_purchase(request: Request):
                     {"name": "Номер покупки", "value": f"#{order_id}", "inline": True},
                     {"name": "Статус", "value": "Ожидает выдачи администрацией", "inline": False},
                 ],
-                "footer": {"text": "WHITEGRIEF • Покупка с сайта"},
+                "footer": {"text": "GASTWORLD • Покупка с сайта"},
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
             try:
@@ -1950,9 +1950,9 @@ async def internal_data_change_warns(user_id: str, request: Request):
             {"name": "Действие выполнил", "value": f"{actor_name} (<@{actor_id}>)", "inline": False},
             {"name": "Количество варнов", "value": f"{current} → {updated}", "inline": True},
             {"name": "Причина", "value": reason[:1000], "inline": False},
-            {"name": "Источник", "value": "WhiteGrief Control Panel", "inline": True},
+            {"name": "Источник", "value": "GastWorld Control Panel", "inline": True},
         ],
-        "footer": {"text": "WhiteGrief • Журнал модерации"},
+        "footer": {"text": "GastWorld • Журнал модерации"},
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     try:
@@ -2038,7 +2038,7 @@ async def tiktok_callback(code: str = "", state: str = "", error: str = "", erro
     })
     return HTMLResponse(
         "<!doctype html><html lang='ru'><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
-        "<title>WhiteGrief — TikTok</title><body style='background:#101018;color:#f4f1ff;font:16px Arial;display:grid;place-items:center;min-height:90vh'>"
+        "<title>GastWorld — TikTok</title><body style='background:#101018;color:#f4f1ff;font:16px Arial;display:grid;place-items:center;min-height:90vh'>"
         "<main style='max-width:520px;padding:32px;border:1px solid #38304f;border-radius:18px;background:#191624'>"
         "<h2>✅ TikTok подключён</h2><p>Аккаунт @" + username + " авторизован. Вернись в Discord и нажми кнопку «Проверить», "
         "чтобы подтвердить код в BIO.</p><p>Это окно можно закрыть.</p></main></body></html>"
