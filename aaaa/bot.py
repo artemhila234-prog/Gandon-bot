@@ -8,6 +8,7 @@ from collections import deque
 import uvicorn
 from discord import app_commands
 from discord.ext import commands
+from gastworld_sheets import sync_staff_row, remove_staff_row
 import sqlite3
 import json
 import os
@@ -115,6 +116,14 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS users (
     balance INTEGER DEFAULT 0,
     warns INTEGER DEFAULT 0,
     personal_channel_id INTEGER
+)''')
+
+cursor.execute('''CREATE TABLE IF NOT EXISTS media_staff_profiles (
+    user_id INTEGER PRIMARY KEY,
+    nickname TEXT NOT NULL,
+    position TEXT NOT NULL,
+    profile_url TEXT NOT NULL,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 )''')
 
 cursor.execute('''CREATE TABLE IF NOT EXISTS reports (
@@ -239,6 +248,23 @@ def get_personal_channel(user_id):
     cursor.execute('SELECT personal_channel_id FROM users WHERE user_id = ?', (user_id,))
     row = cursor.fetchone()
     return row[0] if row else None
+
+async def sync_staff_member_to_sheets(member):
+    if member is None:
+        return
+    try:
+        profile = conn.execute("SELECT nickname, position, profile_url FROM media_staff_profiles WHERE user_id = ?", (int(member.id),)).fetchone()
+        channel_id = get_personal_channel(member.id)
+        if not profile or not channel_id:
+            return
+        nickname, position, profile_url = profile
+        data = get_user_data(member.id)
+        personal_channel_url = f"https://discord.com/channels/{VERIFICATION_GUILD_ID}/{int(channel_id)}"
+        row_number = await asyncio.to_thread(sync_staff_row, nickname=nickname, personal_channel_url=personal_channel_url, profile_url=profile_url, position=position, warns=data['warns'], discord_id=member.id, points=data['balance'])
+        print(f"📊 [GOOGLE SHEETS] Обновлена строка {row_number} для {member.id} ({position}).", flush=True)
+    except Exception as error:
+        print(f"⚠️ [GOOGLE SHEETS] Не удалось обновить участника {member.id}: {error}", flush=True)
+
 
 def add_report(message_id, author_id, ban_number, mute_number, proof):
     cursor.execute('INSERT INTO reports (message_id, author_id, ban_number, mute_number, proof) VALUES (?, ?, ?, ?, ?)',
@@ -422,6 +448,7 @@ async def process_tiktok_video(message: discord.Message):
         )
         conn.commit()
         balance = int(conn.execute("SELECT balance FROM users WHERE user_id = ?", (message.author.id,)).fetchone()[0])
+        await sync_staff_member_to_sheets(message.author)
         embed = discord.Embed(title="🎉 Баллы за TikTok начислены",
             description=f"Видео принадлежит привязанному аккаунту **@{account[0]}**.", color=0x2ECC71)
         embed.add_field(name="Просмотры", value=f"{views:,}".replace(",", " "), inline=True)
@@ -955,6 +982,7 @@ async def process_purchase(interaction: discord.Interaction, item_key: str):
 
     update_balance(interaction.user.id, -price)
     add_purchase(interaction.user.id, item_key, price)
+    await sync_staff_member_to_sheets(interaction.user)
 
     embed = discord.Embed(
         title="✅ Успешно!",
@@ -1073,6 +1101,7 @@ async def warn(interaction: discord.Interaction, игрок: discord.Member, п�
 
     new_warns = current_warns + 1
     update_warns(игрок.id, new_warns)
+    await sync_staff_member_to_sheets(игрок)
 
     role1 = interaction.guild.get_role(WARN_1_ROLE_ID)
     role2 = interaction.guild.get_role(WARN_2_ROLE_ID)
@@ -1131,6 +1160,7 @@ async def unwarn(interaction: discord.Interaction, игрок: discord.Member, �
 
     new_warns = current_warns - 1
     update_warns(игрок.id, new_warns)
+    await sync_staff_member_to_sheets(игрок)
 
     role1 = interaction.guild.get_role(WARN_1_ROLE_ID)
     role2 = interaction.guild.get_role(WARN_2_ROLE_ID)
@@ -1235,6 +1265,15 @@ def normalize_media_position(value):
     return None
 
 
+def is_valid_media_profile_url(url, position):
+    value = str(url or "").strip().lower()
+    if position == "TT":
+        return bool(re.match(r"^https?://(?:www\\.)?tiktok\\.com/@[a-z0-9._-]+/?(?:\\?.*)?$", value))
+    if position == "YT":
+        return bool(re.match(r"^https?://(?:www\\.)?youtube\\.com/(?:@[a-z0-9._-]+|channel/[a-z0-9_-]+|c/[a-z0-9._-]+|user/[a-z0-9._-]+)/?(?:\\?.*)?$", value))
+    return False
+
+
 def verification_guide_embed():
     embed = discord.Embed(
         title="📋 Как правильно оформить заявку на верификацию",
@@ -1246,7 +1285,7 @@ def verification_guide_embed():
     )
     embed.add_field(
         name="📝 Форма заявки",
-        value="`1. Ник: Steve`\n`2. Должность: TT`\n`3. Возраст: 16`",
+        value="`1. Ник: Steve`\n`2. Должность: TT`\n`3. Ссылка на канал: https://www.tiktok.com/@username`",
         inline=False
     )
     embed.add_field(
@@ -1258,7 +1297,7 @@ def verification_guide_embed():
         name="⚠️ Важно",
         value=(
             "• Укажи правильный игровой ник.\n"
-            "• Заполни все пункты.\n"
+            "• Укажи ссылку на TikTok или YouTube профиль в зависимости от должности.\n"
             "• Не отправляй несколько заявок подряд.\n"
             "• Если заявку отклонили, исправь данные и отправь новую."
         ),
@@ -1423,7 +1462,8 @@ async def process_verification_decision(interaction, applicant_id, *, accepted):
 
     nick = str(app_data.get("nick", "")).strip()
     position = normalize_media_position(app_data.get("position"))
-    if not nick or position is None:
+    profile_url = str(app_data.get("profile_url", "")).strip()
+    if not nick or position is None or not is_valid_media_profile_url(profile_url, position):
         await interaction.followup.send("В заявке некорректный ник или должность. Отклоните её, чтобы человек мог подать исправленную.", ephemeral=True)
         return
 
@@ -1548,6 +1588,9 @@ async def process_verification_decision(interaction, applicant_id, *, accepted):
         welcome_embed.add_field(name="🔥 СНИМАЙ • ПУБЛИКУЙ • ЗАРАБАТЫВАЙ", value="**Твои ролики — твой вклад в развитие GastWorld Media!**", inline=False)
         welcome_embed.set_footer(text="GASTWORLD MEDIA • Удачной работы!")
         await personal_channel.send(content=f"Привет, {applicant.mention}! Ты попал в команду Медиа.", embed=welcome_embed)
+        conn.execute("""INSERT INTO media_staff_profiles (user_id, nickname, position, profile_url) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET nickname=excluded.nickname, position=excluded.position, profile_url=excluded.profile_url, updated_at=CURRENT_TIMESTAMP""", (int(applicant.id), nick, position, profile_url))
+        conn.commit()
+        await sync_staff_member_to_sheets(applicant)
     except discord.Forbidden:
         await interaction.followup.send("Роли выданы, но не удалось создать личный канал. Проверь права Manage Channels.", ephemeral=True)
         return
@@ -1716,7 +1759,7 @@ async def on_message(message):
         lines = message.content.split('\n')
         nick = None
         position_raw = None
-        age = None
+        profile_url = None
         for line in lines:
             line = line.strip()
             if not line or line.casefold().startswith('форма заявки'):
@@ -1726,11 +1769,11 @@ async def on_message(message):
                 nick = line.split(':', 1)[1].strip()
             elif low.startswith('2. должность:') or low.startswith('должность:'):
                 position_raw = line.split(':', 1)[1].strip()
-            elif low.startswith('3. возраст:') or low.startswith('возраст:'):
-                age = line.split(':', 1)[1].strip()
+            elif low.startswith('3. ссылка на канал:') or low.startswith('ссылка на канал:') or low.startswith('3. канал:'):
+                profile_url = line.split(':', 1)[1].strip()
 
         position = normalize_media_position(position_raw)
-        if nick and position and age:
+        if nick and position and is_valid_media_profile_url(profile_url, position):
             pending_role = message.guild.get_role(PENDING_APPLICATION_ROLE_ID)
             if pending_role and pending_role not in message.author.roles:
                 try:
@@ -1746,7 +1789,7 @@ async def on_message(message):
             )
             application_embed.add_field(name="🎮 Игровой ник", value=nick[:1024], inline=True)
             application_embed.add_field(name="🛡️ Должность", value=position, inline=True)
-            application_embed.add_field(name="🎂 Возраст", value=age[:1024], inline=True)
+            application_embed.add_field(name="🔗 Ссылка на канал", value=profile_url[:1024], inline=False)
             application_embed.add_field(name="👤 Автор заявки", value=f"{message.author.mention}\nID: {message.author.id}", inline=False)
             application_embed.set_footer(text="GASTWORLD MEDIA • Используйте кнопки для решения")
             reviewer_role = message.guild.get_role(VERIFICATION_REVIEW_ROLE_ID)
@@ -1758,7 +1801,7 @@ async def on_message(message):
             app_data = {
                 "nick": nick,
                 "position": position,
-                "age": age,
+                "profile_url": profile_url,
                 "guild_id": message.guild.id,
                 "panel_message_id": panel_message.id
             }
@@ -1770,7 +1813,7 @@ async def on_message(message):
                 pass
         else:
             await message.channel.send(
-                "❌ Неверный формат. Укажи ник, должность TT или YT и возраст по закреплённой форме.",
+                "❌ Неверный формат. Укажи ник, должность TT или YT и ссылку на профиль соответствующей платформы по закреплённой форме.",
                 delete_after=10
             )
             await message.delete(delay=10)
@@ -1816,6 +1859,14 @@ async def on_raw_reaction_add(payload):
         if mute_number > 0: points += 5
         if points > 0:
             update_balance(author_id, points)
+            report_author = guild.get_member(int(author_id))
+            if report_author is None:
+                try:
+                    report_author = await guild.fetch_member(int(author_id))
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    report_author = None
+            if report_author is not None:
+                await sync_staff_member_to_sheets(report_author)
             approve_report(payload.message_id)
             embed.add_field(name="✅ Статус", value=f"Одобрено {member.mention}\nНачислено {points} баллов.", inline=False)
         else:
