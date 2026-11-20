@@ -19,6 +19,11 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 REPORT_CHANNEL_ID = 1231958902474678364
 JOIN_CHANNEL_ID = 1551952140929601576
 CATEGORY_ID = 1551950227865608292
+VERIFICATION_GUILD_ID = 1546125037545988207
+SECONDARY_ROLE_GUILD_ID = 1492974397001171176
+VERIFICATION_REVIEW_ROLE_ID = 1493607029053587647
+VERIFICATION_TT_ROLE_ID = 1519405529028624455
+VERIFICATION_YT_ROLE_ID = 1556575041657774100
 SHOP_CHANNEL_ID = 1564188124844662814  # ID канала для логов покупок
 AUDIT_LOG_CHANNEL_ID = 1532858499418030151  # Канал полного журнала действий
 ROLE_ANNOUNCEMENT_CHANNEL_ID = 1532858494657495201  # Уведомления о выданных ролях
@@ -131,6 +136,10 @@ cursor.execute('''CREATE TABLE IF NOT EXISTS pending_requests (
     data TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (request_type, user_id)
+)''')
+cursor.execute('''CREATE TABLE IF NOT EXISTS verification_guide_config (
+    channel_id INTEGER PRIMARY KEY,
+    message_id INTEGER NOT NULL
 )''')
 
 # Автоматическая миграция существующей базы: CREATE TABLE IF NOT EXISTS
@@ -254,8 +263,8 @@ def is_moderator(member):
     return any(role.id in MOD_ROLE_IDS for role in member.roles)
 
 def has_verification_role(member):
-    # Роль 1546125576136560660 также может принимать заявки на вступление.
-    return any(role.id == APPROVER_ROLE_ID or role.id in MOD_ROLE_IDS for role in member.roles)
+    # Только эта роль может принимать или отклонять заявки на первом сервере.
+    return any(role.id == VERIFICATION_REVIEW_ROLE_ID for role in member.roles)
 
 def has_points_role(member):
     if not APPROVER_POINTS_ROLE_IDS: return False
@@ -1159,64 +1168,215 @@ async def snyat(interaction: discord.Interaction, игрок: discord.Member, п
     except discord.HTTPException:
         await interaction.response.send_message("❌ Ошибка при кике.", ephemeral=True)
 
-# ================== !принят (верификация) ==================
-@bot.command(name='принят')
-async def accept(ctx):
-    if not ctx.message.reference:
-        await ctx.send("❌ Вы должны ответить на сообщение игрока с заявкой.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
-    try:
-        original_msg = await ctx.channel.fetch_message(ctx.message.reference.message_id)
-    except:
-        await ctx.send("❌ Не удалось найти исходное сообщение.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
-    if ctx.channel.id != JOIN_CHANNEL_ID:
-        await ctx.send("❌ Эта команда работает только в канале вступления.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
+# ================== EMBED-ПАНЕЛЬ ВЕРИФИКАЦИИ ==================
+def normalize_media_position(value):
+    normalized = re.sub(r"[^a-zа-яё]", "", str(value or "").casefold())
+    if normalized in {"tt", "тт", "tiktok", "тикток", "тиктокер"}:
+        return "TT"
+    if normalized in {"yt", "ютуб", "youtube", "юутуб", "ютубер"}:
+        return "YT"
+    return None
 
-    author = ctx.author
-    if not has_verification_role(author):
-        await ctx.send("❌ У вас нет прав принимать заявки на вступление.", delete_after=10)
-        await ctx.message.delete(delay=10)
-        return
 
-    # Разрешаем подтверждать собственную заявку только участникам с ролью MOD_ROLE_IDS.
-    can_approve_own_application = any(role.id in MOD_ROLE_IDS for role in author.roles)
-    if original_msg.author.bot or (original_msg.author == author and not can_approve_own_application):
-        await ctx.send("❌ Нельзя принять сообщение от бота или самого себя.", delete_after=10)
-        await ctx.message.delete(delay=10)
+def verification_guide_embed():
+    embed = discord.Embed(
+        title="📋 Как правильно оформить заявку на верификацию",
+        description=(
+            "Чтобы заявка попала на проверку, отправь **одно сообщение** строго по форме ниже. "
+            "Заполни все три пункта и не меняй их названия."
+        ),
+        color=discord.Color.from_rgb(90, 110, 140)
+    )
+    embed.add_field(
+        name="📝 Форма заявки",
+        value="`1. Ник: Steve`\n`2. Должность: TT`\n`3. Возраст: 16`",
+        inline=False
+    )
+    embed.add_field(
+        name="🎬 Должность",
+        value="Укажи **TT** для TikTok или **YT** для YouTube.",
+        inline=False
+    )
+    embed.add_field(
+        name="⚠️ Важно",
+        value=(
+            "• Укажи правильный игровой ник.\n"
+            "• Заполни все пункты.\n"
+            "• Не отправляй несколько заявок подряд.\n"
+            "• Если заявку отклонили, исправь данные и отправь новую."
+        ),
+        inline=False
+    )
+    embed.set_footer(text="GASTWORLD_VERIFICATION_GUIDE_V1")
+    return embed
+
+
+async def ensure_verification_guide(guild):
+    if guild.id != VERIFICATION_GUILD_ID:
         return
-    for reaction in original_msg.reactions:
-        if str(reaction.emoji) == '✅':
-            await ctx.send("❌ Этот игрок уже принят.", delete_after=10)
-            await ctx.message.delete(delay=10)
+    channel = guild.get_channel(JOIN_CHANNEL_ID)
+    if channel is None:
+        try:
+            channel = await guild.fetch_channel(JOIN_CHANNEL_ID)
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException) as error:
+            print(f"⚠️ [ВЕРИФИКАЦИЯ] Не найден канал заявок {JOIN_CHANNEL_ID}: {error}", flush=True)
             return
 
-    member = original_msg.author
-    app_data = pending_apps.get(member.id)
-    if not app_data:
-        await ctx.send("⚠️ Данные заявки не найдены.", delete_after=10)
-        await ctx.message.delete(delay=10)
+    row = conn.execute(
+        "SELECT message_id FROM verification_guide_config WHERE channel_id = ?",
+        (int(channel.id),)
+    ).fetchone()
+    guide_message = None
+    if row:
+        try:
+            guide_message = await channel.fetch_message(int(row[0]))
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException, ValueError):
+            guide_message = None
+
+    if guide_message is None:
+        try:
+            async for candidate in channel.history(limit=200):
+                if (
+                    candidate.author == bot.user
+                    and candidate.embeds
+                    and candidate.embeds[0].footer
+                    and candidate.embeds[0].footer.text == "GASTWORLD_VERIFICATION_GUIDE_V1"
+                ):
+                    guide_message = candidate
+                    break
+        except (discord.Forbidden, discord.HTTPException) as error:
+            print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось проверить историю канала: {error}", flush=True)
+
+    if guide_message is None:
+        guide_message = await channel.send(embed=verification_guide_embed())
+        print(f"📌 [ВЕРИФИКАЦИЯ] Создана инструкция в #{channel.name}.", flush=True)
+
+    conn.execute(
+        "INSERT INTO verification_guide_config(channel_id,message_id) VALUES(?,?) "
+        "ON CONFLICT(channel_id) DO UPDATE SET message_id=excluded.message_id",
+        (int(channel.id), int(guide_message.id))
+    )
+    conn.commit()
+
+    if not guide_message.pinned:
+        try:
+            await guide_message.pin(reason="Закреплённая инструкция по подаче заявки GastWorld")
+            print(f"📌 [ВЕРИФИКАЦИЯ] Инструкция закреплена в #{channel.name}.", flush=True)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось закрепить инструкцию: {error}", flush=True)
+
+
+class VerificationReviewView(discord.ui.View):
+    def __init__(self, applicant_id):
+        super().__init__(timeout=None)
+        self.applicant_id = int(applicant_id)
+
+        accept_button = discord.ui.Button(
+            label="Принять",
+            style=discord.ButtonStyle.success,
+            emoji="✅",
+            custom_id=f"gastworld:verification:accept:{self.applicant_id}"
+        )
+        reject_button = discord.ui.Button(
+            label="Отклонить",
+            style=discord.ButtonStyle.danger,
+            emoji="❌",
+            custom_id=f"gastworld:verification:reject:{self.applicant_id}"
+        )
+        accept_button.callback = self.accept
+        reject_button.callback = self.reject
+        self.add_item(accept_button)
+        self.add_item(reject_button)
+
+    async def accept(self, interaction):
+        await process_verification_decision(interaction, self.applicant_id, accepted=True)
+
+    async def reject(self, interaction):
+        await process_verification_decision(interaction, self.applicant_id, accepted=False)
+
+
+async def process_verification_decision(interaction, applicant_id, *, accepted):
+    guild = interaction.guild
+    if guild is None or guild.id != VERIFICATION_GUILD_ID or interaction.channel_id != JOIN_CHANNEL_ID:
+        await interaction.response.send_message("Эта панель работает только в канале верификации первого сервера.", ephemeral=True)
+        return
+    if not has_verification_role(interaction.user):
+        await interaction.response.send_message("У вас нет роли для рассмотрения заявок.", ephemeral=True)
+        return
+    if interaction.user.id == int(applicant_id):
+        await interaction.response.send_message("Нельзя рассматривать собственную заявку.", ephemeral=True)
         return
 
-    nick = app_data['nick']
-    position = app_data['position']
+    app_data = pending_apps.get(int(applicant_id))
+    if not app_data:
+        await interaction.response.send_message("Заявка уже обработана или больше не существует.", ephemeral=True)
+        return
 
-    new_nick = f"{nick} | {position}"
-    if len(new_nick) > 32: new_nick = new_nick[:32]
+    await interaction.response.defer(ephemeral=True)
+    panel_message = interaction.message
+    if not accepted:
+        embed = panel_message.embeds[0].copy() if panel_message.embeds else discord.Embed()
+        embed.title = "❌ ЗАЯВКА ОТКЛОНЕНА"
+        embed.color = discord.Color.red()
+        embed.set_footer(text=f"GASTWORLD MEDIA • Отклонил: {interaction.user.display_name}")
+        disabled_view = VerificationReviewView(applicant_id)
+        for child in disabled_view.children:
+            child.disabled = True
+        await panel_message.edit(embed=embed, view=disabled_view)
+        try:
+            await panel_message.add_reaction("❌")
+        except discord.HTTPException:
+            pass
+
+        applicant = guild.get_member(int(applicant_id))
+        if applicant is None:
+            try:
+                applicant = await guild.fetch_member(int(applicant_id))
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                applicant = None
+        pending_role = guild.get_role(PENDING_APPLICATION_ROLE_ID)
+        if applicant and pending_role and pending_role in applicant.roles:
+            try:
+                await applicant.remove_roles(pending_role, reason=f"Заявка отклонена: {interaction.user}")
+            except discord.HTTPException as error:
+                print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось снять роль ожидания: {error}", flush=True)
+
+        pending_apps.pop(int(applicant_id), None)
+        delete_pending_request("join", int(applicant_id))
+        print(f"❌ [ВЕРИФИКАЦИЯ] Заявка {applicant_id} отклонена пользователем {interaction.user.id}. Повторная подача разрешена.", flush=True)
+        return
+
+    applicant = guild.get_member(int(applicant_id))
+    if applicant is None:
+        try:
+            applicant = await guild.fetch_member(int(applicant_id))
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            await interaction.followup.send("Не удалось найти автора заявки на первом сервере.", ephemeral=True)
+            return
+
+    nick = str(app_data.get("nick", "")).strip()
+    position = normalize_media_position(app_data.get("position"))
+    if not nick or position is None:
+        await interaction.followup.send("В заявке некорректный ник или должность. Отклоните её, чтобы человек мог подать исправленную.", ephemeral=True)
+        return
+
     try:
-        await member.edit(nick=new_nick, reason=f"Принят от {author.display_name}")
-    except Exception as e:
-        await ctx.send(f"⚠️ Не удалось изменить никнейм: {e}", delete_after=10)
+        new_nick = f"{nick} | {position}"[:32]
+        await applicant.edit(nick=new_nick, reason=f"Заявка одобрена {interaction.user}")
+    except discord.Forbidden:
+        print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось изменить ник участника {applicant.id}.", flush=True)
+    except discord.HTTPException as error:
+        print(f"⚠️ [ВЕРИФИКАЦИЯ] Ошибка изменения ника: {error}", flush=True)
 
-    roles_to_add = [ctx.guild.get_role(rid) for rid in ROLES_TO_GIVE if ctx.guild.get_role(rid)]
-    # После одобрения заявки автоматически выдаём базовый класс доступа Media.
-    media_role = discord.utils.get(ctx.guild.roles, name="Media")
+    # Базовые роли выдаются только на первом сервере, как и раньше.
+    roles_to_add = [
+        guild.get_role(role_id)
+        for role_id in ROLES_TO_GIVE
+        if guild.get_role(role_id) is not None
+    ]
+    media_role = discord.utils.get(guild.roles, name="Media")
     if media_role is None:
-        legacy_media_role = discord.utils.get(ctx.guild.roles, name="Media » уровень доступа")
+        legacy_media_role = discord.utils.get(guild.roles, name="Media » уровень доступа")
         if legacy_media_role is not None:
             media_role = legacy_media_role
             try:
@@ -1225,161 +1385,125 @@ async def accept(ctx):
                 pass
     if media_role is None:
         try:
-            media_role = await ctx.guild.create_role(
+            media_role = await guild.create_role(
                 name="Media",
                 colour=discord.Colour(0x8B5CF6),
                 permissions=discord.Permissions.none(),
                 hoist=True,
-                reason="Базовая роль доступа GastWorld Control Panel",
+                reason="Базовая роль доступа GastWorld Control Panel"
             )
-            print(f"✅ Создана роль Media (ID: {media_role.id})")
         except discord.Forbidden:
-            await ctx.send("❌ Не удалось создать роль Media. Проверь право Manage Roles и положение роли бота.")
+            await interaction.followup.send("Не удалось создать роль Media на первом сервере. Проверьте права бота.", ephemeral=True)
             return
-    if media_role not in member.roles and media_role not in roles_to_add:
+    if media_role not in applicant.roles and media_role not in roles_to_add:
         roles_to_add.append(media_role)
-
     if roles_to_add:
         try:
-            await member.add_roles(*roles_to_add, reason=f"Заявка одобрена: {author.display_name}")
+            await applicant.add_roles(*roles_to_add, reason=f"Заявка одобрена: {interaction.user}")
         except discord.Forbidden:
-            await ctx.send("❌ Недостаточно прав для выдачи ролей (проверьте иерархию).")
+            await interaction.followup.send("Не удалось выдать роли на первом сервере. Проверьте иерархию ролей бота.", ephemeral=True)
             return
 
-    # После одобрения снимаем временную роль ожидания.
-    pending_role = ctx.guild.get_role(PENDING_APPLICATION_ROLE_ID)
-    if pending_role and pending_role in member.roles:
+    pending_role = guild.get_role(PENDING_APPLICATION_ROLE_ID)
+    if pending_role and pending_role in applicant.roles:
         try:
-            await member.remove_roles(pending_role, reason=f"Заявка одобрена пользователем {author}")
-        except discord.Forbidden:
-            await ctx.send("⚠️ Заявка одобряется, но не удалось снять роль ожидания. Проверь права и иерархию ролей.")
+            await applicant.remove_roles(pending_role, reason=f"Заявка одобрена: {interaction.user}")
         except discord.HTTPException as error:
-            await ctx.send(f"⚠️ Не удалось снять роль ожидания: {error}")
+            print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось снять роль ожидания: {error}", flush=True)
 
-    category = ctx.guild.get_channel(CATEGORY_ID) if CATEGORY_ID else None
-    channel_name = nick.lower()
+    # Только должностная роль выдаётся на втором сервере.
+    secondary_guild = bot.get_guild(SECONDARY_ROLE_GUILD_ID)
+    if secondary_guild is None:
+        print(f"❌ [ВЕРИФИКАЦИЯ] Второй сервер {SECONDARY_ROLE_GUILD_ID} недоступен; роль {position} не выдана.", flush=True)
+    else:
+        secondary_member = secondary_guild.get_member(int(applicant_id))
+        if secondary_member is None:
+            try:
+                secondary_member = await secondary_guild.fetch_member(int(applicant_id))
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                secondary_member = None
+        role_id = VERIFICATION_TT_ROLE_ID if position == "TT" else VERIFICATION_YT_ROLE_ID
+        secondary_role = secondary_guild.get_role(role_id)
+        if secondary_member is None:
+            print(f"⚠️ [ВЕРИФИКАЦИЯ] Пользователь {applicant_id} не состоит на втором сервере; роль {position} не выдана.", flush=True)
+        elif secondary_role is None:
+            print(f"⚠️ [ВЕРИФИКАЦИЯ] Роль {position} ({role_id}) не найдена на втором сервере.", flush=True)
+        elif secondary_role not in secondary_member.roles:
+            try:
+                await secondary_member.add_roles(secondary_role, reason=f"GastWorld Media: заявка одобрена на первом сервере ({position})")
+                print(f"✅ [ВЕРИФИКАЦИЯ] На втором сервере выдана роль {position} пользователю {applicant_id}.", flush=True)
+            except discord.HTTPException as error:
+                print(f"❌ [ВЕРИФИКАЦИЯ] Не удалось выдать роль {position} на втором сервере: {error}", flush=True)
 
+    category = guild.get_channel(CATEGORY_ID) if CATEGORY_ID else None
+    channel_name = re.sub(r"[^a-z0-9а-яё_-]+", "-", nick.casefold()).strip("-")[:90] or f"media-{applicant_id}"
     overwrites = {
-        ctx.guild.default_role: discord.PermissionOverwrite(read_messages=False),
-        member: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True, embed_links=True),
-        ctx.guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True),
+        guild.default_role: discord.PermissionOverwrite(read_messages=False),
+        applicant: discord.PermissionOverwrite(read_messages=True, send_messages=True, attach_files=True, embed_links=True),
     }
+    if guild.me:
+        overwrites[guild.me] = discord.PermissionOverwrite(read_messages=True, send_messages=True, manage_channels=True)
     for role_id in STAFF_ROLES:
-        role = ctx.guild.get_role(role_id)
-        if role:
-            overwrites[role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        staff_role = guild.get_role(role_id)
+        if staff_role:
+            overwrites[staff_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
 
     try:
-        channel = await ctx.guild.create_text_channel(channel_name, category=category, overwrites=overwrites,
-                                                     reason=f"Личный канал для {member.display_name}")
-        set_personal_channel(member.id, channel.id)
-
-        # Приветственная Embed-панель для нового участника Медиа.
+        personal_channel = await guild.create_text_channel(
+            channel_name, category=category, overwrites=overwrites,
+            reason=f"Личный канал для {applicant.display_name}"
+        )
+        set_personal_channel(applicant.id, personal_channel.id)
         welcome_embed = discord.Embed(
             title="🎬 GASTWORLD MEDIA",
-            description=(
-                f"**Добро пожаловать в команду Медиа, {member.mention}!**\n"
-                "Рады видеть тебя среди нас. Здесь собрана важная информация о работе, баллах и покупках."
-            ),
+            description=f"**Добро пожаловать в команду Медиа, {applicant.mention}!**\nРады видеть тебя среди нас. Здесь собрана важная информация о работе, баллах и покупках.",
             color=discord.Color.from_rgb(151, 112, 210)
         )
-        welcome_embed.add_field(
-            name="🎥 ТВОЯ РАБОТА",
-            value="• Оставляй еженедельную норму.\n• Публикуй видеоролики, чтобы получать баллы.\n• Следи за активностью и не пропускай отчётную неделю.",
-            inline=False
-        )
-        welcome_embed.add_field(
-            name="💎 ПОЛЕЗНЫЕ КОМАНДЫ",
-            value="**/balance** — проверить баланс.\n**/shop** — посмотреть магазин.\n**/kit** — приобрести наборы.\n**/донат** — приобрести донат-привилегии.\n**/case** — приобрести кейсы.\n**/услуга** — приобрести услуги.",
-            inline=False
-        )
-        welcome_embed.add_field(
-            name="📊 1. НЕДЕЛЬНАЯ НОРМА",
-            value="**1.** Твой никнейм: `(твой игровой никнейм)`\n**2.** Ссылки на ролики, которые ты сделал: `(ссылки)`",
-            inline=False
-        )
-        welcome_embed.add_field(
-            name="💰 2. ПОЛУЧЕНИЕ БАЛЛОВ",
-            value="**1.** Привяжи TikTok через /привязать_аккаунт.\n**2.** Добавь код из команды в BIO и подтверди привязку.\n**3.** Отправь ссылку на ролик в личный канал — бот проверит просмотры и начислит баллы автоматически.",
-            inline=False
-        )
-        welcome_embed.add_field(
-            name="🛒 3. ПОКУПКА ЗА БАЛЛЫ",
-            value="**1.** Твой никнейм: `(твой ник в игре)`\n**2.** Что хочешь купить: `(название товара)`",
-            inline=False
-        )
-        welcome_embed.add_field(
-            name="⭐ НЕСКОЛЬКО ВАЖНЫХ СОВЕТОВ",
-            value="• Проверяй ссылки перед отправкой.\n• Указывай точное количество баллов.\n• Перед покупкой проверяй баланс.\n• Сохраняй ссылки на опубликованные ролики.",
-            inline=False
-        )
-        welcome_embed.add_field(
-            name="🔥 СНИМАЙ • ПУБЛИКУЙ • ЗАРАБАТЫВАЙ",
-            value="**Твои ролики — твой вклад в развитие GastWorld Media!**",
-            inline=False
-        )
+        welcome_embed.add_field(name="🎥 ТВОЯ РАБОТА", value="• Оставляй еженедельную норму.\n• Публикуй видеоролики, чтобы получать баллы.\n• Следи за активностью и не пропускай отчётную неделю.", inline=False)
+        welcome_embed.add_field(name="💎 ПОЛЕЗНЫЕ КОМАНДЫ", value="**/balance** — проверить баланс.\n**/shop** — посмотреть магазин.\n**/kit** — приобрести наборы.\n**/донат** — приобрести донат-привилегии.\n**/case** — приобрести кейсы.\n**/услуга** — приобрести услуги.", inline=False)
+        welcome_embed.add_field(name="📊 1. НЕДЕЛЬНАЯ НОРМА", value="**1.** Твой никнейм: `(твой игровой никнейм)`\n**2.** Ссылки на ролики, которые ты сделал: `(ссылки)`", inline=False)
+        welcome_embed.add_field(name="💰 2. ПОЛУЧЕНИЕ БАЛЛОВ", value="**1.** Привяжи TikTok через /привязать_аккаунт.\n**2.** Добавь код из команды в BIO и подтверди привязку.\n**3.** Отправь ссылку на ролик в личный канал — бот проверит просмотры и начислит баллы автоматически.", inline=False)
+        welcome_embed.add_field(name="🛒 3. ПОКУПКА ЗА БАЛЛЫ", value="**1.** Твой никнейм: `(твой ник в игре)`\n**2.** Что хочешь купить: `(название товара)`", inline=False)
+        welcome_embed.add_field(name="⭐ НЕСКОЛЬКО ВАЖНЫХ СОВЕТОВ", value="• Проверяй ссылки перед отправкой.\n• Перед покупкой проверяй баланс.\n• Сохраняй ссылки на опубликованные ролики.", inline=False)
+        welcome_embed.add_field(name="🔥 СНИМАЙ • ПУБЛИКУЙ • ЗАРАБАТЫВАЙ", value="**Твои ролики — твой вклад в развитие GastWorld Media!**", inline=False)
         welcome_embed.set_footer(text="GASTWORLD MEDIA • Удачной работы!")
-        await channel.send(content=f"Привет, {member.mention}! Ты попал в команду Медиа.", embed=welcome_embed)
-        await original_msg.clear_reaction('🕐')
-        await original_msg.add_reaction('✅')
-        pending_apps.pop(member.id, None)
-        delete_pending_request("join", member.id)
-        accepted_embed = discord.Embed(
-            title="✅ ЗАЯВКА ОДОБРЕНА",
-            description=(
-                f"{member.mention} успешно принят в команду "
-                f"**GastWorld Media**!"
-            ),
-            color=discord.Color.from_rgb(0, 255, 0),
-            timestamp=discord.utils.utcnow()
-        )
-
-        accepted_embed.add_field(
-            name="🎮 Игровой ник",
-            value=nick,
-            inline=True
-        )
-
-        accepted_embed.add_field(
-            name="🛡️ Должность",
-            value=position,
-            inline=True
-        )
-
-        accepted_embed.add_field(
-            name="📁 Личный канал",
-            value=channel.mention,
-            inline=False
-        )
-
-        accepted_embed.add_field(
-            name="🚀 Следующий шаг",
-            value=(
-                "Загляни в личный канал, ознакомься с инструкциями "
-                "и приступай к работе!"
-            ),
-            inline=False
-        )
-
-        accepted_embed.add_field(
-            name="Одобрил",
-            value=author.mention,
-            inline=False
-        )
-
-        accepted_embed.set_footer(
-            text=f"GASTWORLD MEDIA • Принял: {author.display_name}"
-        )
-
-        await ctx.send(embed=accepted_embed)
+        await personal_channel.send(content=f"Привет, {applicant.mention}! Ты попал в команду Медиа.", embed=welcome_embed)
     except discord.Forbidden:
-        await ctx.send("❌ У меня недостаточно прав для создания каналов.")
+        await interaction.followup.send("Роли выданы, но не удалось создать личный канал. Проверь права Manage Channels.", ephemeral=True)
         return
-    except Exception as e:
-        await ctx.send(f"❌ Ошибка при создании канала: {e}")
+    except discord.HTTPException as error:
+        await interaction.followup.send(f"Ошибка создания личного канала: {str(error)[:250]}", ephemeral=True)
         return
 
-    await ctx.message.delete()
+    embed = panel_message.embeds[0].copy() if panel_message.embeds else discord.Embed()
+    embed.title = "✅ ЗАЯВКА ОДОБРЕНА"
+    embed.color = discord.Color.green()
+    embed.set_footer(text=f"GASTWORLD MEDIA • Принял: {interaction.user.display_name}")
+    disabled_view = VerificationReviewView(applicant_id)
+    for child in disabled_view.children:
+        child.disabled = True
+    await panel_message.edit(embed=embed, view=disabled_view)
+    try:
+        await panel_message.add_reaction("✅")
+    except discord.HTTPException:
+        pass
+
+    pending_apps.pop(int(applicant_id), None)
+    delete_pending_request("join", int(applicant_id))
+    print(f"✅ [ВЕРИФИКАЦИЯ] Заявка {applicant_id} одобрена {interaction.user.id}; first-server roles + second-server {position}.", flush=True)
+
+
+async def register_pending_verification_views():
+    if getattr(bot, "_verification_views_registered", False):
+        return
+    for user_id, data in list(pending_apps.items()):
+        message_id = data.get("panel_message_id")
+        guild_id = int(data.get("guild_id", VERIFICATION_GUILD_ID))
+        if not message_id or guild_id != VERIFICATION_GUILD_ID:
+            continue
+        bot.add_view(VerificationReviewView(user_id), message_id=int(message_id))
+    bot._verification_views_registered = True
+
 
 # ================== ON_MESSAGE ==================
 @bot.event
@@ -1500,70 +1624,73 @@ async def on_message(message):
         return
 
     # ---------- ЗАЯВКИ НА ВСТУПЛЕНИЕ ----------
-    if message.channel.id == JOIN_CHANNEL_ID:
+    if message.guild.id == VERIFICATION_GUILD_ID and message.channel.id == JOIN_CHANNEL_ID:
         if message.content.startswith('!'):
             await bot.process_commands(message)
             return
 
+        if message.author.id in pending_apps:
+            await message.delete(delay=3)
+            return
+
         lines = message.content.split('\n')
         nick = None
-        position = None
+        position_raw = None
         age = None
-
         for line in lines:
             line = line.strip()
-            if not line or line.lower().startswith('форма заявки'):
+            if not line or line.casefold().startswith('форма заявки'):
                 continue
-            if line.lower().startswith('1. ник:') or line.lower().startswith('ник:'):
+            low = line.casefold()
+            if low.startswith('1. ник:') or low.startswith('ник:'):
                 nick = line.split(':', 1)[1].strip()
-            elif line.lower().startswith('2. должность:') or line.lower().startswith('должность:'):
-                position = line.split(':', 1)[1].strip()
-            elif line.lower().startswith('3. возраст:') or line.lower().startswith('возраст:'):
+            elif low.startswith('2. должность:') or low.startswith('должность:'):
+                position_raw = line.split(':', 1)[1].strip()
+            elif low.startswith('3. возраст:') or low.startswith('возраст:'):
                 age = line.split(':', 1)[1].strip()
 
+        position = normalize_media_position(position_raw)
         if nick and position and age:
-            app_data = {'nick': nick, 'position': position, 'age': age}
-            pending_apps[message.author.id] = app_data
-            save_pending_request("join", message.author.id, message.id, app_data)
-
-            # Выдаём роль ожидания, пока заявка не одобрена.
             pending_role = message.guild.get_role(PENDING_APPLICATION_ROLE_ID)
             if pending_role and pending_role not in message.author.roles:
                 try:
                     await message.author.add_roles(pending_role, reason="Заявка на вступление ожидает одобрения")
-                except discord.Forbidden:
-                    print(f"[WARN] Не удалось выдать роль ожидания {PENDING_APPLICATION_ROLE_ID}: проверь права и иерархию ролей.", flush=True)
                 except discord.HTTPException as error:
-                    print(f"[WARN] Ошибка выдачи роли ожидания: {error}", flush=True)
-            elif pending_role is None:
-                print(f"[WARN] Роль ожидания {PENDING_APPLICATION_ROLE_ID} не найдена на сервере.", flush=True)
+                    print(f"[WARN] Не удалось выдать роль ожидания: {error}", flush=True)
 
-            await message.add_reaction('🕐')
-            approver_role = message.guild.get_role(APPROVER_ROLE_ID)
             application_embed = discord.Embed(
                 title="📩 НОВАЯ ЗАЯВКА В GASTWORLD MEDIA",
-                description=(
-                    f"Игрок {message.author.mention} отправил заявку и ожидает рассмотрения.\n"
-                    "Пожалуйста, проверьте данные и примите решение."
-                ),
+                description=f"Игрок {message.author.mention} отправил заявку и ожидает рассмотрения.",
                 color=discord.Color.from_rgb(255, 210, 0),
                 timestamp=discord.utils.utcnow()
             )
-            application_embed.add_field(name="🎮 Игровой ник", value=nick, inline=True)
+            application_embed.add_field(name="🎮 Игровой ник", value=nick[:1024], inline=True)
             application_embed.add_field(name="🛡️ Должность", value=position, inline=True)
-            application_embed.add_field(name="🎂 Возраст", value=age, inline=True)
-            application_embed.add_field(
-                name="📝 Как одобрить",
-                value="Ответьте на исходное сообщение игрока командой **!принят**.",
-                inline=False
+            application_embed.add_field(name="🎂 Возраст", value=age[:1024], inline=True)
+            application_embed.add_field(name="👤 Автор заявки", value=f"{message.author.mention}\nID: {message.author.id}", inline=False)
+            application_embed.set_footer(text="GASTWORLD MEDIA • Используйте кнопки для решения")
+            reviewer_role = message.guild.get_role(VERIFICATION_REVIEW_ROLE_ID)
+            panel_message = await message.channel.send(
+                content=reviewer_role.mention if reviewer_role else None,
+                embed=application_embed,
+                view=VerificationReviewView(message.author.id)
             )
-            application_embed.set_footer(text="GASTWORLD MEDIA • Заявки на вступление")
-            content = approver_role.mention if approver_role else None
-            await message.channel.send(content=content, embed=application_embed)
+            app_data = {
+                "nick": nick,
+                "position": position,
+                "age": age,
+                "guild_id": message.guild.id,
+                "panel_message_id": panel_message.id
+            }
+            pending_apps[message.author.id] = app_data
+            save_pending_request("join", message.author.id, panel_message.id, app_data)
+            try:
+                await message.delete()
+            except discord.HTTPException:
+                pass
         else:
             await message.channel.send(
-                "❌ Неверный формат заявки. Используйте:\n"
-                "`1. Ник: ...`\n`2. Должность: ...`\n`3. Возраст: ...`",
+                "❌ Неверный формат. Укажи ник, должность TT или YT и возраст по закреплённой форме.",
                 delete_after=10
             )
             await message.delete(delay=10)
@@ -1776,6 +1903,16 @@ async def on_ready():
             bot.add_view(TicketPanelView(ticket_guild_id))
         bot.add_view(TicketControlView())
         bot._ticket_views_registered = True
+
+    await register_pending_verification_views()
+    verification_guild = bot.get_guild(VERIFICATION_GUILD_ID)
+    if verification_guild:
+        try:
+            await ensure_verification_guide(verification_guild)
+        except Exception as error:
+            print(f"❌ [ВЕРИФИКАЦИЯ] Не удалось проверить закреплённую инструкцию: {error}", flush=True)
+    else:
+        print(f"⚠️ [ВЕРИФИКАЦИЯ] Первый сервер {VERIFICATION_GUILD_ID} не найден.", flush=True)
 
     # Автоматически создаём роли доступа и синхронизируем их ID с сайтом.
     for access_guild_id in ALLOWED_GUILDS:
