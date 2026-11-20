@@ -19,8 +19,8 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 REPORT_CHANNEL_ID = 1231958902474678364
 JOIN_CHANNEL_ID = 1551952140929601576
 CATEGORY_ID = 1551950227865608292
-VERIFICATION_GUILD_ID = 1546125037545988207
-SECONDARY_ROLE_GUILD_ID = 1492974397001171176
+VERIFICATION_GUILD_ID = 1492974397001171176
+SECONDARY_ROLE_GUILD_ID = 1454858971084230822
 VERIFICATION_REVIEW_ROLE_ID = 1493607029053587647
 VERIFICATION_TT_ROLE_ID = 1519405529028624455
 VERIFICATION_YT_ROLE_ID = 1556575041657774100
@@ -89,12 +89,12 @@ STAFF_ROLES = [
     1546125465482174484, 1546125449594282118
 ]
 
-ALLOWED_GUILDS = [1546125037545988207]
+ALLOWED_GUILDS = [1492974397001171176]
 # Роли доступа сайта всегда создаются и синхронизируются на первом сервере.
-ACCESS_ROLES_GUILD_ID = 1546125037545988207
+ACCESS_ROLES_GUILD_ID = 1492974397001171176
 
 # Тикет-система работает исключительно на первом сервере.
-TICKET_ALLOWED_GUILDS = [1546125037545988207]
+TICKET_ALLOWED_GUILDS = [1492974397001171176]
 
 # ================== БАЗА ДАННЫХ ==================
 # База хранится рядом с bot.py; путь можно задать через BOT_DB_PATH.
@@ -726,13 +726,13 @@ load_pending_requests()
 # ================== АВТООЧИСТКА ДАННЫХ ИГРОКОВ ==================
 @bot.event
 async def on_member_remove(member):
-    if member.guild.id == 1546125037545988207:
+    if member.guild.id == 1492974397001171176:
         purge_user_data(member.id)
         print(f"🧹 Удалены данные ушедшего участника {member.id}")
 
 @bot.event
 async def on_member_update(before, after):
-    if after.guild.id != 1546125037545988207:
+    if after.guild.id != 1492974397001171176:
         return
     kept_role_id = 1546125522675962027
     had_role = any(role.id == kept_role_id for role in before.roles)
