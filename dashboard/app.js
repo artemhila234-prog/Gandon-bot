@@ -1312,7 +1312,6 @@ async function loadMessages(section){
       if(!channels.length){
         const option=document.createElement("option");option.value="";option.textContent="Нет доступных текстовых каналов";channelSelect.append(option);
       }
-      updatePreview();
     };
     servers.forEach(server=>{
       const option=document.createElement("option");option.value=server.id;option.textContent=server.name;guildSelect.append(option);
