@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#0d0e14">
-  <title>Условия использования — WhiteGrief</title>
+  <title>Условия использования — GastWorld</title>
   <link rel="stylesheet" href="/style.css?v=20261107-legal-content1">
 </head>
 <body class="legal-page">
   <aside class="sidebar legal-sidebar" id="legalSidebar">
-    <a class="brand" href="/" aria-label="WhiteGrief Control Panel"><span class="brand-mark">W</span><span><strong>WHITEGRIEF</strong><small>CONTROL PANEL</small></span></a>
-    <div class="server-card"><div class="server-avatar">WG</div><div class="server-info"><strong>WhiteGrief</strong><span>Discord Bot</span></div><span class="server-dot"></span></div>
+    <a class="brand" href="/" aria-label="GastWorld Control Panel"><span class="brand-mark">G</span><span><strong>GASTWORLD</strong><small>CONTROL PANEL</small></span></a>
+    <div class="server-card"><div class="server-avatar">GW</div><div class="server-info"><strong>GastWorld</strong><span>Discord Bot</span></div><span class="server-dot"></span></div>
     <div class="nav-group" data-nav-group>
       <div class="nav-label">ОБЗОР</div><nav class="nav-list"><a class="nav-item" data-page="dashboard" href="/"><span class="nav-icon">▦</span>Главная</a></nav>
     </div>
@@ -40,19 +40,19 @@
     (()=>{const rank={none:0,media:1,co_adm:2,adm:3,full:4};const min={dashboard:0,players:1,shop:1,requests:2,messages:3,logs:3,console:3,access:3,settings:0};
     fetch("/api/me",{credentials:"same-origin"}).then(r=>r.json()).then(data=>{const level=data?.authenticated?(data.user?.access_level||"none"):"none";document.querySelectorAll(".nav-item[data-page]").forEach(link=>{link.hidden=!data?.authenticated||rank[level]>=min[link.dataset.page] ? false : true;});document.querySelectorAll(".nav-group[data-nav-group]").forEach(group=>{const list=group.querySelector(".nav-list");group.hidden=!list||!Array.from(list.querySelectorAll(".nav-item")).some(item=>!item.hidden);});}).catch(()=>{document.querySelectorAll(".nav-item[data-page]").forEach(link=>link.hidden=link.dataset.page!=="dashboard");});})();
     </script>
-    <div class="sidebar-bottom"><div class="connection-line"><span class="pulse"></span><span>WhiteGrief Control Panel</span></div><div class="user-card"><div class="user-avatar">W</div><div><strong>WhiteGrief</strong><small>Документы проекта</small></div><span class="more">···</span></div></div>
+    <div class="sidebar-bottom"><div class="connection-line"><span class="pulse"></span><span>GastWorld Control Panel</span></div><div class="user-card"><div class="user-avatar">G</div><div><strong>GastWorld</strong><small>Документы проекта</small></div><span class="more">···</span></div></div>
   </aside>
   <div class="mobile-overlay" id="legalOverlay"></div>
   <main class="main-area legal-main-area"><div class="legal-wrap">
     <header class="legal-top">
       <button class="icon-button legal-menu-button" id="legalMenuButton" aria-label="Открыть меню">☰</button>
-      <a class="legal-brand" href="/" aria-label="WhiteGrief — главная"><span class="legal-brand-mark">W</span><span>WHITEGRIEF<small style="display:block;color:#85879c;font-size:8px;letter-spacing:2px;margin-top:3px">CONTROL PANEL</small></span></a>
+      <a class="legal-brand" href="/" aria-label="GastWorld — главная"><span class="legal-brand-mark">G</span><span>GASTWORLD<small style="display:block;color:#85879c;font-size:8px;letter-spacing:2px;margin-top:3px">CONTROL PANEL</small></span></a>
       <a class="legal-back" href="/">← Вернуться в панель</a>
     </header>
     <section class="legal-hero">
-      <div class="legal-kicker">WHITEGRIEF • LEGAL CENTER</div>
+      <div class="legal-kicker">GASTWORLD • LEGAL CENTER</div>
       <h1>Условия использования</h1>
-      <p>Правила работы с WhiteGrief Control Panel и инструментами команды WhiteGrief Media. Пожалуйста, ознакомься с ними перед использованием сервиса.</p>
+      <p>Правила работы с GastWorld Control Panel и инструментами команды GastWorld Media. Пожалуйста, ознакомься с ними перед использованием сервиса.</p>
       <div class="legal-meta"><span>Документ проекта</span> Обновлено 5 ноября 2026 года</div>
     </section>
     <nav class="legal-tabs" aria-label="Юридические документы">
@@ -60,17 +60,17 @@
       <a class="legal-tab" href="/privacy">◈ Политика конфиденциальности</a>
     </nav>
     <article class="legal-document">
-      <div class="legal-intro">Настоящие условия регулируют использование WhiteGrief Control Panel, связанных функций WhiteGrief Media и интеграций с Discord и TikTok (далее — «Сервис»). Используя Сервис, вы соглашаетесь с этими условиями. Если вы не согласны, прекратите использование Сервиса.</div>
-      <section class="legal-section" id="purpose"><h2><span>01</span>Назначение сервиса</h2><p>Сервис предназначен для участников команды WhiteGrief Media и предоставляет инструменты управления участниками, заявками, баллами, покупками и статистикой публикаций. Доступ к отдельным функциям может быть ограничен ролями Discord.</p></section>
-      <section class="legal-section" id="accounts"><h2><span>02</span>Аккаунты и доступ</h2><p>Для входа в панель используется авторизация Discord. Вы отвечаете за безопасность своего аккаунта и действия, совершённые с его помощью. Доступ может быть предоставлен, ограничен или отозван администрацией WhiteGrief в зависимости от членства и назначенных ролей.</p></section>
+      <div class="legal-intro">Настоящие условия регулируют использование GastWorld Control Panel, связанных функций GastWorld Media и интеграций с Discord и TikTok (далее — «Сервис»). Используя Сервис, вы соглашаетесь с этими условиями. Если вы не согласны, прекратите использование Сервиса.</div>
+      <section class="legal-section" id="purpose"><h2><span>01</span>Назначение сервиса</h2><p>Сервис предназначен для участников команды GastWorld Media и предоставляет инструменты управления участниками, заявками, баллами, покупками и статистикой публикаций. Доступ к отдельным функциям может быть ограничен ролями Discord.</p></section>
+      <section class="legal-section" id="accounts"><h2><span>02</span>Аккаунты и доступ</h2><p>Для входа в панель используется авторизация Discord. Вы отвечаете за безопасность своего аккаунта и действия, совершённые с его помощью. Доступ может быть предоставлен, ограничен или отозван администрацией GastWorld в зависимости от членства и назначенных ролей.</p></section>
       <section class="legal-section" id="tiktok"><h2><span>03</span>Интеграция с TikTok</h2><p>Если вы добровольно подключаете TikTok, Сервис может использовать разрешённые вами данные профиля и публичных видео через официальные интерфейсы TikTok для подтверждения аккаунта и расчёта статистики/баллов. Не предоставляйте Сервису чужой аккаунт и не пытайтесь обходить проверки. Доступные функции зависят от разрешений, одобренных TikTok.</p></section>
       <section class="legal-section" id="rules"><h2><span>04</span>Правила использования</h2><p>Запрещается использовать Сервис для нарушения законодательства, прав третьих лиц, правил Discord или TikTok, вмешательства в работу Сервиса, обхода ограничений, передачи ложных данных или попыток получить несанкционированный доступ.</p></section>
-      <section class="legal-section" id="points"><h2><span>05</span>Баллы и решения администрации</h2><p>Баллы и внутренняя статистика являются элементами программы WhiteGrief Media, не являются денежными средствами и не имеют денежной стоимости. Администрация может проверять публикации, исправлять ошибки начисления и применять правила команды.</p></section>
+      <section class="legal-section" id="points"><h2><span>05</span>Баллы и решения администрации</h2><p>Баллы и внутренняя статистика являются элементами программы GastWorld Media, не являются денежными средствами и не имеют денежной стоимости. Администрация может проверять публикации, исправлять ошибки начисления и применять правила команды.</p></section>
       <section class="legal-section" id="availability"><h2><span>06</span>Доступность и ответственность</h2><p>Сервис предоставляется «как есть». Мы стремимся поддерживать его работу, но не гарантируем бесперебойную доступность, точность сторонней статистики или отсутствие ошибок. В пределах, допускаемых законом, мы не отвечаем за сбои Discord, TikTok, хостинга и иных сторонних платформ.</p></section>
       <section class="legal-section" id="changes"><h2><span>07</span>Изменения и прекращение доступа</h2><p>Условия могут обновляться. Актуальная версия публикуется на этой странице. Продолжение использования Сервиса после публикации изменений означает согласие с обновлёнными условиями. Мы можем приостановить доступ при нарушении этих условий или правил проекта.</p></section>
-      <section class="legal-section" id="contact"><h2><span>08</span>Контакт</h2><p>По вопросам использования Сервиса обратитесь к администрации WhiteGrief через официальный Discord-сервер проекта.</p></section>
+      <section class="legal-section" id="contact"><h2><span>08</span>Контакт</h2><p>По вопросам использования Сервиса обратитесь к администрации GastWorld через официальный Discord-сервер проекта.</p></section>
     </article>
-    <footer class="legal-footer"><span>WHITEGRIEF CONTROL PANEL • MADE FOR THE TEAM</span><a href="/privacy">Перейти к политике конфиденциальности →</a></footer>
+    <footer class="legal-footer"><span>GASTWORLD CONTROL PANEL • MADE FOR THE TEAM</span><a href="/privacy">Перейти к политике конфиденциальности →</a></footer>
   </div></main>
   <script>
 (() => {
