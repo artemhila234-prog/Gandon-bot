@@ -1264,14 +1264,19 @@ async function loadMessages(section){
   const root=section.querySelector("#messagesResult");
   const refresh=section.querySelector("#refreshMessageChannels");
   if(!root)return;
-  root.innerHTML='<div class="empty-state">Загружаем текстовые каналы…</div>';
+  root.innerHTML='<div class="empty-state">Загружаем список серверов Discord…</div>';
   try{
-    const data=await apiGet("/api/messages/channels");
-    const channels=data.channels||[];
-    if(!channels.length){root.innerHTML='<div class="empty-state"><strong>Нет доступных каналов</strong><p>Бот не видит текстовые каналы сервера или у него нет прав на просмотр каналов.</p></div>';return;}
+    const initial=await apiGet("/api/messages/channels?guild_id=1492974397001171176");
+    const servers=initial.servers||[];
+    if(!servers.length)throw new Error("Список серверов Discord недоступен.");
+    let activeGuildId=initial.guild_id||"1492974397001171176";
+    let data=initial, channels=initial.channels||[];
     root.innerHTML=`
       <div class="messages-compose">
         <div class="messages-form">
+          <label class="messages-label">Сервер Discord
+            <select id="messageGuild" class="messages-control"></select>
+          </label>
           <label class="messages-label">Канал Discord
             <select id="messageChannel" class="messages-control"></select>
           </label>
@@ -1296,10 +1301,24 @@ async function loadMessages(section){
         </div>
         <aside class="messages-preview-wrap"><div class="messages-preview-heading">ПРЕДПРОСМОТР</div><div class="messages-preview-meta"><span class="messages-meta-item"><small>ОТПРАВИТЕЛЬ ПАНЕЛИ</small><strong id="messagePreviewSender">Администратор</strong></span><span class="messages-meta-arrow">→</span><span class="messages-meta-item"><small>КАНАЛ ПОЛУЧАТЕЛЬ</small><strong id="messagePreviewChannel">общий-чат</strong></span></div><div class="discord-preview"><div class="discord-preview-avatar">W</div><div class="discord-preview-body"><strong>GastWorld <small>БОТ</small></strong><p id="messagePreviewContent" class="discord-preview-content">Текст сообщения появится здесь.</p><div id="embedPreview" class="discord-embed-preview" hidden><div id="embedPreviewTitle" class="discord-embed-title"></div><div id="embedPreviewDescription" class="discord-embed-description"></div></div></div></div><div id="messagePreviewImageWrap" class="discord-image-preview" hidden><img id="messagePreviewImage" alt="Изображение к сообщению"></div><div id="messagePreviewAttribution" class="discord-attribution-preview">— Отправитель: Администратор<br>Отправлено через GastWorld Control Panel</div></div><p class="messages-preview-note">Внизу сообщения автоматически появится подпись отправителя.</p></aside>
       </div><section class="messages-incoming"><div class="messages-incoming-head"><div><h3>Сообщения игроков</h3><p>Входящие сообщения из выбранного Discord-канала</p></div><button id="refreshIncomingMessages" class="text-button" type="button">Обновить</button></div><div id="incomingMessagesFeed" class="messages-incoming-feed"><div class="empty-state">Загружаем сообщения…</div></div></section>`;
+    const guildSelect=root.querySelector("#messageGuild");
     const channelSelect=root.querySelector("#messageChannel");
-    channels.forEach(ch=>{
-      const option=document.createElement("option");option.value=ch.id;option.textContent=(ch.parent_name?ch.parent_name+" / ":"")+ch.name;channelSelect.append(option);
+    const fillChannels=(items)=>{
+      channels=items||[];
+      channelSelect.replaceChildren();
+      channels.forEach(ch=>{
+        const option=document.createElement("option");option.value=ch.id;option.textContent=(ch.parent_name?ch.parent_name+" / ":"")+ch.name;channelSelect.append(option);
+      });
+      if(!channels.length){
+        const option=document.createElement("option");option.value="";option.textContent="Нет доступных текстовых каналов";channelSelect.append(option);
+      }
+      updatePreview();
+    };
+    servers.forEach(server=>{
+      const option=document.createElement("option");option.value=server.id;option.textContent=server.name;guildSelect.append(option);
     });
+    guildSelect.value=activeGuildId;
+    fillChannels(channels);
     const content=root.querySelector("#messageContent"),title=root.querySelector("#embedTitle"),description=root.querySelector("#embedDescription"),color=root.querySelector("#embedColor"),filesInput=root.querySelector("#messageFiles"),filesPreview=root.querySelector("#messageFilesPreview"),previewSender=root.querySelector("#messagePreviewSender"),attributionPreview=root.querySelector("#messagePreviewAttribution");
     const previewContent=root.querySelector("#messagePreviewContent"),preview=root.querySelector("#embedPreview"),previewTitle=root.querySelector("#embedPreviewTitle"),previewDescription=root.querySelector("#embedPreviewDescription"),previewChannel=root.querySelector("#messagePreviewChannel"),status=root.querySelector("#messageStatus"),send=root.querySelector("#sendDiscordMessage"),colorText=root.querySelector("#embedColorText");
     const updatePreview=()=>{
@@ -1406,7 +1425,25 @@ async function loadMessages(section){
       finally{incomingBusy=false;}
     };
     refreshIncoming.addEventListener("click",loadIncoming);
-    channelSelect.addEventListener("change",loadIncoming);
+    channelSelect.addEventListener("change",()=>{updatePreview();loadIncoming();});
+    guildSelect.addEventListener("change",async()=>{
+      const nextGuildId=guildSelect.value;
+      guildSelect.disabled=true;
+      channelSelect.disabled=true;
+      incomingFeed.innerHTML='<div class="empty-state">Загружаем каналы выбранного сервера…</div>';
+      try{
+        const next=await apiGet("/api/messages/channels?guild_id="+encodeURIComponent(nextGuildId));
+        activeGuildId=next.guild_id;data=next;
+        fillChannels(next.channels||[]);
+        updatePreview();
+        await loadIncoming();
+        status.textContent="Выбран сервер: "+(next.guild_name||"Discord");
+        status.className="messages-status";
+      }catch(error){
+        status.textContent=error.message||"Не удалось загрузить сервер.";
+        status.className="messages-status error";
+      }finally{guildSelect.disabled=false;channelSelect.disabled=false;}
+    });
     loadIncoming();
     const incomingPoll=window.setInterval(()=>{if(!section.isConnected){window.clearInterval(incomingPoll);return;}if(!document.hidden)loadIncoming();},10000);
     send.addEventListener("click",async()=>{
