@@ -24,12 +24,13 @@ SECONDARY_ROLE_GUILD_ID = 1454858971084230822
 VERIFICATION_REVIEW_ROLE_ID = 1493607029053587647
 VERIFICATION_TT_ROLE_ID = 1519405529028624455
 VERIFICATION_YT_ROLE_ID = 1556575041657774100
-SHOP_CHANNEL_ID = 1564188124844662814  # ID канала для логов покупок
-AUDIT_LOG_CHANNEL_ID = 1532858499418030151  # Канал полного журнала действий
+SHOP_CHANNEL_ID = 1573032052666663032  # Единый канал логов GastWorld
+AUDIT_LOG_CHANNEL_ID = 1573032052666663032  # Единый канал логов GastWorld
 ROLE_ANNOUNCEMENT_CHANNEL_ID = 1532858494657495201  # Уведомления о выданных ролях
 LOGS_DIR = "logs"
 LATEST_LOG_FILE = os.path.join(LOGS_DIR, "latest.log")
-WARN_LOG_CHANNEL_ID = 1546125784026972262  # Единый канал журнала варнов
+WARN_COMMAND_CHANNEL_ID = 1546125784026972262  # Канал, где разрешено выполнять команды управления варнами
+WARN_LOG_CHANNEL_ID = 1573032052666663032  # Единый канал логов GastWorld
 POVIXA_CHANNEL_ID = 1564557395907186798  # ID канала, где должна работать команда /povixa
 
 # Настройка московского времени (UTC+3)
@@ -73,8 +74,8 @@ PROTECTED_ROLE_IDS = [
 ]
 
 PLAYER_ROLE_ID = 1539269779267915827
-MEDIA_TEAM_ROLE_ID = 1493196315205566500
-MEDIA_TEAM_AUTO_ROLE_ID = 1573343622986862600
+MEDIA_TEAM_ROLE_ID = 1493196315205566545
+MEDIA_TEAM_AUTO_ROLE_ID = 1573343622986862602
 APPROVER_ROLE_ID = 1535261711450378330
 PENDING_APPLICATION_ROLE_ID = 1567152429093363782  # Роль ожидания одобрения заявки
 APPROVER_POINTS_ROLE_IDS = [
@@ -1047,9 +1048,9 @@ async def warn(interaction: discord.Interaction, игрок: discord.Member, п�
     if not is_allowed_guild(interaction):
         await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
         return
-    if interaction.channel_id != WARN_LOG_CHANNEL_ID:
+    if interaction.channel_id != WARN_COMMAND_CHANNEL_ID:
         await interaction.response.send_message(
-            f"❌ Команды управления варнами доступны только в канале <#{WARN_LOG_CHANNEL_ID}>.",
+            f"❌ Команды управления варнами доступны только в канале <#{WARN_COMMAND_CHANNEL_ID}>.",
             ephemeral=True
         )
         return
@@ -1111,9 +1112,9 @@ async def unwarn(interaction: discord.Interaction, игрок: discord.Member, �
     if not is_allowed_guild(interaction):
         await interaction.response.send_message("❌ Этот бот не настроен для этого сервера.", ephemeral=True)
         return
-    if interaction.channel_id != WARN_LOG_CHANNEL_ID:
+    if interaction.channel_id != WARN_COMMAND_CHANNEL_ID:
         await interaction.response.send_message(
-            f"❌ Команды управления варнами доступны только в канале <#{WARN_LOG_CHANNEL_ID}>.",
+            f"❌ Команды управления варнами доступны только в канале <#{WARN_COMMAND_CHANNEL_ID}>.",
             ephemeral=True
         )
         return
