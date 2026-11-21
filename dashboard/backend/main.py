@@ -20,9 +20,9 @@ DISCORD_API = "https://discord.com/api/v10"
 CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN", "")
-REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "http://localhost:8000/auth/callback")
+REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://med1a.apps.bot-hosting.cloud/auth/callback")
 # OAuth, членство, роли и доступ к панели всегда проверяются на первом сервере GastWorld (1492974397001171176).
-GUILD_ID = "1492974397001171176"
+GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1492974397001171176").strip() or "1492974397001171176"
 PLAYER_LIST_ROLE_ID = "1493196315205566545"  # Роль «Команда медиа» для вкладки «Игроки»
 AUDIT_LOG_CHANNEL_ID = os.getenv("AUDIT_LOG_CHANNEL_ID", "1573032052666663032")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "")
@@ -120,7 +120,7 @@ if not SESSION_SECRET:
 app.add_middleware(
     SessionMiddleware,
     secret_key=SESSION_SECRET,
-    session_cookie="wg_panel_session",
+    session_cookie="gastworld_panel_session",
     same_site="lax",
     https_only=os.getenv("COOKIE_HTTPS_ONLY", "false").lower() == "true",
     max_age=60 * 60 * 8,
@@ -1282,7 +1282,7 @@ async def api_status():
 
 @app.get("/health")
 async def health():
-    return {"ok": True, "service": "whitegrief-control-panel"}
+    return {"ok": True, "service": "gastworld-control-panel"}
 
 
 
