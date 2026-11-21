@@ -1245,7 +1245,7 @@ async function loadTickets(section){
         const meta=document.createElement("div");meta.className="ticket-meta";meta.textContent=(ticket.username||"Участник")+" · Discord ID "+ticket.user_id+" · "+(ticket.created_at||"");
         const desc=document.createElement("p");desc.className="ticket-description";desc.textContent=ticket.description||"Описание отсутствует.";
         const actions=document.createElement("div");actions.className="ticket-actions";
-        const link=document.createElement("a");link.href="https://discord.com/channels/1546125037545988207/"+encodeURIComponent(ticket.channel_id);link.target="_blank";link.rel="noopener noreferrer";link.className="ticket-open-link";link.textContent="Открыть канал Discord";actions.append(link);
+        const link=document.createElement("a");link.href="https://discord.com/channels/1492974397001171176/"+encodeURIComponent(ticket.channel_id);link.target="_blank";link.rel="noopener noreferrer";link.className="ticket-open-link";link.textContent="Открыть канал Discord";actions.append(link);
         [["open","Переоткрыть"],["closed","Закрыть"],["resolved","Решено"]].forEach(([value,label])=>{
           if(ticket.status===value)return;
           const button=document.createElement("button");button.type="button";button.className="ticket-action-button";button.textContent=label;
