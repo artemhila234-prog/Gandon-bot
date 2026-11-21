@@ -723,23 +723,38 @@ def purge_user_data(user_id):
     pending_apps.pop(user_id, None)
 
 async def reconcile_server_players(guild):
-    """Удаляет данные тех, кто не состоит на сервере или лишён роли игрока."""
+    """Очищает данные ушедших игроков, сохраняя действующий состав Медиа."""
     kept_role_id = 1546125522675962027
+    # Профили Медиа — отдельная категория пользователей: они могут не иметь
+    # старую роль игрока, поэтому сохраняем их, пока они состоят на сервере.
+    media_profile_ids = {
+        int(row[0]) for row in conn.execute(
+            "SELECT user_id FROM media_staff_profiles"
+        ).fetchall()
+    }
     present_with_role = set()
     async for member in guild.fetch_members(limit=None):
-        if any(role.id == kept_role_id for role in member.roles):
+        has_legacy_player_role = any(role.id == kept_role_id for role in member.roles)
+        has_saved_media_profile = member.id in media_profile_ids
+        if has_legacy_player_role or has_saved_media_profile:
             present_with_role.add(member.id)
 
     db_ids = {
         int(row[0]) for row in conn.execute("SELECT user_id FROM users").fetchall()
     }
-    # Ожидающие заявки не требуют роли игрока: не удаляем их при сверке.
-    # Очищаем только записи users тех, кто отсутствует на сервере или лишён роли игрока.
+    # Участники с сохранённым профилем Медиа не удаляются из-за отсутствия
+    # устаревшей роли игрока. Данные очищаются, если пользователь покинул сервер
+    # или не относится ни к действующим игрокам, ни к сохранённому составу Медиа.
     to_purge = db_ids - present_with_role
     for user_id in to_purge:
         purge_user_data(user_id)
     pending_count = conn.execute("SELECT COUNT(*) FROM pending_requests").fetchone()[0]
-    print(f"🧹 Очистка базы: сохранено {len(present_with_role & db_ids)} записей игроков, удалено {len(to_purge)}; ожидающих заявок сохранено {pending_count}.")
+    print(
+        f"🧹 Очистка базы: сохранено {len(present_with_role & db_ids)} записей игроков/Медиа, "
+        f"удалено {len(to_purge)}; профилей Медиа сохранено {len(media_profile_ids & present_with_role)}; "
+        f"ожидающих заявок сохранено {pending_count}.",
+        flush=True
+    )
 
 def load_pending_requests():
     """Восстанавливает ожидающие заявки после запуска."""
