@@ -2393,10 +2393,14 @@ def write_audit_log(title, details, guild_id=None):
                 embed.description = safe_details[:4000] or "—"
 
             guild = bot.get_guild(guild_id) if guild_id else None
-            if guild and guild.icon:
-                embed.set_author(name=guild.name, icon_url=guild.icon.url)
+            bot_avatar_url = bot.user.display_avatar.url if bot.user else None
+            if guild:
+                embed.set_author(name=guild.name, icon_url=bot_avatar_url)
             else:
-                embed.set_author(name="GASTWORLD • SERVER AUDIT")
+                embed.set_author(
+                    name="GASTWORLD • SERVER AUDIT",
+                    icon_url=bot_avatar_url,
+                )
             embed.set_footer(text="GASTWORLD AUDIT")
             await channel.send(embed=embed)
         except Exception as error:
