@@ -4,7 +4,7 @@ Credentials are supplied only through the host environment:
   GOOGLE_SERVICE_ACCOUNT_FILE - path to uploaded service-account JSON (recommended)
   GOOGLE_SERVICE_ACCOUNT_JSON - complete service-account JSON (alternative)
   GASTWORLD_SHEETS_ID          - spreadsheet ID
-  GASTWORLD_SHEETS_WORKSHEET   - worksheet title (default: Таблица КП)
+  GASTWORLD_SHEETS_WORKSHEET   - worksheet title (default: Таблица Медия)
 
 Only the lower "Состав Медии" table is touched (rows 16+, columns B:H).
 """
@@ -18,7 +18,7 @@ from typing import Any
 
 FIRST_STAFF_ROW = 16
 DISCORD_ID_COLUMN = 7  # G
-STAFF_WORKSHEET = "Таблица КП"
+STAFF_WORKSHEET = "Таблица Медия"
 
 
 class SheetsConfigError(RuntimeError):
@@ -58,7 +58,15 @@ def _worksheet():
             "Не удалось прочитать JSON-ключ Google Service Account."
         ) from exc
     spreadsheet = client.open_by_key(spreadsheet_id)
-    return spreadsheet.worksheet(worksheet_name)
+    try:
+        return spreadsheet.worksheet(worksheet_name)
+    except gspread.exceptions.WorksheetNotFound as exc:
+        available = ", ".join(ws.title for ws in spreadsheet.worksheets()) or "(нет доступных листов)"
+        raise SheetsConfigError(
+            f'Лист Google Sheets "{worksheet_name}" не найден в указанной таблице. '
+            f'Доступные листы: {available}. Проверь GASTWORLD_SHEETS_ID '
+            f'и точное значение GASTWORLD_SHEETS_WORKSHEET.'
+        ) from exc
 
 
 def _cell_text(value: Any) -> str:
