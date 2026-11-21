@@ -20,7 +20,7 @@ DISCORD_API = "https://discord.com/api/v10"
 CLIENT_ID = os.getenv("DISCORD_CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("DISCORD_CLIENT_SECRET", "")
 BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN", "")
-REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://med1a.apps.bot-hosting.cloud/auth/callback")
+REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://media.apps.bot-hosting.cloud/auth/callback")
 # OAuth, членство, роли и доступ к панели всегда проверяются на первом сервере GastWorld (1492974397001171176).
 GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1492974397001171176").strip() or "1492974397001171176"
 PLAYER_LIST_ROLE_ID = "1493196315205566545"  # Роль «Команда медиа» для вкладки «Игроки»
@@ -31,7 +31,7 @@ BOT_API_URL = os.getenv("BOT_API_URL", "").rstrip("/")
 BOT_DATA_API_SECRET = os.getenv("BOT_DATA_API_SECRET", "")
 TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY", "")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET", "")
-TIKTOK_REDIRECT_URI = os.getenv("TIKTOK_REDIRECT_URI", "https://med1a.apps.bot-hosting.cloud/tiktok/callback")
+TIKTOK_REDIRECT_URI = os.getenv("TIKTOK_REDIRECT_URI", "https://media.apps.bot-hosting.cloud/tiktok/callback")
 TIKTOK_TOKEN_ENCRYPTION_KEY = os.getenv("TIKTOK_TOKEN_ENCRYPTION_KEY", "")
 TIKTOK_SCOPES = "user.info.basic,user.info.profile,video.list"
 PANEL_DB_PATH = os.getenv("PANEL_DB_PATH", os.path.join(os.path.dirname(__file__), "panel.db"))
