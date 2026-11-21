@@ -255,23 +255,25 @@ def get_personal_channel(user_id):
 
 async def sync_staff_member_to_sheets(member):
     if member is None:
-        return
+        return "skip_member"
     try:
         profile = conn.execute("SELECT nickname, position, profile_url FROM media_staff_profiles WHERE user_id = ?", (int(member.id),)).fetchone()
         channel_id = get_personal_channel(member.id)
         if not profile:
             print(f"⚠️ [GOOGLE SHEETS] Не найден профиль участника {member.id} в media_staff_profiles.", flush=True)
-            return
+            return "skip_profile"
         if not channel_id:
             print(f"⚠️ [GOOGLE SHEETS] Не найден личный канал участника {member.id} в users.", flush=True)
-            return
+            return "skip_channel"
         nickname, position, profile_url = profile
         data = get_user_data(member.id)
         personal_channel_url = f"https://discord.com/channels/{VERIFICATION_GUILD_ID}/{int(channel_id)}"
         row_number = await asyncio.to_thread(sync_staff_row, nickname=nickname, personal_channel_url=personal_channel_url, profile_url=profile_url, position=position, warns=data['warns'], discord_id=member.id, points=data['balance'])
         print(f"📊 [GOOGLE SHEETS] Обновлена строка {row_number} для {member.id} ({position}).", flush=True)
+        return "ok"
     except Exception as error:
         print(f"⚠️ [GOOGLE SHEETS] Не удалось обновить участника {member.id}: {error}", flush=True)
+        return "error"
 
 
 def add_report(message_id, author_id, ban_number, mute_number, proof):
@@ -846,6 +848,54 @@ async def on_member_join(member):
 # ================== КОМАНДЫ ==================
 def is_allowed_guild(interaction):
     return interaction.guild is not None and interaction.guild.id in ALLOWED_GUILDS
+
+# -------- /sheets_sync --------
+@bot.tree.command(name="sheets_sync", description="Синхронизировать действующий состав Медиа с Google Sheets")
+async def sheets_sync(interaction: discord.Interaction):
+    if interaction.guild_id != VERIFICATION_GUILD_ID:
+        await interaction.response.send_message("❌ Команда доступна только на основном сервере Медиа.", ephemeral=True)
+        return
+    if not (interaction.user.guild_permissions.administrator or has_verification_role(interaction.user)):
+        await interaction.response.send_message("❌ Недостаточно прав. Нужна роль проверки заявок или Administrator.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    guild = bot.get_guild(VERIFICATION_GUILD_ID)
+    if guild is None:
+        await interaction.followup.send("❌ Основной сервер Медиа не найден ботом.", ephemeral=True)
+        return
+
+    profile_ids = [
+        int(row[0]) for row in conn.execute(
+            "SELECT user_id FROM media_staff_profiles ORDER BY CASE UPPER(position) WHEN 'TT' THEN 0 ELSE 1 END, nickname COLLATE NOCASE"
+        ).fetchall()
+    ]
+    if not profile_ids:
+        await interaction.followup.send("ℹ️ В базе пока нет сохранённых профилей состава Медиа.", ephemeral=True)
+        return
+
+    counts = {"ok": 0, "error": 0, "skip_member": 0, "skip_profile": 0, "skip_channel": 0}
+    for user_id in profile_ids:
+        member = guild.get_member(user_id)
+        if member is None:
+            try:
+                member = await guild.fetch_member(user_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                counts["skip_member"] += 1
+                continue
+        result = await sync_staff_member_to_sheets(member)
+        counts[result if result in counts else "error"] += 1
+
+    summary = (
+        "📊 **Синхронизация Google Sheets завершена**\n"
+        f"✅ Обновлено: **{counts['ok']}**\n"
+        f"⚠️ Ошибок записи: **{counts['error']}**\n"
+        f"⏭️ Пропущено (нет на сервере): **{counts['skip_member']}**\n"
+        f"⏭️ Пропущено (нет профиля): **{counts['skip_profile']}**\n"
+        f"⏭️ Пропущено (нет личного канала): **{counts['skip_channel']}**\n\n"
+        "Верхний блок таблицы и столбец F «Отпуск» команда не изменяет."
+    )
+    await interaction.followup.send(summary, ephemeral=True)
 
 # -------- /shop --------
 @bot.tree.command(name="shop", description="Магазин баллов сервера")
