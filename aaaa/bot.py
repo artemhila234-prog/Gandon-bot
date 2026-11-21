@@ -321,7 +321,7 @@ def get_msk_time_str():
 
 
 # ================== TIKTOK ==================
-TIKTOK_CONNECT_URL = os.getenv("TIKTOK_CONNECT_URL", "https://med1a.apps.bot-hosting.cloud/tiktok/login")
+TIKTOK_CONNECT_URL = os.getenv("TIKTOK_CONNECT_URL", "https://media.apps.bot-hosting.cloud/tiktok/login")
 TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY", "")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET", "")
 TIKTOK_VIDEO_RE = re.compile(r"https?://(?:(?:www|vm|vt)\.)?tiktok\.com/@[A-Za-z0-9._]+/video/(\d+)", re.I)
@@ -543,7 +543,7 @@ async def tiktok_link_command(interaction: discord.Interaction, profile_url: str
 # ================== SUPPORT TICKETS ==================
 TICKET_CATEGORY_NAME = "📌› бот"
 TICKET_PANEL_CHANNEL_NAME = "❗・тикет-баги"
-TICKET_PANEL_CUSTOM_ID = "whitegrief:tickets:create"
+TICKET_PANEL_CUSTOM_ID = "gastworld:tickets:create"
 
 def ticket_is_staff(member):
     ids = {r.id for r in getattr(member, "roles", [])}
@@ -608,7 +608,7 @@ class TicketPanelView(discord.ui.View):
 class TicketControlView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        for label,style,emoji,cid,status in (("Закрыть",discord.ButtonStyle.secondary,"🔒","whitegrief:tickets:close","closed"),("Переоткрыть",discord.ButtonStyle.success,"🔓","whitegrief:tickets:reopen","open"),("Решено",discord.ButtonStyle.primary,"✅","whitegrief:tickets:resolve","resolved")):
+        for label,style,emoji,cid,status in (("Закрыть",discord.ButtonStyle.secondary,"🔒","gastworld:tickets:close","closed"),("Переоткрыть",discord.ButtonStyle.success,"🔓","gastworld:tickets:reopen","open"),("Решено",discord.ButtonStyle.primary,"✅","gastworld:tickets:resolve","resolved")):
             button=discord.ui.Button(label=label,style=style,emoji=emoji,custom_id=cid)
             button.callback=self.make_callback(status)
             self.add_item(button)
