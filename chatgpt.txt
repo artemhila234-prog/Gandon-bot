@@ -1591,3 +1591,9 @@ NaN: `pip install ... -r requirements.txt` затем `python3 -m uvicorn aaaa.b
 - Пользователь прямо разрешил менять тикет-систему; активных тикетов и опубликованных тикет-панелей пока нет. Поэтому совместимость старых Discord persistent custom_id не требуется: в коде допустимо переименовать whitegrief:tickets:* в gastworld:tickets:*.
 - При обновлении проекта заменить домен во всех рабочих настройках: Discord OAuth callback https://media.apps.bot-hosting.cloud/auth/callback; TikTok callback https://media.apps.bot-hosting.cloud/tiktok/callback; TIKTOK_CONNECT_URL https://media.apps.bot-hosting.cloud/tiktok/login; CONTROL_PANEL_SYNC_URL должен использовать https://media.apps.bot-hosting.cloud/api/internal/sync-roles. В Discord Developer Portal и TikTok Developer Portal redirect URI также должны быть обновлены вручную пользователем.
 - Не считать GitHub commit деплоем; после изменений нужно обновить файлы/перезапустить сервисы на Bot-Hosting и проверить /health, OAuth и TikTok.
+
+
+## Исправление иконки аудита (2026-11-21)
+- В `aaaa/bot.py`, функция `write_audit_log`: вместо `guild.icon.url` для иконки автора Embed используется `bot.user.display_avatar.url`.
+- Название сервера и структура Embed сохранены; меняется только источник значка в сообщениях аудита.
+- Commit кода: bee3492f513a57b49655b7d59d1c4a3c4f68b382.
