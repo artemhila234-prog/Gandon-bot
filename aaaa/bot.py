@@ -793,18 +793,31 @@ async def on_member_remove(member):
 
 @bot.event
 async def on_member_update(before, after):
-    if after.guild.id != 1492974397001171176:
+    if after.guild.id != VERIFICATION_GUILD_ID:
         return
     kept_role_id = 1546125522675962027
     had_role = any(role.id == kept_role_id for role in before.roles)
     has_role = any(role.id == kept_role_id for role in after.roles)
     if had_role and not has_role:
+        # Снятие старой роли игрока не должно удалять данные действующего
+        # сотрудника Медиа: состав теперь определяется сохранённым профилем.
+        media_profile = conn.execute(
+            "SELECT 1 FROM media_staff_profiles WHERE user_id = ?",
+            (int(after.id),)
+        ).fetchone()
+        if media_profile:
+            print(
+                f"ℹ️ [ОЧИСТКА] У {after.id} снята старая роль игрока, "
+                "но профиль Медиа сохранён; данные и строка таблицы не удаляются.",
+                flush=True
+            )
+            return
         try:
             await asyncio.to_thread(remove_staff_row, after.id)
         except Exception as error:
             print(f"⚠️ [GOOGLE SHEETS] Не удалось удалить строку {after.id}: {error}", flush=True)
         purge_user_data(after.id)
-        print(f"🧹 Удалены данные участника {after.id}: снята роль игрока")
+        print(f"🧹 Удалены данные участника {after.id}: снята роль игрока", flush=True)
 
 # ================== АВТОРОЛЬ ДЛЯ КОМАНДЫ МЕДИА ==================
 async def sync_media_team_member_role(guild):
