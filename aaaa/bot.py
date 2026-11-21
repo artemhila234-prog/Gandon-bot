@@ -2114,6 +2114,38 @@ async def console_input_loop():
             print(f"❌ Ошибка консольного обработчика: {error}", flush=True)
 
 
+def audit_primary_guild_configuration(guild: discord.Guild) -> None:
+    """Показывает устаревшие ID ролей/каналов после переноса на новый сервер."""
+    role_ids = {
+        *MOD_ROLE_IDS,
+        WARN_1_ROLE_ID, WARN_2_ROLE_ID, WARN_3_ROLE_ID,
+        *PROTECTED_ROLE_IDS,
+        PLAYER_ROLE_ID, MEDIA_TEAM_ROLE_ID, MEDIA_TEAM_AUTO_ROLE_ID,
+        APPROVER_ROLE_ID, PENDING_APPLICATION_ROLE_ID,
+        *APPROVER_POINTS_ROLE_IDS, *POVIXA_ROLE_IDS,
+        *ROLES_TO_GIVE, *STAFF_ROLES,
+        VERIFICATION_REVIEW_ROLE_ID,
+        1493615940741365881, 1492975006446260306, 1492975112985645166,
+    }
+    channel_ids = {
+        REPORT_CHANNEL_ID, JOIN_CHANNEL_ID, CATEGORY_ID,
+        SHOP_CHANNEL_ID, AUDIT_LOG_CHANNEL_ID, ROLE_ANNOUNCEMENT_CHANNEL_ID,
+        WARN_COMMAND_CHANNEL_ID, WARN_LOG_CHANNEL_ID, POVIXA_CHANNEL_ID,
+    }
+    missing_roles = sorted(role_id for role_id in role_ids if guild.get_role(role_id) is None)
+    missing_channels = sorted(channel_id for channel_id in channel_ids if guild.get_channel(channel_id) is None)
+    print(
+        f"🔎 [ПРОВЕРКА ПЕРЕНОСА] Сервер {guild.name} ({guild.id}): "
+        f"ролей проверено {len(role_ids)}, отсутствует {len(missing_roles)}; "
+        f"каналов/категорий проверено {len(channel_ids)}, отсутствует {len(missing_channels)}.",
+        flush=True,
+    )
+    if missing_roles:
+        print(f"⚠️ [ПРОВЕРКА ПЕРЕНОСА] Не найдены ID ролей: {missing_roles}", flush=True)
+    if missing_channels:
+        print(f"⚠️ [ПРОВЕРКА ПЕРЕНОСА] Не найдены ID каналов/категорий: {missing_channels}", flush=True)
+
+
 # ================== ЗАПУСК ==================
 @bot.event
 async def on_ready():
@@ -2121,6 +2153,11 @@ async def on_ready():
     print(f'Бот {bot.user} запущен!')
     connected = ", ".join(f"{guild.name} ({guild.id})" for guild in bot.guilds) or "нет серверов"
     print(f"🌐 Discord-серверы, видимые боту: {connected}", flush=True)
+    if not getattr(bot, "_primary_guild_config_audited", False):
+        primary_guild = bot.get_guild(VERIFICATION_GUILD_ID)
+        if primary_guild:
+            audit_primary_guild_configuration(primary_guild)
+        bot._primary_guild_config_audited = True
     if not getattr(bot, "_player_data_reconciled", False):
         for guild_id in ALLOWED_GUILDS:
             guild = bot.get_guild(guild_id)
