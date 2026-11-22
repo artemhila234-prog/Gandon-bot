@@ -1103,6 +1103,51 @@ async def api_send_message(request: Request):
     return {"ok": True, "message_id": str(sent.get("id", "")), "attachments": len(discord_files)}
 
 
+# ================== DISCORD SERVER / CHANNEL CLIENT ==================
+@app.get("/api/discord/guilds")
+async def api_discord_guilds(request: Request):
+    await require_access(request, "adm")
+    try:
+        return await get_dm_controller("discord_guilds")()
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить серверы Discord: {str(error)[:300]}")
+
+@app.get("/api/discord/guilds/{guild_id}/channels")
+async def api_discord_guild_channels(guild_id: str, request: Request):
+    await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        return await get_dm_controller("discord_channels")(guild_id)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить каналы: {str(error)[:300]}")
+
+@app.get("/api/discord/channels/{channel_id}/messages")
+async def api_discord_channel_history(channel_id: str, request: Request):
+    await require_access(request, "adm")
+    if not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID канала.")
+    try:
+        return await get_dm_controller("discord_channel_history")(channel_id, 100)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось открыть канал: {str(error)[:300]}")
+
+@app.post("/api/discord/channels/{channel_id}/messages")
+async def api_discord_channel_send(channel_id: str, request: Request):
+    await require_access(request, "adm")
+    if not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID канала.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный JSON сообщения.")
+    content = str(payload.get("content") or "").strip() if isinstance(payload, dict) else ""
+    try:
+        return await get_dm_controller("discord_channel_send")(channel_id, content)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось отправить сообщение: {str(error)[:300]}")
+
+
 # ================== DISCORD BOT DIRECT MESSAGES ==================
 def get_dm_controller(action: str):
     controller=getattr(app.state, 'bot_controller', None)
