@@ -3136,7 +3136,7 @@ async def panel_guild_channels(guild_id):
     for category in sorted(guild.categories, key=lambda item: (item.position, item.name.casefold())):
         categories.append({"id": str(category.id), "name": category.name, "position": category.position})
     for channel in sorted(guild.channels, key=lambda item: (getattr(item, "position", 0), item.name.casefold())):
-        if not isinstance(channel, (discord.TextChannel, discord.NewsChannel)):
+        if not isinstance(channel, (discord.TextChannel)):
             continue
         permissions = channel.permissions_for(me)
         if not permissions.view_channel:
@@ -3148,7 +3148,7 @@ async def panel_guild_channels(guild_id):
             "position": channel.position,
             "can_send": bool(permissions.send_messages),
             "can_history": bool(permissions.read_message_history),
-            "type": "announcement" if isinstance(channel, discord.NewsChannel) else "text",
+            "type": "announcement" if getattr(channel, "is_news", lambda: False)() else "text",
         })
     return {"guild": {"id": str(guild.id), "name": guild.name, "icon_url": str(guild.icon.url) if guild.icon else ""}, "categories": categories, "channels": channels}
 
@@ -3159,7 +3159,7 @@ async def panel_channel_history(channel_id, limit=100):
     if not str(channel_id).isdigit():
         raise ValueError("Некорректный ID канала.")
     channel = await bot.fetch_channel(int(channel_id))
-    if not isinstance(channel, (discord.TextChannel, discord.NewsChannel, discord.Thread)):
+    if not isinstance(channel, (discord.TextChannel, discord.Thread)):
         raise ValueError("Это не текстовый канал.")
     if not channel.permissions_for(channel.guild.me).view_channel or not channel.permissions_for(channel.guild.me).read_message_history:
         raise PermissionError("У бота нет прав просматривать историю этого канала.")
