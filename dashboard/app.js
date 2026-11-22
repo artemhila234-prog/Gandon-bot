@@ -1019,7 +1019,7 @@ async function dcLoadGuilds(){
 async function dcLoadGuildMembers(guild,force=false){
   const root=document.getElementById("dcMemberList"),count=document.getElementById("dcMemberCount"),search=document.getElementById("dcMemberSearch");
   if(!root||!guild?.id)return;
-  if(dcMemberCacheByGuild.has(guild.id)&&!force){dcMemberCache=dcMemberCacheByGuild.get(guild.id);dcRenderGuildMembers();return;}
+  if(dcMemberCacheByGuild.has(guild.id)&&!force){dcMemberCache=dcMemberCacheByGuild.get(guild.id);dcMemberRoleCache=dcMemberRolesByGuild.get(guild.id)||[];dcRenderGuildMembers();return;}
   if(dcMembersLoading.has(guild.id))return;
   dcMembersLoading.add(guild.id);
   root.replaceChildren();const loading=document.createElement("div");loading.className="dc-live-empty";loading.textContent="Загружаем участников…";root.append(loading);
@@ -1028,7 +1028,7 @@ async function dcLoadGuildMembers(guild,force=false){
     const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guild.id)+"/members");
     if(dcActiveGuild?.id!==guild.id)return;
     dcMemberCache=data.members||[];dcMemberCacheByGuild.set(guild.id,dcMemberCache);
-    dcMemberRoleCache=data.roles||[];
+    dcMemberRoleCache=data.roles||[];dcMemberRolesByGuild.set(guild.id,dcMemberRoleCache);
     if(count)count.textContent=String(data.count??dcMemberCache.length);
     dcRenderGuildMembers();
   }catch(error){
