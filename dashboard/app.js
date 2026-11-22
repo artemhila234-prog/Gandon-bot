@@ -1045,12 +1045,14 @@ function dcRenderGuildMembers(){
   if(count)count.textContent=query?members.length+" / "+dcMemberCache.length:String(dcMemberCache.length);
   if(!members.length){const empty=document.createElement("div");empty.className="dc-live-empty";empty.textContent=query?"Участники не найдены.":"На сервере нет участников для отображения.";root.append(empty);return;}
   const roleMap=new Map((dcMemberRoleCache||[]).map(role=>[String(role.id),role]));
-  const hoistedRoles=(dcMemberRoleCache||[]).filter(role=>role.hoist).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
+  // Group every member by their highest assigned server role, not only hoisted roles.
+  // This keeps staff/platform roles visible as separate groups even when Discord's hoist flag is off.
+  const displayRoles=(dcMemberRoleCache||[]).slice().sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
   const groups=new Map();
   const ungrouped=[];
   for(const member of members){
-    const memberRoles=(member.role_ids||[]).map(id=>roleMap.get(String(id))).filter(Boolean);
-    const primary=memberRoles.filter(role=>role.hoist).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0))[0];
+    const memberRoleIds=new Set((member.role_ids||[]).map(id=>String(id)));
+    const primary=displayRoles.find(role=>memberRoleIds.has(String(role.id)));
     if(primary){if(!groups.has(String(primary.id)))groups.set(String(primary.id),[]);groups.get(String(primary.id)).push(member);}
     else ungrouped.push(member);
   }
@@ -1067,7 +1069,7 @@ function dcRenderGuildMembers(){
       root.append(button);
     });
   };
-  hoistedRoles.forEach(role=>appendGroup(role.name,groups.get(String(role.id))||[],role.color_hex||""));
+  displayRoles.forEach(role=>appendGroup(role.name,groups.get(String(role.id))||[],role.color_hex||""));
   appendGroup("В СЕТИ",ungrouped.filter(member=>!member.bot),"");
   appendGroup("БОТЫ",ungrouped.filter(member=>member.bot),"");
 }
