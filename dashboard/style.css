@@ -1581,3 +1581,19 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .dc-file-preview span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 8px;border-radius:5px;background:#2b2d31}
 .dc-composer-add:not(:disabled){cursor:pointer;color:#dbdee1}
 .dc-composer-add:not(:disabled):hover{background:#404249;color:#fff}
+
+
+/* DM recipient profile panel matching Discord's right-side profile column */
+.dc-dm-profile-panel{min-height:0;overflow:auto;padding:0 0 16px;background:var(--dc-panel,#232428);color:#dbdee1}
+.dc-dm-profile-panel[hidden]{display:none}
+.dc-dm-profile-banner{height:112px;background:linear-gradient(135deg,#424650,#292b30)}
+.dc-dm-profile-avatar{width:88px;height:88px;margin:-44px 16px 10px;padding:5px;border-radius:50%;background:#232428;position:relative}
+.dc-dm-profile-avatar img{width:78px;height:78px;display:block;border-radius:50%;object-fit:cover;background:#3b3d44}
+.dc-dm-profile-panel>h2{margin:0 16px 3px;font-size:18px;overflow-wrap:anywhere}
+.dc-dm-profile-username{margin:0 16px 16px;color:#b5bac1;font-size:12px}
+.dc-dm-profile-divider{height:1px;margin:0 14px 14px;background:#3a3c42}
+.dc-dm-profile-details{margin:0 14px 18px;padding:12px;border-radius:6px;background:#2b2d31}
+.dc-dm-profile-details h3{margin:0 0 8px;font-size:10px;letter-spacing:.5px;color:#b5bac1}
+.dc-dm-profile-details p{margin:0;font-size:11px;overflow-wrap:anywhere}
+.dc-dm-profile-action{display:block;width:calc(100% - 28px);margin:0 14px;padding:9px;border:0;border-radius:5px;background:#5865f2;color:white;font-weight:600;cursor:pointer}
+.dc-dm-profile-action:hover{background:#4752c4}
