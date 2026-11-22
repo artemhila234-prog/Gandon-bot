@@ -1147,16 +1147,22 @@ function dcOpenProfile(member){
   const rolesSection=document.createElement("div");rolesSection.className="dc-profile-section";const rolesTitle=document.createElement("h3");rolesTitle.textContent="РОЛИ · УПРАВЛЕНИЕ";rolesSection.append(rolesTitle);
   const roleList=document.createElement("div");roleList.className="dc-profile-roles";
   const assigned=new Set((member.role_ids||[]).map(String));
-  dcMemberRoleCache.filter(role=>role.manageable===true).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0)).forEach(role=>{
-    const label=document.createElement("label");label.className="dc-profile-role";const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=assigned.has(String(role.id));checkbox.addEventListener("change",async()=>{
+  const sortedProfileRoles=[...(dcMemberRoleCache||[])].sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
+  sortedProfileRoles.forEach(role=>{
+    const manageable=role.manageable===true;
+    const label=document.createElement("label");label.className="dc-profile-role"+(manageable?"":" dc-profile-role-unmanageable");
+    const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=assigned.has(String(role.id));checkbox.disabled=!manageable;
+    if(!manageable)checkbox.title=role.managed?"Роль управляется интеграцией Discord.":"Бот не может управлять этой ролью: проверь Manage Roles и иерархию ролей.";
+    checkbox.addEventListener("change",async()=>{
       checkbox.disabled=true;
       try{await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id)+"/roles",{role_id:String(role.id),action:checkbox.checked?"add":"remove"});await dcLoadGuildMembers(dcActiveGuild,true);const updated=dcMemberCache.find(x=>String(x.id)===String(member.id));if(updated){modal.remove();dcOpenProfile(updated);}}
       catch(error){checkbox.checked=!checkbox.checked;alert(error.message);}
-      finally{checkbox.disabled=false;}
+      finally{checkbox.disabled=!manageable;}
     });
     const color=document.createElement("i");color.className="dc-profile-role-color";color.style.background=role.color_hex||"#5865f2";const roleName=document.createElement("span");roleName.textContent=role.name;label.append(checkbox,color,roleName);roleList.append(label);
   });
-  if(!roleList.children.length){const note=document.createElement("p");note.textContent="У бота нет доступных для изменения ролей. Проверь Manage Roles и положение его высшей роли.";roleList.append(note);}
+  if(!roleList.children.length){const note=document.createElement("p");note.textContent="На этом сервере не найдено пользовательских ролей.";roleList.append(note);}
+  else if(!sortedProfileRoles.some(role=>role.manageable===true)){const note=document.createElement("p");note.className="dc-profile-role-hint";note.textContent="Все роли показаны, но бот не может менять их. Нужны Manage Roles и высшая роль бота выше ролей, которыми нужно управлять.";roleList.append(note);}
   rolesSection.append(roleList);card.append(rolesSection);
   const footer=document.createElement("div");footer.className="dc-profile-actions";const dm=document.createElement("button");dm.type="button";dm.textContent="Открыть ЛС";dm.addEventListener("click",()=>{modal.remove();dcActiveChannel=null;dcSetMode("dm");dcOpenConversation(member);});footer.append(dm);card.append(footer);
   modal.append(card);document.addEventListener("keydown",function esc(event){if(event.key==="Escape"){modal.remove();document.removeEventListener("keydown",esc);}});
