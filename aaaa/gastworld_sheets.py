@@ -185,7 +185,7 @@ def sync_staff_row(
         )
     else:
         worksheet.update(
-            range_name=f"B{target_row}:E{target_row}",
+            range_name=f"B{target_row}:F{target_row}",
             values=[[nickname_formula, position, profile_formula, f"{min(max(int(warns), 0), 3)}/3", "Нету"]],
             value_input_option="USER_ENTERED",
         )
