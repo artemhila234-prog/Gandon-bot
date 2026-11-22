@@ -1273,3 +1273,43 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .sheets-staff-error{color:#ff929d;font-size:10px}
 .sheets-staff-result{max-height:560px;overflow:auto}
 @media(max-width:700px){.panel-heading-actions{width:100%;justify-content:flex-start}.sheets-staff-head{align-items:flex-start;flex-direction:column}.sheets-staff-fields{grid-template-columns:1fr}}
+
+/* Discord bot workspace — release preview */
+.nav-soon{margin-left:auto;font-size:8px;letter-spacing:.7px;color:#c7b4ff;background:#33264d;border:1px solid #514071;border-radius:5px;padding:3px 5px}
+.bot-discord-preview{padding:22px!important;background:transparent!important;border:0!important;box-shadow:none!important}
+.discord-preview-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin:0 0 18px}
+.discord-preview-heading h1{font-size:25px;margin:7px 0}
+.discord-preview-heading p{margin:0;color:var(--muted);font-size:12px}
+.discord-release-badge{white-space:nowrap;padding:8px 11px;border:1px solid #57447d;background:#282039;color:#d5c5ff;border-radius:8px;font-size:9px;font-weight:800;letter-spacing:1px}
+.discord-preview-shell{height:min(650px,68vh);min-height:430px;display:grid;grid-template-columns:66px 220px minmax(0,1fr);overflow:hidden;border:1px solid #303142;border-radius:15px;background:#171821;box-shadow:0 18px 55px #0003}
+.discord-server-rail{background:#11121a;display:flex;align-items:center;flex-direction:column;padding:14px 8px;gap:12px}
+.discord-server-logo,.discord-server-placeholder{width:42px;height:42px;border-radius:15px;display:grid;place-items:center;font-weight:900;color:#e8ddff;background:linear-gradient(145deg,#7957c9,#34264d);border:1px solid #7254a5}
+.discord-server-separator{height:1px;width:28px;background:#363746}
+.discord-server-placeholder{background:#242532;color:#9b9daf;border:1px dashed #55586a;font-size:22px}
+.discord-server-rail small{writing-mode:vertical-rl;font-size:8px;letter-spacing:1px;color:#777b90}
+.discord-channel-rail{background:#1d1e29;border-right:1px solid #303142;padding:15px 11px;display:flex;flex-direction:column;min-width:0}
+.discord-workspace-title{display:grid;gap:4px;padding:0 4px 14px;border-bottom:1px solid #333544}
+.discord-workspace-title strong{font-size:12px}.discord-workspace-title span{font-size:9px;color:#8d90a4}
+.discord-preview-search{margin:13px 0 19px;padding:8px 9px;border-radius:7px;background:#14151e;color:#777b90;font-size:10px}
+.discord-preview-section{font-size:8px;letter-spacing:1px;color:#777b90;margin:0 4px 8px}
+.discord-channel-row{padding:9px 8px;border-radius:6px;color:#9b9daf;font-size:11px;margin-bottom:3px}
+.discord-channel-row span{font-size:15px;margin-right:7px;color:#777b90}
+.discord-channel-row.active{background:#343044;color:#e3d9ff}
+.discord-preview-user{margin-top:auto;border-top:1px solid #353645;padding:12px 2px 0;display:flex;align-items:center;gap:8px}
+.discord-bot-avatar{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:#59418c;font-size:9px;font-weight:900}
+.discord-preview-user>div:nth-child(2){display:grid;gap:4px;min-width:0}.discord-preview-user strong{font-size:10px}.discord-preview-user small{font-size:8px;color:#a98cff}
+.discord-online-dot{width:7px;height:7px;border-radius:50%;background:#43d69a;margin-left:auto}
+.discord-chat-preview{display:flex;flex-direction:column;min-width:0;background:#22232e}
+.discord-chat-top{height:58px;flex-shrink:0;border-bottom:1px solid #363746;padding:0 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.discord-chat-top>div{display:grid;gap:4px}.discord-chat-top strong{font-size:12px}.discord-chat-top small{font-size:9px;color:#85899d}
+.discord-chat-lock{font-size:9px;color:#b5a4df;white-space:nowrap}
+.discord-chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:25px}
+.discord-chat-mark{width:64px;height:64px;border-radius:20px;background:linear-gradient(145deg,#7555c7,#342449);display:grid;place-items:center;font-size:18px;font-weight:900;box-shadow:0 8px 30px #7254c744}
+.discord-chat-empty h2{font-size:17px;margin:18px 0 8px}.discord-chat-empty p{max-width:470px;color:#999caf;font-size:11px;line-height:1.7;margin:0}
+.discord-feature-chips{display:flex;justify-content:center;gap:7px;flex-wrap:wrap;margin-top:20px}
+.discord-feature-chips span{border:1px solid #3c3d50;background:#292a38;color:#c4c5d3;padding:7px 9px;border-radius:7px;font-size:9px}
+.discord-composer-preview{margin:0 16px 16px;border:1px solid #414253;border-radius:9px;background:#2b2c39;padding:12px;display:flex;align-items:center;justify-content:space-between;color:#85899d;font-size:10px}
+.discord-composer-preview button{border:0;border-radius:6px;background:#514078;color:#fff;padding:7px 10px}
+.discord-release-note{margin-top:13px;padding:14px 16px;border:1px solid #383346;border-radius:10px;background:#1b1924}
+.discord-release-note strong{font-size:11px;color:#d6c7ff}.discord-release-note p{font-size:10px;color:#999caf;line-height:1.6;margin:6px 0 0}
+@media(max-width:760px){.discord-preview-heading{flex-direction:column}.discord-preview-shell{grid-template-columns:48px 150px minmax(250px,1fr);overflow-x:auto}.discord-server-logo,.discord-server-placeholder{width:34px;height:34px}.discord-chat-top{padding:0 11px}.discord-chat-lock{display:none}.bot-discord-preview{padding:12px!important}}
