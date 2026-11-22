@@ -1168,7 +1168,8 @@ function dcRenderGuildMembers(){
     });
   };
   displayRoles.forEach(role=>appendGroup(role.name,groups.get(String(role.id))||[],role.color_hex||""));
-  appendGroup("В СЕТИ",ungrouped.filter(member=>!member.bot),"");
+  appendGroup("В СЕТИ",ungrouped.filter(member=>!member.bot&&dcStatusClass(member.status)!=="offline"),"");
+  appendGroup("НЕ В СЕТИ",ungrouped.filter(member=>!member.bot&&dcStatusClass(member.status)==="offline"),"");
   appendGroup("БОТЫ",ungrouped.filter(member=>member.bot),"");
 }
 function dcRenderGuildChannels(data,list,title,guild){
