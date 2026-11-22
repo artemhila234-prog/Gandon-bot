@@ -82,6 +82,7 @@ def sync_staff_row(
     warns: int,
     discord_id: int | str,
     points: int,
+    preserve_stats: bool = False,
 ) -> int:
     """Keep TikTok staff above YouTube staff, preserving the full row on moves."""
     nickname = _cell_text(nickname)
@@ -103,7 +104,14 @@ def sync_staff_row(
     positions = worksheet.col_values(3)
     existing_row = next((r for r in range(FIRST_STAFF_ROW, len(ids) + 1) if _cell_text(ids[r - 1]) == discord_id), None)
 
+    row_was_existing = existing_row is not None
+    preserved_row = None
     if existing_row is not None and _cell_text(positions[existing_row - 1]).upper() != position:
+        preserved_row = worksheet.get(
+            "A{}:H{}".format(existing_row, existing_row), value_render_option="FORMULA"
+        )
+        preserved_row = (preserved_row[0] if preserved_row else [])[:8]
+        preserved_row += [""] * (8 - len(preserved_row))
         worksheet.delete_rows(existing_row)
         ids = worksheet.col_values(DISCORD_ID_COLUMN)
         positions = worksheet.col_values(3)
@@ -115,26 +123,42 @@ def sync_staff_row(
         first_yt = next((r for r in range(FIRST_STAFF_ROW, len(ids) + 1)
                          if _cell_text(ids[r - 1]) and _cell_text(positions[r - 1]).upper() == "YT"), None)
         if first_yt is not None:
-            worksheet.insert_row(["", "", "", "", "", "", ""], index=first_yt, value_input_option="RAW")
+            worksheet.insert_row(
+                preserved_row or ["", "", "", "", "", "", "", ""],
+                index=first_yt,
+                value_input_option="USER_ENTERED" if preserved_row else "RAW",
+            )
             target_row = first_yt
         else:
             target_row = max(FIRST_STAFF_ROW, len(ids) + 1)
             while target_row <= len(ids) and _cell_text(ids[target_row - 1]):
                 target_row += 1
+            if preserved_row:
+                worksheet.insert_row(preserved_row, index=target_row, value_input_option="USER_ENTERED")
     else:
         target_row = max(FIRST_STAFF_ROW, len(ids) + 1)
         while target_row <= len(ids) and _cell_text(ids[target_row - 1]):
             target_row += 1
+        if preserved_row:
+            worksheet.insert_row(preserved_row, index=target_row, value_input_option="USER_ENTERED")
 
     safe_name = nickname.replace('"', '""')
     safe_url = personal_channel_url.replace('"', '""')
     nickname_formula = f'=HYPERLINK("{safe_url}","{safe_name}")'
-    worksheet.update(range_name=f"B{target_row}:E{target_row}",
-                     values=[[nickname_formula, position, profile_url, int(warns)]],
-                     value_input_option="USER_ENTERED")
-    worksheet.update(range_name=f"G{target_row}:H{target_row}",
-                     values=[[discord_id, int(points)]],
-                     value_input_option="USER_ENTERED")
+    if preserve_stats and row_was_existing:
+        worksheet.update(range_name=f"B{target_row}:D{target_row}",
+                         values=[[nickname_formula, position, profile_url]],
+                         value_input_option="USER_ENTERED")
+        worksheet.update(range_name=f"G{target_row}",
+                         values=[[discord_id]],
+                         value_input_option="USER_ENTERED")
+    else:
+        worksheet.update(range_name=f"B{target_row}:E{target_row}",
+                         values=[[nickname_formula, position, profile_url, int(warns)]],
+                         value_input_option="USER_ENTERED")
+        worksheet.update(range_name=f"G{target_row}:H{target_row}",
+                         values=[[discord_id, int(points)]],
+                         value_input_option="USER_ENTERED")
     return target_row
 
 
