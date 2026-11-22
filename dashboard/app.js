@@ -37,7 +37,7 @@ function showPage(page){
     const old=document.getElementById("dashboardBody");
     if(old) old.hidden=true;
     if(page==="players"){
-      section.innerHTML='<div class="panel-heading"><div><h2>Игроки</h2><p>Баланс и варны из базы бота</p></div><button class="text-button" id="refreshPlayers">Обновить</button></div><input id="playerSearch" class="panel-search" placeholder="⌕  Поиск по Discord ID"><div id="playersResult" class="empty-state">Загрузка игроков…</div>';
+      section.innerHTML='<div class="panel-heading"><div><h2>Игроки</h2><p>Баланс и варны из базы бота</p></div><div class="panel-heading-actions"><button class="text-button" id="openSheetsStaff">Добавить состав в таблицу</button><button class="text-button" id="refreshPlayers">Обновить</button></div></div><div id="sheetsStaffManager" class="sheets-staff-manager" hidden><div class="sheets-staff-head"><div><strong>Добавление состава Медиа</strong><p>Участники с ролью Команда медиа, которых ещё нет в таблице</p></div><button class="text-button" id="refreshSheetsStaff">Обновить список</button></div><div id="sheetsStaffResult" class="empty-state">Нажми «Обновить список».</div></div><input id="playerSearch" class="panel-search" placeholder="⌕  Поиск по Discord ID"><div id="playersResult" class="empty-state">Загрузка игроков…</div>';
       loadPlayers(section);
     } else if(page==="requests"){
       section.innerHTML='<div class="panel-heading"><div><h2>Заявки</h2><p>Очередь заявок из базы бота · только просмотр</p></div><button class="text-button" id="refreshRequests">Обновить</button></div><div id="requestsResult" class="empty-state">Загрузка заявок…</div>';
@@ -920,6 +920,12 @@ async function apiGet(url){
 }
 async function loadPlayers(section){
   const result=section.querySelector("#playersResult"),refresh=section.querySelector("#refreshPlayers"),search=section.querySelector("#playerSearch");
+  const sheetsToggle=section.querySelector("#openSheetsStaff"),sheetsManager=section.querySelector("#sheetsStaffManager");
+  if(sheetsToggle){
+    sheetsToggle.hidden=!["co_adm","adm","full"].includes(currentAccessLevel);
+    sheetsToggle.addEventListener("click",async()=>{sheetsManager.hidden=!sheetsManager.hidden;if(!sheetsManager.hidden)await loadSheetsStaff(section);});
+    section.querySelector("#refreshSheetsStaff")?.addEventListener("click",()=>loadSheetsStaff(section));
+  }
   if(!result)return;let players=[];
   const render=()=>{
     const term=(search?.value||"").trim().toLowerCase();
@@ -952,6 +958,48 @@ async function loadPlayers(section){
   };
   const load=async()=>{result.className="empty-state";result.textContent="Загружаем участников…";try{const data=await apiGet("/api/players");players=data.players||[];render();}catch(e){result.className="empty-state";result.textContent=e.message;}};
   search?.addEventListener("input",render);refresh?.addEventListener("click",load);await load();
+}
+async function loadSheetsStaff(section){
+  const result=section.querySelector("#sheetsStaffResult");
+  if(!result)return;
+  result.className="empty-state";result.textContent="Получаем участников с ролью Команда медиа…";
+  try{
+    const data=await apiGet("/api/sheets/staff-candidates");
+    const candidates=data.candidates||[];
+    if(!candidates.length){result.textContent="Все участники с ролью Команда медиа уже внесены в базу профилей.";return;}
+    const list=document.createElement("div");list.className="sheets-staff-list";
+    for(const candidate of candidates){
+      const card=document.createElement("form");card.className="sheets-staff-card";
+      const header=document.createElement("div");header.className="sheets-staff-identity";
+      const name=document.createElement("strong");name.textContent=candidate.username||"Участник";
+      const id=document.createElement("small");id.textContent="@"+(candidate.discord_username||"")+" · Discord ID: "+candidate.user_id;
+      header.append(name,id);
+      const grid=document.createElement("div");grid.className="sheets-staff-fields";
+      const nickname=document.createElement("input");nickname.className="panel-search";nickname.placeholder="Никнейм для таблицы";nickname.value=candidate.username||"";nickname.required=true;nickname.maxLength=100;
+      const position=document.createElement("select");position.className="panel-search";position.required=true;
+      const choose=document.createElement("option");choose.value="";choose.textContent="Выбери должность";choose.disabled=true;choose.selected=true;
+      const tt=document.createElement("option");tt.value="TT";tt.textContent="TikTok (TT)";
+      const yt=document.createElement("option");yt.value="YT";yt.textContent="YouTube (YT)";position.append(choose,tt,yt);
+      const profile=document.createElement("input");profile.className="panel-search";profile.placeholder="Ссылка на TikTok / YouTube";profile.type="url";profile.required=true;
+      const channel=document.createElement("input");channel.className="panel-search";channel.placeholder="ID личного Discord-канала";channel.inputMode="numeric";channel.required=true;channel.value=candidate.personal_channel_id||"";
+      const add=document.createElement("button");add.className="member-action give-warn";add.type="submit";add.textContent="Добавить в таблицу";
+      const error=document.createElement("p");error.className="sheets-staff-error";error.hidden=true;
+      grid.append(nickname,position,profile,channel);
+      card.append(header,grid,error,add);
+      card.addEventListener("submit",async event=>{
+        event.preventDefault();error.hidden=true;add.disabled=true;add.textContent="Добавляем…";
+        try{
+          const saved=await apiPost("/api/sheets/staff-add",{user_id:candidate.user_id,nickname:nickname.value.trim(),position:position.value,profile_url:profile.value.trim(),personal_channel_id:channel.value.trim()});
+          if(saved.sheets_synced){showToast("Участник добавлен в Google Sheets.");}
+          else{showToast("Профиль сохранён в базе. Проверь Google Sheets и запусти /sheets_sync.");}
+          card.remove();
+          if(!list.children.length){result.className="empty-state";result.textContent="Все найденные участники обработаны.";}
+        }catch(errorValue){error.textContent=errorValue.message||"Не удалось добавить участника.";error.hidden=false;add.disabled=false;add.textContent="Добавить в таблицу";}
+      });
+      list.append(card);
+    }
+    result.className="sheets-staff-result";result.replaceChildren(list);
+  }catch(error){result.className="empty-state";result.textContent=error.message||"Не удалось получить список участников.";}
 }
 function openWarnDialog(userId,action){
   const existing=document.getElementById("warnActionModal");if(existing)existing.remove();
