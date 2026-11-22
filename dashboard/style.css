@@ -1573,3 +1573,11 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .dc-profile-role-color{width:8px;height:8px;flex:0 0 8px;border-radius:50%}
 .dc-profile-actions{display:flex;justify-content:flex-end;padding:0 18px 18px}
 .dc-profile-actions button{padding:9px 14px;border:0;border-radius:4px;background:#5865f2;color:white;font-weight:600;cursor:pointer}
+
+
+/* Discord composer file attachments */
+.dc-file-preview{display:flex;flex-wrap:wrap;gap:6px;padding:7px 12px 0;color:#b5bac1;font-size:11px}
+.dc-file-preview[hidden]{display:none}
+.dc-file-preview span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:5px 8px;border-radius:5px;background:#2b2d31}
+.dc-composer-add:not(:disabled){cursor:pointer;color:#dbdee1}
+.dc-composer-add:not(:disabled):hover{background:#404249;color:#fff}
