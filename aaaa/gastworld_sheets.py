@@ -6,7 +6,7 @@ Credentials are supplied only through the host environment:
   GASTWORLD_SHEETS_ID          - spreadsheet ID
   GASTWORLD_SHEETS_WORKSHEET   - worksheet title (default: Таблица Медия)
 
-Only the lower "Состав Медии" table is touched (rows 16+, columns B:H).
+Only the lower "Состав Медии" table is touched (rows 16+, columns B:I).
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from typing import Any
 
 
 FIRST_STAFF_ROW = 16
-DISCORD_ID_COLUMN = 7  # G
+DISCORD_ID_COLUMN = 9  # I (technical ID; G displays Discord username)
 STAFF_WORKSHEET = "Таблица Медия"
 
 
@@ -81,17 +81,19 @@ def sync_staff_row(
     position: str,
     warns: int,
     discord_id: int | str,
+    discord_username: str,
     points: int,
     preserve_stats: bool = False,
 ) -> int:
-    """Keep TikTok staff above YouTube staff, preserving the full row on moves."""
+    """Keep TikTok staff above YouTube staff and preserve existing statistics."""
     nickname = _cell_text(nickname)
     personal_channel_url = _cell_text(personal_channel_url)
     profile_url = _cell_text(profile_url)
     position = _cell_text(position).upper()
     discord_id = _cell_text(discord_id)
-    if not nickname or not personal_channel_url or not profile_url or position not in {"TT", "YT"} or not discord_id:
-        raise ValueError("Для записи нужны ник, ссылки, должность TT/YT и Discord ID.")
+    discord_username = _cell_text(discord_username)
+    if not nickname or not personal_channel_url or not profile_url or position not in {"TT", "YT"} or not discord_id or not discord_username:
+        raise ValueError("Для записи нужны ник, ссылки, должность TT/YT, Discord username и ID.")
     if not personal_channel_url.startswith(("https://", "http://")) or not profile_url.startswith(("https://", "http://")):
         raise ValueError("Ссылки должны начинаться с http:// или https://")
     if position == "TT" and "tiktok.com/@" not in profile_url.lower():
@@ -101,66 +103,91 @@ def sync_staff_row(
 
     worksheet = _worksheet()
     ids = worksheet.col_values(DISCORD_ID_COLUMN)
+    legacy_ids = worksheet.col_values(7)  # Older rows stored Discord ID in G
     positions = worksheet.col_values(3)
-    existing_row = next((r for r in range(FIRST_STAFF_ROW, len(ids) + 1) if _cell_text(ids[r - 1]) == discord_id), None)
+    last_row = max(len(ids), len(legacy_ids), len(positions))
+    existing_row = next(
+        (r for r in range(FIRST_STAFF_ROW, last_row + 1)
+         if (r <= len(ids) and _cell_text(ids[r - 1]) == discord_id)
+         or (r <= len(legacy_ids) and _cell_text(legacy_ids[r - 1]) == discord_id)),
+        None,
+    )
 
     row_was_existing = existing_row is not None
     preserved_row = None
     if existing_row is not None and _cell_text(positions[existing_row - 1]).upper() != position:
         preserved_row = worksheet.get(
-            "A{}:H{}".format(existing_row, existing_row), value_render_option="FORMULA"
+            "A{}:I{}".format(existing_row, existing_row), value_render_option="FORMULA"
         )
-        preserved_row = (preserved_row[0] if preserved_row else [])[:8]
-        preserved_row += [""] * (8 - len(preserved_row))
+        preserved_row = (preserved_row[0] if preserved_row else [])[:9]
+        preserved_row += [""] * (9 - len(preserved_row))
         worksheet.delete_rows(existing_row)
         ids = worksheet.col_values(DISCORD_ID_COLUMN)
+        legacy_ids = worksheet.col_values(7)
         positions = worksheet.col_values(3)
+        last_row = max(len(ids), len(legacy_ids), len(positions))
         existing_row = None
 
     if existing_row is not None:
         target_row = existing_row
     elif position == "TT":
-        first_yt = next((r for r in range(FIRST_STAFF_ROW, len(ids) + 1)
-                         if _cell_text(ids[r - 1]) and _cell_text(positions[r - 1]).upper() == "YT"), None)
+        first_yt = next(
+            (r for r in range(FIRST_STAFF_ROW, last_row + 1)
+             if ((r <= len(ids) and _cell_text(ids[r - 1]))
+                 or (r <= len(legacy_ids) and _cell_text(legacy_ids[r - 1])))
+             and r <= len(positions)
+             and _cell_text(positions[r - 1]).upper() == "YT"),
+            None,
+        )
         if first_yt is not None:
             worksheet.insert_row(
-                preserved_row or ["", "", "", "", "", "", "", ""],
+                preserved_row or ["", "", "", "", "", "", "", "", ""],
                 index=first_yt,
                 value_input_option="USER_ENTERED" if preserved_row else "RAW",
             )
             target_row = first_yt
         else:
-            target_row = max(FIRST_STAFF_ROW, len(ids) + 1)
-            while target_row <= len(ids) and _cell_text(ids[target_row - 1]):
-                target_row += 1
+            target_row = max(FIRST_STAFF_ROW, last_row + 1)
             if preserved_row:
                 worksheet.insert_row(preserved_row, index=target_row, value_input_option="USER_ENTERED")
     else:
-        target_row = max(FIRST_STAFF_ROW, len(ids) + 1)
-        while target_row <= len(ids) and _cell_text(ids[target_row - 1]):
-            target_row += 1
+        target_row = max(FIRST_STAFF_ROW, last_row + 1)
         if preserved_row:
             worksheet.insert_row(preserved_row, index=target_row, value_input_option="USER_ENTERED")
 
     safe_name = nickname.replace('"', '""')
-    safe_url = personal_channel_url.replace('"', '""')
-    nickname_formula = f'=HYPERLINK("{safe_url}","{safe_name}")'
+    safe_channel_url = personal_channel_url.replace('"', '""')
+    safe_profile_url = profile_url.replace('"', '""')
+    nickname_formula = f'=HYPERLINK("{safe_channel_url}";"{safe_name}")'
+    profile_formula = f'=HYPERLINK("{safe_profile_url}";"КАНАЛ")'
     if preserve_stats and row_was_existing:
-        worksheet.update(range_name=f"B{target_row}:D{target_row}",
-                         values=[[nickname_formula, position, profile_url]],
-                         value_input_option="USER_ENTERED")
-        worksheet.update(range_name=f"G{target_row}",
-                         values=[[discord_id]],
-                         value_input_option="USER_ENTERED")
+        worksheet.update(
+            range_name=f"B{target_row}:D{target_row}",
+            values=[[nickname_formula, position, profile_formula]],
+            value_input_option="USER_ENTERED",
+        )
+        worksheet.update(
+            range_name=f"G{target_row}",
+            values=[[discord_username]],
+            value_input_option="USER_ENTERED",
+        )
+        worksheet.update(
+            range_name=f"I{target_row}",
+            values=[[discord_id]],
+            value_input_option="USER_ENTERED",
+        )
     else:
-        worksheet.update(range_name=f"B{target_row}:E{target_row}",
-                         values=[[nickname_formula, position, profile_url, int(warns)]],
-                         value_input_option="USER_ENTERED")
-        worksheet.update(range_name=f"G{target_row}:H{target_row}",
-                         values=[[discord_id, int(points)]],
-                         value_input_option="USER_ENTERED")
+        worksheet.update(
+            range_name=f"B{target_row}:E{target_row}",
+            values=[[nickname_formula, position, profile_formula, int(warns)]],
+            value_input_option="USER_ENTERED",
+        )
+        worksheet.update(
+            range_name=f"G{target_row}:I{target_row}",
+            values=[[discord_username, int(points), discord_id]],
+            value_input_option="USER_ENTERED",
+        )
     return target_row
-
 
 def remove_staff_row(discord_id: int | str) -> bool:
     worksheet = _worksheet()
