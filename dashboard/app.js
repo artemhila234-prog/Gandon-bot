@@ -1101,12 +1101,45 @@ async function dcLoadGuildMembers(guild,force=false){
   }finally{dcMembersLoading.delete(guild.id);}
 }
 let dcMemberRoleCache=[];
+const dcStatusLabels={online:"В сети",idle:"Не активен",dnd:"Не беспокоить",offline:"Не в сети"};
+function dcStatusClass(status){return ["online","idle","dnd"].includes(status)?status:"offline";}
+function dcOpenProfile(member){
+  if(!member?.id||!dcActiveGuild)return;
+  let modal=document.getElementById("dcProfileModal");
+  if(!modal){modal=document.createElement("div");modal.id="dcProfileModal";modal.className="dc-profile-backdrop";modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});document.body.append(modal);}
+  modal.replaceChildren();
+  const card=document.createElement("section");card.className="dc-profile-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
+  const close=document.createElement("button");close.className="dc-profile-close";close.type="button";close.textContent="×";close.addEventListener("click",()=>modal.remove());card.append(close);
+  const banner=document.createElement("div");banner.className="dc-profile-banner";card.append(banner);
+  const avatar=document.createElement("div");avatar.className="dc-profile-avatar";avatar.innerHTML=dcAvatar(member);const status=document.createElement("i");status.className="dc-status-dot "+dcStatusClass(member.status);avatar.append(status);card.append(avatar);
+  const name=document.createElement("h2");name.textContent=member.global_name||member.username;card.append(name);
+  const tag=document.createElement("p");tag.className="dc-profile-tag";tag.textContent="@"+member.username+" · "+member.id;card.append(tag);
+  const statusLine=document.createElement("div");statusLine.className="dc-profile-status";const dot=document.createElement("i");dot.className="dc-status-dot "+dcStatusClass(member.status);const statusText=document.createElement("span");statusText.textContent=dcStatusLabels[dcStatusClass(member.status)]||"Не в сети";if(member.activity){statusText.textContent+=" · "+member.activity;}statusLine.append(dot,statusText);card.append(statusLine);
+  const about=document.createElement("div");about.className="dc-profile-section";const aboutTitle=document.createElement("h3");aboutTitle.textContent="УЧАСТНИК СЕРВЕРА";const aboutText=document.createElement("p");aboutText.textContent=(member.bot?"Бот":"Участник")+" · "+(member.joined_at?"На сервере с "+new Date(member.joined_at).toLocaleDateString("ru-RU"):"");about.append(aboutTitle,aboutText);card.append(about);
+  const rolesSection=document.createElement("div");rolesSection.className="dc-profile-section";const rolesTitle=document.createElement("h3");rolesTitle.textContent="РОЛИ · УПРАВЛЕНИЕ";rolesSection.append(rolesTitle);
+  const roleList=document.createElement("div");roleList.className="dc-profile-roles";
+  const assigned=new Set((member.role_ids||[]).map(String));
+  dcMemberRoleCache.filter(role=>role.manageable===true).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0)).forEach(role=>{
+    const label=document.createElement("label");label.className="dc-profile-role";const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=assigned.has(String(role.id));checkbox.addEventListener("change",async()=>{
+      checkbox.disabled=true;
+      try{await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id)+"/roles",{role_id:String(role.id),action:checkbox.checked?"add":"remove"});await dcLoadGuildMembers(dcActiveGuild,true);const updated=dcMemberCache.find(x=>String(x.id)===String(member.id));if(updated){modal.remove();dcOpenProfile(updated);}}
+      catch(error){checkbox.checked=!checkbox.checked;alert(error.message);}
+      finally{checkbox.disabled=false;}
+    });
+    const color=document.createElement("i");color.className="dc-profile-role-color";color.style.background=role.color_hex||"#5865f2";const roleName=document.createElement("span");roleName.textContent=role.name;label.append(checkbox,color,roleName);roleList.append(label);
+  });
+  if(!roleList.children.length){const note=document.createElement("p");note.textContent="У бота нет доступных для изменения ролей. Проверь Manage Roles и положение его высшей роли.";roleList.append(note);}
+  rolesSection.append(roleList);card.append(rolesSection);
+  const footer=document.createElement("div");footer.className="dc-profile-actions";const dm=document.createElement("button");dm.type="button";dm.textContent="Открыть ЛС";dm.addEventListener("click",()=>{modal.remove();dcActiveChannel=null;dcSetMode("dm");dcOpenConversation(member);});footer.append(dm);card.append(footer);
+  modal.append(card);document.addEventListener("keydown",function esc(event){if(event.key==="Escape"){modal.remove();document.removeEventListener("keydown",esc);}});
+}
 function dcRenderGuildMembers(){
   const root=document.getElementById("dcMemberList"),search=document.getElementById("dcMemberSearch"),count=document.getElementById("dcMemberCount");if(!root)return;
   const query=(search?.value||"").trim().toLocaleLowerCase("ru");
   const members=dcMemberCache.filter(member=>((member.global_name||"")+" "+(member.username||"")+" "+(member.id||"")).toLocaleLowerCase("ru").includes(query));
   root.replaceChildren();
-  if(count)count.textContent=query?members.length+" / "+dcMemberCache.length:String(dcMemberCache.length);
+  const onlineTotal=dcMemberCache.filter(member=>dcStatusClass(member.status)!=="offline").length;
+  if(count)count.textContent=(query?members.length+" / "+dcMemberCache.length:String(dcMemberCache.length))+" · "+onlineTotal+" в сети";
   if(!members.length){const empty=document.createElement("div");empty.className="dc-live-empty";empty.textContent=query?"Участники не найдены.":"На сервере нет участников для отображения.";root.append(empty);return;}
   const roleMap=new Map((dcMemberRoleCache||[]).map(role=>[String(role.id),role]));
   // Match Discord member-list grouping: only hoisted (Display role members separately) roles create groups.
@@ -1122,14 +1155,15 @@ function dcRenderGuildMembers(){
   }
   const appendGroup=(label,items,color)=>{
     if(!items.length)return;
-    const heading=document.createElement("div");heading.className="dc-member-group-title";heading.textContent=label+" — "+items.length;
+    const online=items.filter(member=>dcStatusClass(member.status)!=="offline").length;
+    const heading=document.createElement("div");heading.className="dc-member-group-title";heading.textContent=label+" — "+items.length+(online?" · "+online+" в сети":"");
     if(color)heading.style.color=color;root.append(heading);
     items.sort((a,b)=>(a.global_name||a.username||"").localeCompare(b.global_name||b.username||"","ru"));
     items.forEach(member=>{
       const button=document.createElement("button");button.type="button";button.className="dc-member dc-member-button";button.title=(member.global_name||member.username)+" · @"+member.username;
-      const avatar=document.createElement("span");avatar.innerHTML=dcAvatar(member,"dc-member-avatar");button.append(avatar.firstElementChild);
+      const avatar=document.createElement("span");avatar.className="dc-member-avatar-wrap";avatar.innerHTML=dcAvatar(member,"dc-member-avatar");const status=document.createElement("i");status.className="dc-status-dot "+dcStatusClass(member.status);avatar.append(status);button.append(avatar);
       const info=document.createElement("span");info.className="dc-member-copy";const name=document.createElement("strong");name.textContent=member.global_name||member.username;const handle=document.createElement("small");handle.textContent="@"+member.username;info.append(name,handle);button.append(info);
-      button.addEventListener("click",()=>{dcActiveChannel=null;dcSetMode("dm");dcOpenConversation(member);});
+      button.addEventListener("click",()=>dcOpenProfile(member));
       root.append(button);
     });
   };
@@ -1182,7 +1216,7 @@ function loadBotDiscord(){
   refreshChat?.addEventListener("click",()=>{if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel);else if(dcActiveUser)dcOpenConversation(dcActiveUser);});
   document.getElementById("dcHomeButton")?.addEventListener("click",()=>{dcActiveGuild=null;dcActiveChannel=null;dcActiveUser=null;dcSetMode("dm");dcLoadConversationList();});
   form?.addEventListener("submit",dcSendMessage);dcSetMode("dm");dcLoadConversationList();dcLoadGuilds();
-  dcPollTimer=setInterval(()=>{if(!document.getElementById("dcDmList")){clearInterval(dcPollTimer);dcPollTimer=null;return;}if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel,true);else if(dcActiveUser)dcOpenConversation(dcActiveUser,true);else if(!dcActiveGuild)dcLoadConversationList();},12000);
+  dcPollTimer=setInterval(()=>{if(!document.getElementById("dcDmList")){clearInterval(dcPollTimer);dcPollTimer=null;return;}if(dcActiveGuild){const guildId=dcActiveGuild.id;apiGet("/api/discord/guilds/"+encodeURIComponent(guildId)+"/presence").then(data=>{if(dcActiveGuild?.id!==guildId)return;const states=new Map((data.members||[]).map(item=>[String(item.id),item]));dcMemberCache=dcMemberCache.map(member=>({...member,...(states.get(String(member.id))||{})}));dcMemberCacheByGuild.set(guildId,dcMemberCache);dcRenderGuildMembers();}).catch(()=>{});}if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel,true);else if(dcActiveUser)dcOpenConversation(dcActiveUser,true);else if(!dcActiveGuild)dcLoadConversationList();},15000);
 }
 
 async function apiGet(url){
