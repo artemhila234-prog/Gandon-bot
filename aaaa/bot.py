@@ -271,7 +271,7 @@ async def sync_staff_member_to_sheets(member, preserve_sheet_stats=None):
             preserve_sheet_stats = not user_record_exists
         data = get_user_data(member.id)
         personal_channel_url = f"https://discord.com/channels/{VERIFICATION_GUILD_ID}/{int(channel_id)}"
-        row_number = await asyncio.to_thread(sync_staff_row, nickname=nickname, personal_channel_url=personal_channel_url, profile_url=profile_url, position=position, warns=data['warns'], discord_id=member.id, points=data['balance'], preserve_stats=preserve_sheet_stats)
+        row_number = await asyncio.to_thread(sync_staff_row, nickname=nickname, personal_channel_url=personal_channel_url, profile_url=profile_url, position=position, warns=data['warns'], discord_id=member.id, discord_username=member.name, points=data['balance'], preserve_stats=preserve_sheet_stats)
         print(f"📊 [GOOGLE SHEETS] Обновлена строка {row_number} для {member.id} ({position}).", flush=True)
         return "ok"
     except Exception as error:
