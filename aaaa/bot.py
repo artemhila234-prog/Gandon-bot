@@ -3063,9 +3063,21 @@ async def panel_dm_list():
         if not recipient or recipient.id in seen: continue
         seen.add(recipient.id)
         last=getattr(channel, 'last_message', None)
-        if last is None and channel.last_message_id:
-            try: last=await channel.fetch_message(channel.last_message_id)
-            except (discord.NotFound, discord.Forbidden, discord.HTTPException): last=None
+        if last is None:
+            # DMChannel in some discord.py versions has no last_message_id attribute.
+            # Prefer a cached message ID when available; otherwise read the newest
+            # message from channel history without assuming that the attribute exists.
+            last_message_id=getattr(channel, 'last_message_id', None)
+            if last_message_id:
+                try: last=await channel.fetch_message(last_message_id)
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException): last=None
+            if last is None:
+                try:
+                    async for candidate in channel.history(limit=1):
+                        last=candidate
+                        break
+                except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                    last=None
         items.append({'channel_id':str(channel.id),'user':await panel_dm_user_payload(recipient),'last_message':{'content':(last.content or '[Вложение/медиа]')[:180],'created_at':last.created_at.isoformat(),'author_id':str(last.author.id)} if last else None})
     items.sort(key=lambda x:x['last_message']['created_at'] if x['last_message'] else '', reverse=True)
     return {'conversations':items,'bot':await panel_dm_user_payload(bot.user) if bot.user else None}
