@@ -1629,8 +1629,16 @@ async def internal_approve_request(user_id: str, request: Request):
         app_data = json.loads(raw_data)
         nick = str(app_data.get("nick", "")).strip()
         position = str(app_data.get("position", "")).strip()
-        if not nick or not position or not message_id:
-            raise HTTPException(status_code=409, detail="В заявке отсутствуют ник, должность или ID сообщения.")
+        profile_url = str(app_data.get("profile_url", "")).strip()
+        normalized_position = position.casefold().strip()
+        if normalized_position in {"tt", "тт", "tiktok", "тикток"}:
+            stored_position = "TT"
+        elif normalized_position in {"yt", "ютуб", "youtube"}:
+            stored_position = "YT"
+        else:
+            stored_position = ""
+        if not nick or not stored_position or not profile_url.startswith(("https://", "http://")) or not message_id:
+            raise HTTPException(status_code=409, detail="В заявке отсутствуют корректные ник, должность, ссылка на профиль или ID сообщения.")
         member = await discord_request("GET", f"/guilds/{GUILD_ID}/members/{user_id}")
         target_user = member.get("user", {})
         target_name = member.get("nick") or target_user.get("global_name") or target_user.get("username") or user_id
@@ -1706,6 +1714,16 @@ async def internal_approve_request(user_id: str, request: Request):
         channel_id = str(channel["id"])
         with sqlite3.connect(path, timeout=10) as db:
             db.execute("INSERT INTO users (user_id, balance, warns, personal_channel_id) VALUES (?, 0, 0, ?) ON CONFLICT(user_id) DO UPDATE SET personal_channel_id = excluded.personal_channel_id", (int(user_id), int(channel_id)))
+            db.execute(
+                """INSERT INTO media_staff_profiles (user_id, nickname, position, profile_url)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(user_id) DO UPDATE SET
+                       nickname = excluded.nickname,
+                       position = excluded.position,
+                       profile_url = excluded.profile_url,
+                       updated_at = CURRENT_TIMESTAMP""",
+                (int(user_id), nick, stored_position, profile_url),
+            )
             db.execute("DELETE FROM pending_requests WHERE request_type = 'join' AND user_id = ?", (int(user_id),))
             db.commit()
         await discord_request("PUT", f"/channels/1563918554829422704/messages/{message_id}/reactions/%E2%9C%85/@me")
