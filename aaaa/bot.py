@@ -3099,14 +3099,50 @@ async def panel_dm_search(query):
                 if len(found)>=25: break
     return {'users':list(found.values())[:25]}
 
+async def panel_message_mentions(message):
+    """Build safe display metadata for Discord mentions without exposing raw IDs in the UI."""
+    users = []
+    roles = []
+    channels = []
+    for user in message.mentions[:25]:
+        users.append(await panel_dm_user_payload(user))
+    for role in message.role_mentions[:25]:
+        roles.append({
+            "id": str(role.id), "name": role.name,
+            "color_hex": f"#{role.color.value:06x}" if role.color.value else "",
+        })
+    for channel in message.channel_mentions[:25]:
+        channels.append({"id": str(channel.id), "name": channel.name})
+    return {
+        "mentions": users,
+        "role_mentions": roles,
+        "channel_mentions": channels,
+        "mention_everyone": bool(message.mention_everyone),
+        "edited_at": message.edited_at.isoformat() if message.edited_at else None,
+        "pinned": bool(message.pinned),
+    }
+
+
 async def panel_dm_history(user_id, limit=60):
-    if not bot.is_ready(): raise RuntimeError('Discord-бот ещё подключается.')
-    if not str(user_id).isdigit(): raise ValueError('Некорректный Discord ID.')
-    user=await bot.fetch_user(int(user_id)); channel=await user.create_dm(); messages=[]
-    async for message in channel.history(limit=max(1,min(int(limit),100))):
-        messages.append({'id':str(message.id),'content':message.content or '', 'created_at':message.created_at.isoformat(), 'author':await panel_dm_user_payload(message.author), 'attachments':[{'filename':x.filename,'url':x.url} for x in message.attachments[:10]], 'embeds':[{'title':x.title,'description':(x.description or '')[:500]} for x in message.embeds[:3]]})
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    if not str(user_id).isdigit():
+        raise ValueError("Некорректный Discord ID.")
+    user = await bot.fetch_user(int(user_id))
+    channel = await user.create_dm()
+    messages = []
+    async for message in channel.history(limit=max(1, min(int(limit), 100))):
+        messages.append({
+            "id": str(message.id),
+            "content": message.content or "",
+            "created_at": message.created_at.isoformat(),
+            "author": await panel_dm_user_payload(message.author),
+            **(await panel_message_mentions(message)),
+            "attachments": [{"filename": item.filename, "url": item.url, "content_type": item.content_type or ""} for item in message.attachments[:10]],
+            "embeds": [{"title": item.title or "", "description": (item.description or "")[:1000], "url": item.url or "", "image_url": item.image.url if item.image else ""} for item in message.embeds[:5]],
+        })
     messages.reverse()
-    return {'user':await panel_dm_user_payload(user),'channel_id':str(channel.id),'messages':messages}
+    return {"user": await panel_dm_user_payload(user), "channel_id": str(channel.id), "messages": messages}
 
 async def panel_dm_send(user_id, content):
     if not bot.is_ready(): raise RuntimeError('Discord-бот ещё подключается.')
@@ -3203,19 +3239,30 @@ async def panel_channel_history(channel_id, limit=100):
     channel = await bot.fetch_channel(int(channel_id))
     if not isinstance(channel, discord.TextChannel):
         raise ValueError("Это не текстовый канал.")
-    if not channel.permissions_for(channel.guild.me).view_channel or not channel.permissions_for(channel.guild.me).read_message_history:
+    permissions = channel.permissions_for(channel.guild.me)
+    if not permissions.view_channel or not permissions.read_message_history:
         raise PermissionError("У бота нет прав просматривать историю этого канала.")
     messages = []
     async for message in channel.history(limit=max(1, min(int(limit), 100))):
         messages.append({
-            "id": str(message.id), "content": message.content or "",
+            "id": str(message.id),
+            "content": message.content or "",
             "created_at": message.created_at.isoformat(),
             "author": await panel_dm_user_payload(message.author),
-            "attachments": [{"filename": item.filename, "url": item.url} for item in message.attachments[:10]],
-            "embeds": [{"title": item.title or "", "description": (item.description or "")[:500]} for item in message.embeds[:3]],
+            **(await panel_message_mentions(message)),
+            "attachments": [{"filename": item.filename, "url": item.url, "content_type": item.content_type or ""} for item in message.attachments[:10]],
+            "embeds": [{
+                "title": item.title or "",
+                "description": (item.description or "")[:1000],
+                "url": item.url or "",
+                "image_url": item.image.url if item.image else "",
+            } for item in message.embeds[:5]],
         })
     messages.reverse()
-    return {"channel": {"id": str(channel.id), "name": channel.name, "guild_id": str(channel.guild.id)}, "messages": messages}
+    return {
+        "channel": {"id": str(channel.id), "name": channel.name, "guild_id": str(channel.guild.id)},
+        "messages": messages,
+    }
 
 
 async def panel_channel_send(channel_id, content):
