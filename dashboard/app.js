@@ -995,6 +995,12 @@ async function dcSendMessage(event){
   catch(error){hint.textContent=error.message;}finally{send.disabled=!!(dcActiveChannel&&!dcActiveChannel.can_send);input?.focus();}
 }
 let dcActiveGuild=null,dcActiveChannel=null,dcGuildCache=[];
+let dcMemberCache=[];
+let dcMemberCacheByGuild=new Map();
+let dcMemberRolesByGuild=new Map();
+let dcChannelsCacheByGuild=new Map();
+let dcMembersLoading=new Set();
+let dcChannelsLoading=new Set();
 function dcSetMode(mode){
   const dm=mode==="dm",search=document.getElementById("dcDmSearch"),searchResults=document.getElementById("dcSearchResults"),dmList=document.getElementById("dcDmList"),channelList=document.getElementById("dcChannelList"),title=document.getElementById("dcSidebarTitle"),refresh=document.getElementById("dcRefreshDms");
   if(search)search.hidden=!dm;if(searchResults)searchResults.hidden=true;if(dmList)dmList.hidden=!dm;if(channelList)channelList.hidden=dm;
