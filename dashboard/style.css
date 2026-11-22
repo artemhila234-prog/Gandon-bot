@@ -1519,3 +1519,7 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
   #pageContent.discord-fullscreen .dc-live-layout{grid-template-columns:minmax(0,1fr)!important}
   #pageContent.discord-fullscreen .dc-live-members{display:none!important}
 }
+
+/* Discord role-based member groups */
+.dc-member-group-title{margin-top:7px;padding:12px 7px 6px;border-top:1px solid #383a40;text-transform:uppercase}
+.dc-member-group-title:first-child{border-top:0;margin-top:0}
