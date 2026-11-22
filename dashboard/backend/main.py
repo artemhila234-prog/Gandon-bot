@@ -866,6 +866,20 @@ async def api_message_channels(request: Request, guild_id: str = "14929743970011
     if guild_id not in MESSAGE_GUILDS:
         raise HTTPException(status_code=400, detail="Выбран неизвестный Discord-сервер.")
     channels = await discord_request("GET", f"/guilds/{guild_id}/channels")
+    bot_profile = {}
+    try:
+        bot_user = await discord_request("GET", "/users/@me")
+        bot_id = str(bot_user.get("id", ""))
+        bot_avatar = bot_user.get("avatar")
+        avatar_url = (
+            f"https://cdn.discordapp.com/avatars/{bot_id}/{bot_avatar}.png?size=128"
+            if bot_id and bot_avatar else
+            f"https://cdn.discordapp.com/embed/avatars/{(int(bot_id) >> 22) % 6}.png"
+            if bot_id.isdigit() else ""
+        )
+        bot_profile = {"username": bot_user.get("global_name") or bot_user.get("username") or "GastWorld", "avatar_url": avatar_url}
+    except Exception:
+        pass
     items = []
     for channel in channels if isinstance(channels, list) else []:
         if channel.get("type") in (0, 5) and str(channel.get("guild_id", guild_id)) == guild_id:
@@ -880,6 +894,7 @@ async def api_message_channels(request: Request, guild_id: str = "14929743970011
         "guild_name": MESSAGE_GUILDS[guild_id],
         "servers": [{"id": key, "name": value} for key, value in MESSAGE_GUILDS.items()],
         "channels": items,
+        "bot_profile": bot_profile,
         "sender": {"username": user.get("username", "Администратор"), "discord_username": user.get("discord_username", "")},
     }
 
