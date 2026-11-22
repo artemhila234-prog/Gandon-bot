@@ -53,7 +53,8 @@ function showPage(page){
       loadMessages(section);
     } else if(page==="discord"){
       section.classList.add("bot-discord-preview");
-      section.innerHTML="<div class=\"dc-app\">\n<aside class=\"dc-guildbar\"><div class=\"dc-guild-icon dc-home\">GW</div><div class=\"dc-guild-divider\"></div><button class=\"dc-guild-icon selected\">GW</button><button class=\"dc-guild-icon\">WG</button><button class=\"dc-guild-icon\">M</button><button class=\"dc-guild-add\">+</button><div class=\"dc-guild-spacer\"></div><div class=\"dc-guild-icon dc-download\">↓</div><div class=\"dc-guild-icon dc-avatar\">W</div></aside>\n<aside class=\"dc-dm-sidebar\"><div class=\"dc-dm-search\"><span>Найти или начать беседу</span><kbd>Ctrl K</kbd></div><div class=\"dc-dm-nav\"><div class=\"dc-dm-nav-item active\"><b>◈</b> Друзья</div><div class=\"dc-dm-nav-item\"><b>◉</b> Nitro</div><div class=\"dc-dm-nav-item\"><b>▣</b> Магазин</div></div><div class=\"dc-dm-section\"><span>ЛИЧНЫЕ СООБЩЕНИЯ</span><button>＋</button></div><div class=\"dc-dm-empty\">Личные сообщения от имени бота появятся здесь</div><div class=\"dc-account\"><div class=\"dc-account-avatar\">WG<span></span></div><div class=\"dc-account-name\"><strong>WhiteGrief</strong><small>Бот · онлайн</small></div><button>⚙</button><button>♬</button></div></aside>\n<main class=\"dc-main\"><header class=\"dc-topbar\"><div class=\"dc-topbar-title\"><span class=\"dc-hash\">#</span><strong>общий-чат</strong><span class=\"dc-topic\">Официальный чат сообщества GastWorld</span></div><div class=\"dc-topbar-actions\"><button>♧</button><button>▤</button><button>♙</button><div class=\"dc-top-search\">Поиск <kbd>Ctrl K</kbd></div><button>▱</button><button>?</button></div></header>\n<div class=\"dc-channel-layout\"><section class=\"dc-chat\"><div class=\"dc-chat-scroll\"><div class=\"dc-channel-welcome\"><div class=\"dc-channel-welcome-icon\">#</div><h1>Добро пожаловать в #общий-чат!</h1><p>Это начало канала <strong>#общий-чат</strong>.</p><span class=\"dc-welcome-tag\">GASTWORLD COMMUNITY</span></div><div class=\"dc-day-divider\"><span>22 ноября 2026 г.</span></div>\n<article class=\"dc-message\"><div class=\"dc-message-avatar bot\">WG</div><div class=\"dc-message-body\"><div class=\"dc-message-head\"><strong>WhiteGrief</strong><span class=\"dc-app-tag\">БОТ</span><time>Сегодня, 18:42</time></div><p>Привет! Это предварительный интерфейс Discord от имени бота. После подключения здесь будет отображаться настоящая история выбранного канала.</p></div></article>\n<article class=\"dc-message\"><div class=\"dc-message-avatar\">GW</div><div class=\"dc-message-body\"><div class=\"dc-message-head\"><strong>GastWorld</strong><time>Сегодня, 18:43</time></div><p>Интерфейс будет работать с серверами, на которых состоит WhiteGrief.</p></div></article><div class=\"dc-chat-spacer\"></div></div>\n<div class=\"dc-composer-wrap\"><div class=\"dc-composer\"><button class=\"dc-composer-add\">＋</button><span>Написать в #общий-чат</span><div class=\"dc-composer-tools\"><button>▱</button><button>GIF</button><button>▧</button><button>☺</button></div></div><div class=\"dc-composer-hint\">Предпросмотр — отправка сообщений пока отключена</div></div></section>\n<aside class=\"dc-members\"><div class=\"dc-members-title\">В СЕТИ — 1</div><div class=\"dc-member\"><div class=\"dc-member-avatar\">WG<span></span></div><div><strong>WhiteGrief</strong><small>Бот</small></div></div><div class=\"dc-members-title dc-members-later\">НЕ В СЕТИ — 0</div></aside></div>\n<div class=\"dc-release-ribbon\"><span>◉</span> ПРЕДПРОСМОТР ИНТЕРФЕЙСА <i>•</i> Реальное подключение будет добавлено отдельно</div></main></div>";
+      section.innerHTML='<div class="dc-app dc-live-app"><aside class="dc-guildbar"><div class="dc-guild-icon dc-home">GW</div><div class="dc-guild-divider"></div><div class="dc-live-guilds"><div class="dc-guild-icon selected">DM</div></div><div class="dc-guild-spacer"></div><div class="dc-guild-icon dc-avatar">W</div></aside><aside class="dc-dm-sidebar"><div class="dc-dm-search"><input id="dcUserSearch" type="search" placeholder="Найти пользователя или ID"><button id="dcSearchButton" type="button">⌕</button></div><div id="dcSearchResults" class="dc-search-results" hidden></div><div class="dc-dm-section"><span>ЛИЧНЫЕ СООБЩЕНИЯ</span><button id="dcRefreshDms" type="button" title="Обновить">↻</button></div><div id="dcDmList" class="dc-live-dm-list"><div class="dc-live-loading">Загружаем диалоги…</div></div><div class="dc-account"><div class="dc-account-avatar">WG<span></span></div><div class="dc-account-name"><strong id="dcBotName">WhiteGrief</strong><small>Бот · подключение</small></div></div></aside><main class="dc-main"><header class="dc-topbar"><div class="dc-topbar-title"><span class="dc-hash">＠</span><strong id="dcChatTitle">Личные сообщения</strong><span class="dc-topic" id="dcChatSubtitle">Выбери диалог или найди пользователя</span></div><div class="dc-topbar-actions"><button id="dcRefreshChat" type="button" title="Обновить переписку">↻</button></div></header><div class="dc-channel-layout dc-live-layout"><section class="dc-chat"><div id="dcChatMessages" class="dc-chat-scroll"><div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени бота GastWorld.</p></div></div><div class="dc-composer-wrap"><form id="dcComposerForm" class="dc-composer dc-live-composer"><button class="dc-composer-add" type="button" disabled>＋</button><textarea id="dcMessageInput" rows="1" maxlength="2000" placeholder="Написать личное сообщение…" disabled></textarea><button id="dcSendButton" type="submit" disabled>➤</button></form><div id="dcComposerHint" class="dc-composer-hint">Сначала выбери пользователя. Discord может ограничивать отправку DM.</div></div></section><aside class="dc-members dc-live-info"><div class="dc-members-title">ПРОФИЛЬ ПОЛУЧАТЕЛЯ</div><div id="dcRecipientCard" class="dc-recipient-card">Пользователь не выбран</div><div class="dc-members-title dc-members-later">ОГРАНИЧЕНИЯ</div><p>Бот не может обходить настройки приватности Discord. Если пользователь закрыл DM или Discord блокирует контакт, сообщение не будет отправлено.</p></aside></div><div class="dc-release-ribbon"><span>●</span> ОФИЦИАЛЬНОЕ BOT-ПОДКЛЮЧЕНИЕ <i>•</i> Не личный аккаунт</div></main></div>';
+      loadBotDiscord();
     } else if(page==="console"){
       section.innerHTML='<div class="panel-heading"><div><h2>Управление ботом</h2><p>Состояние Discord-подключения и безопасные действия управления.</p></div><button class="text-button" id="refreshConsole">↻ Обновить</button></div><div id="consoleWorkspace" class="console-workspace"><div class="empty-state">Подключаемся к боту…</div></div>';
       loadConsole(section);
@@ -915,6 +916,92 @@ async function apiPost(url,payload){
   if(!response.ok)throw new Error(data.detail||"Ошибка запроса.");
   return data;
 }
+
+let dcActiveUser=null,dcPollTimer=null,dcConversationCache=[];
+function dcEscape(value){return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
+function dcAvatar(user,extra=""){
+  const label=(user?.global_name||user?.username||"?").slice(0,2).toUpperCase();
+  return user?.avatar_url?'<img class="dc-live-avatar '+extra+'" src="'+dcEscape(user.avatar_url)+'" alt="">':'<span class="dc-live-avatar '+extra+'">'+dcEscape(label)+'</span>';
+}
+async function dcLoadConversationList(){
+  const list=document.getElementById("dcDmList");if(!list)return;
+  try{
+    const data=await apiGet("/api/discord/dms");dcConversationCache=data.conversations||[];
+    const botLabel=document.getElementById("dcBotName");if(botLabel)botLabel.textContent=data.bot?.global_name||data.bot?.username||"WhiteGrief";
+    list.replaceChildren();
+    if(!dcConversationCache.length){const empty=document.createElement("div");empty.className="dc-live-empty";empty.textContent="Пока нет сохранённых личных диалогов. Найди участника через поиск и открой переписку.";list.append(empty);return;}
+    dcConversationCache.forEach(item=>{
+      const button=document.createElement("button");button.type="button";button.className="dc-live-dm-item"+(dcActiveUser?.id===item.user.id?" active":"");
+      const avatar=document.createElement("span");avatar.innerHTML=dcAvatar(item.user);
+      const body=document.createElement("span");body.className="dc-live-dm-copy";
+      const name=document.createElement("strong");name.textContent=item.user.global_name||item.user.username;
+      const preview=document.createElement("small");preview.textContent=item.last_message?.content||"Открыть диалог";
+      body.append(name,preview);button.append(avatar.firstElementChild,body);button.addEventListener("click",()=>dcOpenConversation(item.user));list.append(button);
+    });
+  }catch(error){list.textContent=error.message;}
+}
+async function dcSearchUsers(){
+  const input=document.getElementById("dcUserSearch"),results=document.getElementById("dcSearchResults");if(!input||!results)return;
+  const query=input.value.trim();if(query.length<2){results.hidden=true;return;}
+  results.hidden=false;results.textContent="Поиск…";
+  try{
+    const data=await apiGet("/api/discord/dms/search?q="+encodeURIComponent(query));results.replaceChildren();
+    if(!(data.users||[]).length){results.textContent="Не найдено среди участников серверов, доступных боту. Попробуй точный Discord ID.";return;}
+    data.users.forEach(user=>{
+      const button=document.createElement("button");button.type="button";button.className="dc-search-result";
+      const avatar=document.createElement("span");avatar.innerHTML=dcAvatar(user);
+      const label=document.createElement("span");label.className="dc-live-dm-copy";
+      const name=document.createElement("strong");name.textContent=user.global_name||user.username;
+      const id=document.createElement("small");id.textContent="@"+user.username+" · "+user.id;
+      label.append(name,id);button.append(avatar.firstElementChild,label);
+      button.addEventListener("click",()=>{results.hidden=true;input.value="";dcOpenConversation(user);});results.append(button);
+    });
+  }catch(error){results.textContent=error.message;}
+}
+function dcRenderMessages(messages){
+  const root=document.getElementById("dcChatMessages");if(!root)return;root.replaceChildren();
+  if(!messages.length){const empty=document.createElement("div");empty.className="dc-live-welcome";empty.innerHTML='<div class="dc-live-welcome-icon">＠</div><h1>Это начало переписки</h1><p>Здесь пока нет сообщений. Можешь отправить первое сообщение, если Discord разрешает открыть DM.</p>';root.append(empty);return;}
+  messages.forEach(message=>{
+    const row=document.createElement("article");row.className="dc-message dc-live-message";
+    const avatar=document.createElement("div");avatar.className="dc-message-avatar";
+    if(message.author?.avatar_url){const img=document.createElement("img");img.src=message.author.avatar_url;img.alt="";avatar.append(img);}else avatar.textContent=(message.author?.global_name||message.author?.username||"?").slice(0,2).toUpperCase();
+    const body=document.createElement("div");body.className="dc-message-body";
+    const head=document.createElement("div");head.className="dc-message-head";
+    const author=document.createElement("strong");author.textContent=message.author?.global_name||message.author?.username||"Discord user";
+    const time=document.createElement("time");time.textContent=new Date(message.created_at).toLocaleString("ru-RU",{dateStyle:"short",timeStyle:"short"});head.append(author,time);
+    const text=document.createElement("p");text.textContent=message.content||((message.attachments||[]).length?"[Вложение]":"[Сообщение без текста]");body.append(head,text);
+    (message.attachments||[]).forEach(file=>{const link=document.createElement("a");link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.filename;link.className="dc-attachment-link";body.append(link);});
+    row.append(avatar,body);root.append(row);
+  });
+  root.scrollTop=root.scrollHeight;
+}
+async function dcOpenConversation(user,silent=false){
+  if(!user?.id)return;dcActiveUser=user;
+  const title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard");
+  if(title)title.textContent=user.global_name||user.username;if(subtitle)subtitle.textContent="@"+user.username+" · "+user.id;
+  if(input)input.disabled=false;if(send)send.disabled=false;
+  if(hint)hint.textContent="Сообщение будет отправлено от имени "+(document.getElementById("dcBotName")?.textContent||"бота")+".";
+  if(card){card.replaceChildren();const avatar=document.createElement("div");avatar.innerHTML=dcAvatar(user,"dc-recipient-avatar");const name=document.createElement("strong");name.textContent=user.global_name||user.username;const handle=document.createElement("span");handle.textContent="@"+user.username;const id=document.createElement("small");id.textContent="ID: "+user.id;card.append(avatar.firstElementChild,name,handle,id);}
+  document.querySelectorAll(".dc-live-dm-item").forEach(item=>item.classList.toggle("active",item.textContent.includes(user.global_name||user.username)));
+  const root=document.getElementById("dcChatMessages");if(root&&!silent)root.innerHTML='<div class="dc-live-loading">Открываем личную переписку…</div>';
+  try{const data=await apiGet("/api/discord/dms/"+encodeURIComponent(user.id)+"/messages");if(dcActiveUser?.id!==user.id)return;dcRenderMessages(data.messages||[]);await dcLoadConversationList();}
+  catch(error){if(root){root.replaceChildren();const msg=document.createElement("div");msg.className="dc-live-error";msg.textContent=error.message;root.append(msg);}if(hint)hint.textContent="Не удалось открыть DM. Проверь ограничения приватности Discord.";}
+}
+async function dcSendMessage(event){
+  event.preventDefault();const input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint");
+  const content=input?.value.trim();if(!dcActiveUser||!content)return;send.disabled=true;hint.textContent="Отправляем…";
+  try{await apiPost("/api/discord/dms/"+encodeURIComponent(dcActiveUser.id)+"/messages",{content});input.value="";await dcOpenConversation(dcActiveUser,true);hint.textContent="Сообщение отправлено от имени бота.";}
+  catch(error){hint.textContent=error.message;}finally{send.disabled=false;input?.focus();}
+}
+function loadBotDiscord(){
+  if(dcPollTimer)clearInterval(dcPollTimer);dcActiveUser=null;
+  const search=document.getElementById("dcUserSearch"),searchButton=document.getElementById("dcSearchButton"),refresh=document.getElementById("dcRefreshDms"),refreshChat=document.getElementById("dcRefreshChat"),form=document.getElementById("dcComposerForm");
+  searchButton?.addEventListener("click",dcSearchUsers);search?.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();dcSearchUsers();}});
+  refresh?.addEventListener("click",dcLoadConversationList);refreshChat?.addEventListener("click",()=>dcActiveUser&&dcOpenConversation(dcActiveUser));form?.addEventListener("submit",dcSendMessage);
+  dcLoadConversationList();
+  dcPollTimer=setInterval(()=>{if(document.getElementById("dcDmList")){dcLoadConversationList();if(dcActiveUser)dcOpenConversation(dcActiveUser,true);}else{clearInterval(dcPollTimer);dcPollTimer=null;}},10000);
+}
+
 async function apiGet(url){
   const response=await fetch(url,{credentials:"same-origin"});
   const data=await response.json();
