@@ -1,10 +1,10 @@
-const pageNames={dashboard:"Главная",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",settings:"Настройки"};
+const pageNames={dashboard:"Главная",discord:"Discord от бота",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",settings:"Настройки"};
 const content=document.getElementById("pageContent");
 const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
 const overlay=document.getElementById("overlay");
 let currentAccessLevel="none";
-const pageMinimumAccess={dashboard:"none",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",settings:"none"};
+const pageMinimumAccess={dashboard:"none",discord:"adm",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",settings:"none"};
 const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
 function canOpenPage(page){
   return !!pageNames[page] && (page==="dashboard" || (isAuthenticated && (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"])));
@@ -51,6 +51,9 @@ function showPage(page){
     } else if(page==="messages"){
       section.innerHTML='<div class="panel-heading"><div><h2>Сообщения Discord</h2><p>Отправка обычных сообщений и Embed от имени GastWorld</p></div><button class="text-button" id="refreshMessageChannels">Обновить каналы</button></div><div id="messagesResult" class="messages-workspace"><div class="empty-state">Загружаем каналы Discord…</div></div>';
       loadMessages(section);
+    } else if(page==="discord"){
+      section.classList.add("bot-discord-preview");
+      section.innerHTML='<div class="discord-preview-heading"><div><div class="eyebrow">GASTWORLD <span>•</span> BOT EXPERIENCE</div><h1>Discord от имени бота</h1><p>Единое окно для серверов, каналов и общения от имени WhiteGrief.</p></div><span class="discord-release-badge">СКОРО К РЕЛИЗУ</span></div><div class="discord-preview-shell"><aside class="discord-server-rail"><div class="discord-server-logo">GW</div><div class="discord-server-separator"></div><div class="discord-server-placeholder">+</div><small>СЕРВЕРЫ</small></aside><aside class="discord-channel-rail"><div class="discord-workspace-title"><strong>Серверы бота</strong><span>Предпросмотр</span></div><div class="discord-preview-search">⌕ Поиск серверов</div><div class="discord-preview-section">ТЕКСТОВЫЕ КАНАЛЫ</div><div class="discord-channel-row active"><span>#</span> общий-чат</div><div class="discord-channel-row"><span>#</span> новости</div><div class="discord-channel-row"><span>#</span> медиа</div><div class="discord-preview-user"><div class="discord-bot-avatar">GW</div><div><strong>WhiteGrief</strong><small>БОТ · ONLINE</small></div><span class="discord-online-dot"></span></div></aside><div class="discord-chat-preview"><div class="discord-chat-top"><div><strong># общий-чат</strong><small>Предварительный макет интерфейса</small></div><span class="discord-chat-lock">◈ Только предпросмотр</span></div><div class="discord-chat-empty"><div class="discord-chat-mark">GW</div><h2>Общение от имени WhiteGrief</h2><p>Здесь появится история сообщений выбранного канала. Бот сможет читать и отправлять сообщения в пределах выданных ему разрешений.</p><div class="discord-feature-chips"><span>Список серверов</span><span>Каналы и категории</span><span>История сообщений</span><span>Отправка сообщений</span><span>Участники и роли</span></div></div><div class="discord-composer-preview"><span>Сообщение в #общий-чат…</span><button type="button" disabled title="Будет доступно после релиза">➤</button></div></div></div><div class="discord-release-note"><strong>Это пока макет, а не подключённый Discord.</strong><p>После реализации данные будут загружаться напрямую через Discord API от имени бота. Список серверов и доступные действия будут зависеть от его подключения и прав.</p></div>';
     } else if(page==="console"){
       section.innerHTML='<div class="panel-heading"><div><h2>Управление ботом</h2><p>Состояние Discord-подключения и безопасные действия управления.</p></div><button class="text-button" id="refreshConsole">↻ Обновить</button></div><div id="consoleWorkspace" class="console-workspace"><div class="empty-state">Подключаемся к боту…</div></div>';
       loadConsole(section);
