@@ -198,6 +198,7 @@ print(f"🗄️ База GastWorld: {os.path.abspath(DB_PATH)}", flush=True)
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+intents.presences = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -3176,26 +3177,81 @@ async def panel_guild_members(guild_id):
     guild = bot.get_guild(int(guild_id))
     if guild is None:
         raise ValueError("Сервер не найден среди серверов, где состоит бот.")
+    me = guild.me or guild.get_member(bot.user.id)
     roles = [{
         "id": str(role.id),
         "name": role.name,
         "position": int(role.position),
         "hoist": bool(role.hoist),
+        "managed": bool(role.managed),
+        "manageable": bool(me and me.guild_permissions.manage_roles and not role.managed and role < me.top_role),
         "color_hex": f"#{role.color.value:06x}" if role.color.value else "",
     } for role in sorted(guild.roles, key=lambda item: item.position, reverse=True) if role.id != guild.default_role.id]
     members = []
     try:
-        async for member in guild.fetch_members(limit=None):
+        # Gateway member chunks include presence objects when PRESENCE INTENT is enabled.
+        await guild.chunk(cache=True)
+        for member in guild.members:
             members.append({
                 **(await panel_dm_user_payload(member)),
                 "global_name": str(member.nick or member.global_name or member.name),
                 "bot": bool(member.bot),
                 "role_ids": [str(role.id) for role in member.roles if role.id != guild.default_role.id],
+                "status": str(getattr(member, "status", "offline")),
+                "activity": str(member.activity.name)[:100] if getattr(member, "activity", None) and getattr(member.activity, "name", None) else "",
+                "joined_at": member.joined_at.isoformat() if member.joined_at else "",
+                "created_at": member.created_at.isoformat(),
             })
     except discord.Forbidden:
         raise RuntimeError("Discord не разрешил получить список участников. Проверь Server Members Intent в Discord Developer Portal и включи его в настройках бота.")
     members.sort(key=lambda item: (bool(item["bot"]), (item["global_name"] or item["username"]).casefold()))
-    return {"guild": {"id": str(guild.id), "name": guild.name}, "members": members, "roles": roles, "count": len(members)}
+    online_counts = {
+        "online": sum(1 for item in members if item["status"] == "online"),
+        "idle": sum(1 for item in members if item["status"] == "idle"),
+        "dnd": sum(1 for item in members if item["status"] == "dnd"),
+        "offline": sum(1 for item in members if item["status"] == "offline"),
+    }
+    return {"guild": {"id": str(guild.id), "name": guild.name}, "members": members, "roles": roles, "count": len(members), "online_counts": online_counts}
+
+
+async def panel_guild_presence(guild_id):
+    if not bot.is_ready() or not str(guild_id).isdigit():
+        raise ValueError("Некорректный ID сервера или бот ещё подключается.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден.")
+    members = [{
+        "id": str(member.id),
+        "status": str(getattr(member, "status", "offline")),
+        "activity": str(member.activity.name)[:100] if getattr(member, "activity", None) and getattr(member.activity, "name", None) else "",
+    } for member in guild.members]
+    return {"members": members, "online_count": sum(1 for item in members if item["status"] != "offline")}
+
+
+async def panel_member_role(guild_id, member_id, role_id, action):
+    if not bot.is_ready() or not all(str(value).isdigit() for value in (guild_id, member_id, role_id)):
+        raise ValueError("Некорректный ID сервера, участника или роли.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден.")
+    target = guild.get_member(int(member_id)) or await guild.fetch_member(int(member_id))
+    role = guild.get_role(int(role_id))
+    me = guild.me or guild.get_member(bot.user.id)
+    if role is None or role.is_default() or role.managed:
+        raise ValueError("Эту роль нельзя выдать или снять вручную.")
+    if me is None or not me.guild_permissions.manage_roles:
+        raise PermissionError("У бота нет разрешения «Управлять ролями».")
+    if role >= me.top_role:
+        raise PermissionError("Роль находится выше или на одном уровне с высшей ролью бота.")
+    if target.top_role >= me.top_role and target.id != me.id:
+        raise PermissionError("Нельзя менять роли участника с равной или более высокой ролью.")
+    if action == "add":
+        await target.add_roles(role, reason="GastWorld Control Panel")
+    elif action == "remove":
+        await target.remove_roles(role, reason="GastWorld Control Panel")
+    else:
+        raise ValueError("Неизвестное действие с ролью.")
+    return {"ok": True, "member_id": str(target.id), "role_id": str(role.id), "action": action}
 
 
 async def panel_guild_channels(guild_id):
@@ -3306,6 +3362,8 @@ async def run_services():
         "dm_send": panel_dm_send,
         "discord_guilds": panel_guild_list,
         "discord_members": panel_guild_members,
+        "discord_presence": panel_guild_presence,
+        "discord_member_role": panel_member_role,
         "discord_channels": panel_guild_channels,
         "discord_channel_history": panel_channel_history,
         "discord_channel_send": panel_channel_send,
