@@ -197,11 +197,16 @@ def sync_staff_row(
     return target_row
 
 def remove_staff_row(discord_id: int | str) -> bool:
+    """Remove a staff row by technical Discord ID (I), with legacy G fallback."""
     worksheet = _worksheet()
     wanted = _cell_text(discord_id)
     ids = worksheet.col_values(DISCORD_ID_COLUMN)
-    for row_number in range(FIRST_STAFF_ROW, len(ids) + 1):
-        if _cell_text(ids[row_number - 1]) == wanted:
+    legacy_ids = worksheet.col_values(7)  # Older sheet layout stored the ID in G.
+    last_row = max(len(ids), len(legacy_ids))
+    for row_number in range(FIRST_STAFF_ROW, last_row + 1):
+        current_id = _cell_text(ids[row_number - 1]) if row_number <= len(ids) else ""
+        legacy_id = _cell_text(legacy_ids[row_number - 1]) if row_number <= len(legacy_ids) else ""
+        if current_id == wanted or legacy_id == wanted:
             worksheet.delete_rows(row_number)
             return True
     return False
