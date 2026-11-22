@@ -25,6 +25,7 @@ applyAccessNavigation();
 function showPage(page){
   if(!pageNames[page]) return;
   if(!canOpenPage(page)){page="dashboard";}
+  document.getElementById("pageContent")?.classList.toggle("discord-fullscreen",page==="discord");
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
   breadcrumb.textContent=pageNames[page];
   if(page!=="dashboard"){
