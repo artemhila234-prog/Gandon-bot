@@ -1135,6 +1135,8 @@ async def api_discord_dm_history(user_id: str, request: Request):
         raise HTTPException(status_code=502, detail=f'Не удалось открыть личные сообщения: {detail}')
 
 @app.post('/api/discord/dms/{user_id}/messages')
+DM_SEND_LAST_AT: dict[str, float] = {}
+
 async def api_discord_dm_send(user_id: str, request: Request):
     actor=await require_access(request, 'adm')
     if not user_id.isdigit(): raise HTTPException(status_code=400, detail='Некорректный Discord ID.')
@@ -1143,6 +1145,12 @@ async def api_discord_dm_send(user_id: str, request: Request):
     content=str(payload.get('content') or '').strip() if isinstance(payload,dict) else ''
     if not content: raise HTTPException(status_code=400, detail='Напиши текст сообщения.')
     if len(content)>2000: raise HTTPException(status_code=400, detail='Максимальная длина сообщения Discord — 2000 символов.')
+    rate_key=f"{actor.get('id')}:{user_id}"
+    now=datetime.now(timezone.utc).timestamp()
+    last_sent=DM_SEND_LAST_AT.get(rate_key, 0.0)
+    if now-last_sent < 2.0:
+        raise HTTPException(status_code=429, detail='Подожди пару секунд перед следующим сообщением этому пользователю.')
+    DM_SEND_LAST_AT[rate_key]=now
     try:
         result=await get_dm_controller('dm_send')(user_id, content)
         print(f'[PANEL DM] Администратор {actor.get("id")} отправил DM пользователю {user_id}.', flush=True)
