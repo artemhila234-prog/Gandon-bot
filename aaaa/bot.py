@@ -3145,15 +3145,18 @@ async def panel_dm_history(user_id, limit=60):
     messages.reverse()
     return {"user": await panel_dm_user_payload(user), "channel_id": str(channel.id), "messages": messages}
 
-async def panel_dm_send(user_id, content):
+async def panel_dm_send(user_id, content, files=None):
     if not bot.is_ready(): raise RuntimeError('Discord-бот ещё подключается.')
     content=str(content or '').strip()
-    if not content: raise ValueError('Сообщение не может быть пустым.')
+    files=files or []
+    if not content and not files: raise ValueError('Сообщение или файл не могут быть пустыми.')
     if len(content)>2000: raise ValueError('Discord ограничивает обычное сообщение 2000 символами.')
     if not str(user_id).isdigit(): raise ValueError('Некорректный Discord ID.')
     user=await bot.fetch_user(int(user_id)); channel=await user.create_dm()
-    message=await channel.send(content, allowed_mentions=discord.AllowedMentions.none())
-    return {'ok':True,'message':{'id':str(message.id),'content':message.content,'created_at':message.created_at.isoformat(),'author':await panel_dm_user_payload(message.author),'attachments':[],'embeds':[]}}
+    from io import BytesIO
+    discord_files=[discord.File(BytesIO(data),filename=name) for name,data in files]
+    message=await channel.send(content or None, files=discord_files, allowed_mentions=discord.AllowedMentions.none())
+    return {'ok':True,'message':{'id':str(message.id),'content':message.content,'created_at':message.created_at.isoformat(),'author':await panel_dm_user_payload(message.author),'attachments':[{'filename':item.filename,'url':item.url,'content_type':item.content_type or ''} for item in message.attachments],'embeds':[]}}
 
 async def panel_guild_list():
     if not bot.is_ready():
@@ -3321,12 +3324,13 @@ async def panel_channel_history(channel_id, limit=100):
     }
 
 
-async def panel_channel_send(channel_id, content):
+async def panel_channel_send(channel_id, content, files=None):
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
     content = str(content or "").strip()
-    if not content:
-        raise ValueError("Сообщение не может быть пустым.")
+    files = files or []
+    if not content and not files:
+        raise ValueError("Сообщение или файл не могут быть пустыми.")
     if len(content) > 2000:
         raise ValueError("Discord ограничивает сообщение 2000 символами.")
     if not str(channel_id).isdigit():
@@ -3335,10 +3339,12 @@ async def panel_channel_send(channel_id, content):
     if not isinstance(channel, discord.TextChannel):
         raise ValueError("Отправлять можно только в текстовые каналы.")
     permissions = channel.permissions_for(channel.guild.me)
-    if not permissions.view_channel or not permissions.send_messages:
-        raise PermissionError("У бота нет права отправлять сообщения в этот канал.")
-    message = await channel.send(content, allowed_mentions=discord.AllowedMentions.none())
-    return {"ok": True, "message": {"id": str(message.id), "content": message.content, "created_at": message.created_at.isoformat(), "author": await panel_dm_user_payload(message.author), "attachments": [], "embeds": []}}
+    if not permissions.view_channel or not permissions.send_messages or (files and not permissions.attach_files):
+        raise PermissionError("У бота нет прав отправлять сообщения или прикреплять файлы в этот канал.")
+    from io import BytesIO
+    discord_files = [discord.File(BytesIO(data), filename=name) for name, data in files]
+    message = await channel.send(content or None, files=discord_files, allowed_mentions=discord.AllowedMentions.none())
+    return {"ok": True, "message": {"id": str(message.id), "content": message.content, "created_at": message.created_at.isoformat(), "author": await panel_dm_user_payload(message.author), "attachments": [{"filename": item.filename, "url": item.url, "content_type": item.content_type or ""} for item in message.attachments], "embeds": []}}
 
 
 async def run_services():
