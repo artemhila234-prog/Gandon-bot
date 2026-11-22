@@ -1719,3 +1719,10 @@ NaN: `pip install ... -r requirements.txt` затем `python3 -m uvicorn aaaa.b
 - В `dashboard/style.css` обновлён размер и оформление блока логотипа; версия CSS обновлена через query string для сброса кеша.
 - Из того же SVG экспортирован PNG 1024×1024 px: файл `gastworld-logo.png` предоставлен пользователю для загрузки в TikTok Developer Portal → Basic Info → App icon. PNG меньше 5 MB; он визуально соответствует SVG-логотипу сайта/favicon.
 - После GitHub sync на Bot-Hosting проверить, что сайт и favicon показывают GastWorld, затем загрузить предоставленный PNG в TikTok Basic Info и повторно отправить приложение на проверку. GitHub commit не означает автоматический deploy; публикация на хостинге не подтверждена.
+
+
+## 2026-11-22 — TikTok URL-prefix verification для нового домена media.apps.bot-hosting.cloud
+- Пользователь предоставил новый адрес проверки: `https://media.apps.bot-hosting.cloud/tiktokNEvOBgWz96r5cFK2UTy4aOnFcHceyM8D`.
+- В репозитории уже существовал прежний TikTok verification-файл; его содержимое подтверждает формат `tiktok-developers-site-verification=<token>`.
+- Добавлен новый файл в корень статических файлов панели: `dashboard/tiktokNEvOBgWz96r5cFK2UTy4aOnFcHceyM8D`, с соответствующим токеном в формате TikTok verification.
+- После синхронизации GitHub на Bot-Hosting нужно проверить, что указанный HTTPS URL возвращает текстовый файл с HTTP 200 без перенаправления, затем нажать Verify в TikTok Developer Portal. Проверка доступности на работающем хостинге пока не выполнена.
