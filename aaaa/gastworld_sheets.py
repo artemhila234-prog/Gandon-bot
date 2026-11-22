@@ -200,7 +200,12 @@ def sync_staff_row(
         {
             "horizontalAlignment": "CENTER",
             "verticalAlignment": "MIDDLE",
-            "textFormat": {"bold": True, "fontSize": 14},
+            "textFormat": {
+                "bold": True,
+                "fontSize": 14,
+                "foregroundColor": {"red": 0, "green": 0, "blue": 0},
+                "fontFamily": "Montserrat",
+            },
         },
     )
     return target_row
