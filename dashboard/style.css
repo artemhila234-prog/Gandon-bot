@@ -1354,7 +1354,7 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .dc-guild-image{width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .dc-guild-empty{font-size:9px;color:#ed777f;text-align:center;padding:5px;max-width:58px;overflow-wrap:anywhere}
 .dc-channel-category{padding:16px 8px 6px;color:#949ba4;font-size:9px;font-weight:800;letter-spacing:.7px;text-transform:uppercase}
-.dc-channel-item{width:100%;display:flex;align-items:center;gap:8px;padding:7px 9px;border:0;border-radius:5px;background:transparent;color:#949ba4;text-align:left;cursor:pointer;font:12px inherit}
+.dc-channel-item{width:100%;display:flex;align-items:center;gap:8px;padding:7px 9px;border:0;border-radius:5px;background:transparent;color:#949ba4;text-align:left;cursor:pointer;font-family:inherit;font-size:12px}
 .dc-channel-item>span:first-child{font-size:17px;color:#777d86;width:15px;text-align:center}
 .dc-channel-item>span:nth-child(2){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .dc-channel-item small{font-size:8px;color:#777d86;white-space:nowrap}
