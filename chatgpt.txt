@@ -1927,3 +1927,16 @@ NaN: `pip install ... -r requirements.txt` затем `python3 -m uvicorn aaaa.b
 - Важно: изменения закоммичены в GitHub main, но production deploy и работа на Bot-Hosting не подтверждены. Нужно синхронизировать код, перезапустить сервис и проверить mentions, timestamps, embeds, картинки и контекстное меню в реальном серверном канале и DM.
 - Ограничения текущего этапа: контекстное меню пока содержит copy text / copy message ID; редактирование/удаление/ответы, uploads, reactions, threads, role/channel CRUD, permissions и модерация ещё требуют отдельных API endpoints и backend permission checks. Не считать вкладку законченным клоном Discord.
 - Следующие этапы: провести Python compile/runtime check на хостинге; затем расширить интерактивные сообщения (reply/reactions/edit/delete/pin, где бот имеет права), добавить CRUD ролей/каналов/категорий с backend permission enforcement, затем настройки сервера и moderation tools. Продолжать использовать только официальный Bot API.
+
+
+22. DISCORD — СТАТУСЫ ОНЛАЙН И ПРОФИЛЬ УЧАСТНИКА С УПРАВЛЕНИЕМ РОЛЯМИ (2026-11-22)
+- Новый запрос: показывать онлайн-участников/их статусы; по нажатию на участника открывать Discord-подобный профиль вместо автоматического открытия ЛС; в профиле должна быть выдача/снятие ролей.
+- Изменения подготовлены для GitHub main:
+  - aaaa/bot.py: включён intents.presences; gateway member chunk для presence; участники получают status/activity/joined_at/created_at; добавлены callbacks panel_guild_presence и panel_member_role. Назначение/снятие проверяет Manage Roles у бота, запрещает @everyone/managed роли, роли выше highest role бота и изменение ролей участнику с равной/более высокой ролью.
+  - dashboard/backend/main.py: защищённые endpoints GET /api/discord/guilds/{guild_id}/presence и POST /api/discord/guilds/{guild_id}/members/{member_id}/roles; доступ требует adm, Discord role hierarchy проверяется в bot callback.
+  - dashboard/app.js: клик по участнику открывает профиль вместо DM; статусы online/idle/dnd/offline и активность, дата входа; чекбоксы ролей; отдельная кнопка «Открыть ЛС»; статусы обновляются отдельным polling-запросом.
+  - dashboard/style.css: стили статусов и профиля.
+  - dashboard/index.html: cache bust 20261122-discord-profile-presence1.
+- Обязательная настройка Discord Developer Portal: включить Presence Intent в Bot → Privileged Gateway Intents; Server Members Intent также должен быть включён. Без Presence Intent реальные статусы не будут доступны; если включить intents.presences в коде, но не разрешить его в Developer Portal, Discord может закрыть gateway-соединение.
+- Для выдачи ролей бот должен иметь Manage Roles; доступны только роли ниже высшей роли бота. Права панели — adm.
+- GitHub commits не означают deploy; после изменений нужны sync/restart и проверка на сервере.
