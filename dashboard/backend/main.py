@@ -1112,6 +1112,16 @@ async def api_discord_guilds(request: Request):
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось загрузить серверы Discord: {str(error)[:300]}")
 
+@app.get("/api/discord/guilds/{guild_id}/members")
+async def api_discord_guild_members(guild_id: str, request: Request):
+    await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        return await get_dm_controller("discord_members")(guild_id)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить участников сервера: {str(error)[:300]}")
+
 @app.get("/api/discord/guilds/{guild_id}/channels")
 async def api_discord_guild_channels(guild_id: str, request: Request):
     await require_access(request, "adm")
