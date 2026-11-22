@@ -1050,7 +1050,7 @@ function dcRenderGuildMembers(){
       root.append(button);
     });
   };
-  appendGroup("В СЕТИ / УЧАСТНИКИ",humans);appendGroup("БОТЫ",bots);
+  appendGroup("УЧАСТНИКИ",humans);appendGroup("БОТЫ",bots);
 }
 async function dcOpenGuild(guild){
   if(!guild?.id)return;dcActiveGuild=guild;dcActiveChannel=null;dcActiveUser=null;dcSetMode("guild");
