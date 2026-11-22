@@ -959,19 +959,77 @@ async function dcSearchUsers(){
     });
   }catch(error){results.textContent=error.message;}
 }
+function dcAppendInlineMarkdown(parent,value){
+  const source=String(value||"");
+  const token=/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|__([^_]+)__|~~([^~]+)~~|\|\|([^|]+)\|\||\x60([^\x60]+)\x60|\*([^*\n]+)\*/g;
+  let cursor=0,match;
+  while((match=token.exec(source))){
+    if(match.index>cursor)parent.append(document.createTextNode(source.slice(cursor,match.index)));
+    let node;
+    if(match[1]!==undefined){node=document.createElement("a");node.href=match[2];node.target="_blank";node.rel="noopener noreferrer";node.textContent=match[1];}
+    else if(match[3]!==undefined){node=document.createElement("strong");node.textContent=match[3];}
+    else if(match[4]!==undefined){node=document.createElement("u");node.textContent=match[4];}
+    else if(match[5]!==undefined){node=document.createElement("s");node.textContent=match[5];}
+    else if(match[6]!==undefined){node=document.createElement("span");node.className="dc-spoiler";node.textContent=match[6];}
+    else if(match[7]!==undefined){node=document.createElement("code");node.textContent=match[7];}
+    else{node=document.createElement("em");node.textContent=match[8];}
+    parent.append(node);cursor=token.lastIndex;
+  }
+  if(cursor<source.length)parent.append(document.createTextNode(source.slice(cursor)));
+}
+function dcRenderMessageContent(parent,message){
+  const content=String(message.content||"");
+  const users=new Map((message.mentions||[]).map(item=>[String(item.id),item]));
+  const roles=new Map((message.role_mentions||[]).map(item=>[String(item.id),item]));
+  const channels=new Map((message.channel_mentions||[]).map(item=>[String(item.id),item]));
+  const token=/<@!?([0-9]{5,})>|<@&([0-9]{5,})>|<#([0-9]{5,})>|<t:(-?[0-9]+)(?::([tTdDfFR]))?>|<(a?):([A-Za-z0-9_]+):([0-9]{5,})>|(https?:\/\/[^\s<]+)/g;
+  let cursor=0,match;
+  while((match=token.exec(content))){
+    if(match.index>cursor)dcAppendInlineMarkdown(parent,content.slice(cursor,match.index));
+    let node;
+    if(match[1]){
+      const user=users.get(match[1]);node=document.createElement("span");node.className="dc-mention dc-user-mention";node.textContent="@"+(user?.global_name||user?.username||"пользователь");node.title=user?("@"+user.username+" · "+user.id):"Участник Discord";
+      if(user){node.tabIndex=0;node.addEventListener("click",()=>dcOpenConversation(user));}
+    }else if(match[2]){
+      const role=roles.get(match[2]);node=document.createElement("span");node.className="dc-mention dc-role-mention";node.textContent="@"+(role?.name||"роль");if(role?.color_hex)node.style.setProperty("--mention-color",role.color_hex);node.title=role?.name||"Роль Discord";
+    }else if(match[3]){
+      const channel=channels.get(match[3]);node=document.createElement("span");node.className="dc-mention dc-channel-mention";node.textContent="#"+(channel?.name||"канал");node.title=channel?.name||"Канал Discord";
+    }else if(match[4]){
+      const stamp=Number(match[4]);node=document.createElement("time");node.className="dc-timestamp";node.dateTime=new Date(stamp*1000).toISOString();const date=new Date(stamp*1000);const style=(match[5]||"f").toLowerCase();node.textContent=style==="r"?new Intl.RelativeTimeFormat("ru",{numeric:"auto"}).format(Math.round((stamp*1000-Date.now())/60000),"minute"):date.toLocaleString("ru-RU",style==="t"||style==="T"?{hour:"2-digit",minute:"2-digit"}:style==="d"?{day:"2-digit",month:"2-digit",year:"numeric"}:style==="f"?{day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}:{weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"});node.title=date.toLocaleString("ru-RU");
+    }else if(match[7]){
+      node=document.createElement("img");node.className="dc-custom-emoji";node.alt=":"+match[8]+":";node.title=node.alt;node.src="https://cdn.discordapp.com/emojis/"+match[9]+".webp?size=48&quality=lossless";node.onerror=()=>{node.replaceWith(document.createTextNode(node.alt));};
+    }else{
+      node=document.createElement("a");node.href=match[10];node.target="_blank";node.rel="noopener noreferrer";node.textContent=match[10];
+    }
+    parent.append(node);cursor=token.lastIndex;
+  }
+  if(cursor<content.length)dcAppendInlineMarkdown(parent,content.slice(cursor));
+}
+function dcShowMessageMenu(event,message){
+  event.preventDefault();document.querySelector(".dc-message-context")?.remove();
+  const menu=document.createElement("div");menu.className="dc-message-context";
+  const actions=[["Копировать текст",()=>navigator.clipboard.writeText(message.content||"")],["Копировать ID сообщения",()=>navigator.clipboard.writeText(String(message.id||""))]];
+  actions.forEach(([label,action])=>{const button=document.createElement("button");button.type="button";button.textContent=label;button.addEventListener("click",async()=>{try{await action();}catch(error){}menu.remove();});menu.append(button);});
+  document.body.append(menu);const x=Math.min(event.clientX,window.innerWidth-220),y=Math.min(event.clientY,window.innerHeight-100);menu.style.left=Math.max(8,x)+"px";menu.style.top=Math.max(8,y)+"px";
+  setTimeout(()=>document.addEventListener("click",()=>menu.remove(),{once:true}),0);
+}
 function dcRenderMessages(messages){
   const root=document.getElementById("dcChatMessages");if(!root)return;root.replaceChildren();
   if(!messages.length){const empty=document.createElement("div");empty.className="dc-live-welcome";empty.innerHTML='<div class="dc-live-welcome-icon">＠</div><h1>Это начало переписки</h1><p>Здесь пока нет сообщений. Можешь отправить первое сообщение, если Discord разрешает открыть DM.</p>';root.append(empty);return;}
   messages.forEach(message=>{
-    const row=document.createElement("article");row.className="dc-message dc-live-message";
+    const row=document.createElement("article");row.className="dc-message dc-live-message";row.dataset.messageId=message.id||"";row.addEventListener("contextmenu",event=>dcShowMessageMenu(event,message));
     const avatar=document.createElement("div");avatar.className="dc-message-avatar";
     if(message.author?.avatar_url){const img=document.createElement("img");img.src=message.author.avatar_url;img.alt="";avatar.append(img);}else avatar.textContent=(message.author?.global_name||message.author?.username||"?").slice(0,2).toUpperCase();
     const body=document.createElement("div");body.className="dc-message-body";
     const head=document.createElement("div");head.className="dc-message-head";
     const author=document.createElement("strong");author.textContent=message.author?.global_name||message.author?.username||"Discord user";
-    const time=document.createElement("time");time.textContent=new Date(message.created_at).toLocaleString("ru-RU",{dateStyle:"short",timeStyle:"short"});head.append(author,time);
-    const text=document.createElement("p");text.textContent=message.content||((message.attachments||[]).length?"[Вложение]":"[Сообщение без текста]");body.append(head,text);
-    (message.attachments||[]).forEach(file=>{const link=document.createElement("a");link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.filename;link.className="dc-attachment-link";body.append(link);});
+    const time=document.createElement("time");const created=new Date(message.created_at);time.dateTime=created.toISOString();time.textContent=created.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});time.title=created.toLocaleString("ru-RU");head.append(author,time);
+    if(message.edited_at){const edited=document.createElement("small");edited.className="dc-edited-label";edited.textContent="(изменено)";head.append(edited);}
+    body.append(head);
+    if(message.content){const text=document.createElement("p");text.className="dc-message-content";dcRenderMessageContent(text,message);body.append(text);}
+    (message.attachments||[]).forEach(file=>{const link=document.createElement("a");link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.filename;link.className="dc-attachment-link";body.append(link);if((file.content_type||"").startsWith("image/")){const preview=document.createElement("img");preview.className="dc-attachment-preview";preview.src=file.url;preview.alt=file.filename;preview.loading="lazy";body.append(preview);}});
+    (message.embeds||[]).forEach(embed=>{const card=document.createElement("div");card.className="dc-embed-card";if(embed.title){const title=document.createElement(embed.url?"a":"strong");title.textContent=embed.title;if(embed.url){title.href=embed.url;title.target="_blank";title.rel="noopener noreferrer";}card.append(title);}if(embed.description){const description=document.createElement("p");dcAppendInlineMarkdown(description,embed.description);card.append(description);}if(embed.image_url){const image=document.createElement("img");image.src=embed.image_url;image.alt="";image.loading="lazy";card.append(image);}body.append(card);});
+    if(!message.content&&!message.attachments?.length&&!message.embeds?.length){const empty=document.createElement("p");empty.className="dc-message-content";empty.textContent="[Сообщение без текста]";body.append(empty);}
     row.append(avatar,body);root.append(row);
   });
   root.scrollTop=root.scrollHeight;
