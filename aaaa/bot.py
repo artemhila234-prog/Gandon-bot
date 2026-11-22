@@ -3120,6 +3120,28 @@ async def panel_guild_list():
     return {"guilds": guilds, "bot": await panel_dm_user_payload(bot.user) if bot.user else None}
 
 
+async def panel_guild_members(guild_id):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    if not str(guild_id).isdigit():
+        raise ValueError("Некорректный ID сервера.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден среди серверов, где состоит бот.")
+    members = []
+    try:
+        async for member in guild.fetch_members(limit=None):
+            members.append({
+                **(await panel_dm_user_payload(member)),
+                "global_name": str(member.nick or member.global_name or member.name),
+                "bot": bool(member.bot),
+            })
+    except discord.Forbidden:
+        raise RuntimeError("Discord не разрешил получить список участников. Проверь Server Members Intent в Discord Developer Portal и включи его в настройках бота.")
+    members.sort(key=lambda item: (bool(item["bot"]), (item["global_name"] or item["username"]).casefold()))
+    return {"guild": {"id": str(guild.id), "name": guild.name}, "members": members, "count": len(members)}
+
+
 async def panel_guild_channels(guild_id):
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
@@ -3216,6 +3238,7 @@ async def run_services():
         "dm_history": panel_dm_history,
         "dm_send": panel_dm_send,
         "discord_guilds": panel_guild_list,
+        "discord_members": panel_guild_members,
         "discord_channels": panel_guild_channels,
         "discord_channel_history": panel_channel_history,
         "discord_channel_send": panel_channel_send,
