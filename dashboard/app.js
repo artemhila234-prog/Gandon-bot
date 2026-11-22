@@ -1051,9 +1051,9 @@ function dcRenderGuildMembers(){
   if(count)count.textContent=query?members.length+" / "+dcMemberCache.length:String(dcMemberCache.length);
   if(!members.length){const empty=document.createElement("div");empty.className="dc-live-empty";empty.textContent=query?"Участники не найдены.":"На сервере нет участников для отображения.";root.append(empty);return;}
   const roleMap=new Map((dcMemberRoleCache||[]).map(role=>[String(role.id),role]));
-  // Group every member by their highest assigned server role, not only hoisted roles.
-  // This keeps staff/platform roles visible as separate groups even when Discord's hoist flag is off.
-  const displayRoles=(dcMemberRoleCache||[]).slice().sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
+  // Match Discord member-list grouping: only hoisted (Display role members separately) roles create groups.
+  // If a member has several hoisted roles, place them under their highest one by role position.
+  const displayRoles=(dcMemberRoleCache||[]).filter(role=>role.hoist===true).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
   const groups=new Map();
   const ungrouped=[];
   for(const member of members){
