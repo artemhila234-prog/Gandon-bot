@@ -1939,4 +1939,5 @@ NaN: `pip install ... -r requirements.txt` затем `python3 -m uvicorn aaaa.b
   - dashboard/index.html: cache bust 20261122-discord-profile-presence1.
 - Обязательная настройка Discord Developer Portal: включить Presence Intent в Bot → Privileged Gateway Intents; Server Members Intent также должен быть включён. Без Presence Intent реальные статусы не будут доступны; если включить intents.presences в коде, но не разрешить его в Developer Portal, Discord может закрыть gateway-соединение.
 - Для выдачи ролей бот должен иметь Manage Roles; доступны только роли ниже высшей роли бота. Права панели — adm.
+- Commits: aaaa/bot.py 089d7d9207756f4c662d19e5e6170899bd0170bb; dashboard/backend/main.py d80f022f73c127cb646ffa37a3c0bdfc88f1b299; dashboard/app.js d496597c05e6378779568d3079e36475e8e70087, дополнительное исправление групп e1da85f27f03c2d0ca31f1927f51cae01e54e808; dashboard/style.css 0d3ea8ba6af0d82a11d0685c7603ed36011d279d; dashboard/index.html 9688589f00b475e39a31efbde430d8ba6ecebd38.
 - GitHub commits не означают deploy; после изменений нужны sync/restart и проверка на сервере.
