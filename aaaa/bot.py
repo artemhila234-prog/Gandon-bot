@@ -3106,6 +3106,96 @@ async def panel_dm_send(user_id, content):
     message=await channel.send(content, allowed_mentions=discord.AllowedMentions.none())
     return {'ok':True,'message':{'id':str(message.id),'content':message.content,'created_at':message.created_at.isoformat(),'author':await panel_dm_user_payload(message.author),'attachments':[],'embeds':[]}}
 
+async def panel_guild_list():
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    guilds = []
+    for guild in sorted(bot.guilds, key=lambda item: item.name.casefold()):
+        me = guild.me or guild.get_member(bot.user.id)
+        guilds.append({
+            "id": str(guild.id), "name": guild.name,
+            "icon_url": str(guild.icon.url) if guild.icon else "",
+            "member_count": int(guild.member_count or 0),
+        })
+    return {"guilds": guilds, "bot": await panel_dm_user_payload(bot.user) if bot.user else None}
+
+
+async def panel_guild_channels(guild_id):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    if not str(guild_id).isdigit():
+        raise ValueError("Некорректный ID сервера.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден среди серверов, где состоит бот.")
+    me = guild.me or guild.get_member(bot.user.id)
+    if me is None:
+        raise ValueError("Не удалось определить права бота на сервере.")
+    categories = []
+    channels = []
+    for category in sorted(guild.categories, key=lambda item: (item.position, item.name.casefold())):
+        categories.append({"id": str(category.id), "name": category.name, "position": category.position})
+    for channel in sorted(guild.channels, key=lambda item: (getattr(item, "position", 0), item.name.casefold())):
+        if not isinstance(channel, (discord.TextChannel, discord.NewsChannel)):
+            continue
+        permissions = channel.permissions_for(me)
+        if not permissions.view_channel:
+            continue
+        channels.append({
+            "id": str(channel.id), "name": channel.name,
+            "category_id": str(channel.category_id) if channel.category_id else "",
+            "category_name": channel.category.name if channel.category else "Без категории",
+            "position": channel.position,
+            "can_send": bool(permissions.send_messages),
+            "can_history": bool(permissions.read_message_history),
+            "type": "announcement" if isinstance(channel, discord.NewsChannel) else "text",
+        })
+    return {"guild": {"id": str(guild.id), "name": guild.name, "icon_url": str(guild.icon.url) if guild.icon else ""}, "categories": categories, "channels": channels}
+
+
+async def panel_channel_history(channel_id, limit=100):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    if not str(channel_id).isdigit():
+        raise ValueError("Некорректный ID канала.")
+    channel = await bot.fetch_channel(int(channel_id))
+    if not isinstance(channel, (discord.TextChannel, discord.NewsChannel, discord.Thread)):
+        raise ValueError("Это не текстовый канал.")
+    if not channel.permissions_for(channel.guild.me).view_channel or not channel.permissions_for(channel.guild.me).read_message_history:
+        raise PermissionError("У бота нет прав просматривать историю этого канала.")
+    messages = []
+    async for message in channel.history(limit=max(1, min(int(limit), 100))):
+        messages.append({
+            "id": str(message.id), "content": message.content or "",
+            "created_at": message.created_at.isoformat(),
+            "author": await panel_dm_user_payload(message.author),
+            "attachments": [{"filename": item.filename, "url": item.url} for item in message.attachments[:10]],
+            "embeds": [{"title": item.title or "", "description": (item.description or "")[:500]} for item in message.embeds[:3]],
+        })
+    messages.reverse()
+    return {"channel": {"id": str(channel.id), "name": channel.name, "guild_id": str(channel.guild.id)}, "messages": messages}
+
+
+async def panel_channel_send(channel_id, content):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    content = str(content or "").strip()
+    if not content:
+        raise ValueError("Сообщение не может быть пустым.")
+    if len(content) > 2000:
+        raise ValueError("Discord ограничивает сообщение 2000 символами.")
+    if not str(channel_id).isdigit():
+        raise ValueError("Некорректный ID канала.")
+    channel = await bot.fetch_channel(int(channel_id))
+    if not isinstance(channel, (discord.TextChannel, discord.NewsChannel, discord.Thread)):
+        raise ValueError("Отправлять можно только в текстовые каналы.")
+    permissions = channel.permissions_for(channel.guild.me)
+    if not permissions.view_channel or not permissions.send_messages:
+        raise PermissionError("У бота нет права отправлять сообщения в этот канал.")
+    message = await channel.send(content, allowed_mentions=discord.AllowedMentions.none())
+    return {"ok": True, "message": {"id": str(message.id), "content": message.content, "created_at": message.created_at.isoformat(), "author": await panel_dm_user_payload(message.author), "attachments": [], "embeds": []}}
+
+
 async def run_services():
     """Запускает Discord-бота и FastAPI в одном процессе Bot-Hosting."""
     from dashboard.backend.main import app as panel_app
@@ -3125,6 +3215,10 @@ async def run_services():
         "dm_search": panel_dm_search,
         "dm_history": panel_dm_history,
         "dm_send": panel_dm_send,
+        "discord_guilds": panel_guild_list,
+        "discord_channels": panel_guild_channels,
+        "discord_channel_history": panel_channel_history,
+        "discord_channel_send": panel_channel_send,
         "actions": {
             "sync_commands": panel_sync_commands,
             "sync_roles": panel_sync_roles,
