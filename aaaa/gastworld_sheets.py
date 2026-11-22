@@ -174,8 +174,8 @@ def sync_staff_row(
             value_input_option="USER_ENTERED",
         )
         worksheet.update(
-            range_name=f"G{target_row}",
-            values=[[discord_username]],
+            range_name=f"F{target_row}:G{target_row}",
+            values=[["Нету", discord_username]],
             value_input_option="USER_ENTERED",
         )
         worksheet.update(
@@ -186,7 +186,7 @@ def sync_staff_row(
     else:
         worksheet.update(
             range_name=f"B{target_row}:E{target_row}",
-            values=[[nickname_formula, position, profile_formula, f"{min(max(int(warns), 0), 3)}/3"]],
+            values=[[nickname_formula, position, profile_formula, f"{min(max(int(warns), 0), 3)}/3", "Нету"]],
             value_input_option="USER_ENTERED",
         )
         worksheet.update(
@@ -194,6 +194,15 @@ def sync_staff_row(
             values=[[discord_username, int(points), discord_id]],
             value_input_option="USER_ENTERED",
         )
+    # Единое оформление строки состава: центрирование, жирный шрифт, 14 pt.
+    worksheet.format(
+        f"B{target_row}:I{target_row}",
+        {
+            "horizontalAlignment": "CENTER",
+            "verticalAlignment": "MIDDLE",
+            "textFormat": {"bold": True, "fontSize": 14},
+        },
+    )
     return target_row
 
 def remove_staff_row(discord_id: int | str) -> bool:
