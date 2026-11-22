@@ -1016,22 +1016,27 @@ async function dcLoadGuilds(){
     if(!dcGuildCache.length){const note=document.createElement("div");note.className="dc-guild-empty";note.textContent="Бот пока не состоит на серверах";rail.append(note);}
   }catch(error){const note=document.createElement("div");note.className="dc-guild-empty";note.textContent=error.message;rail.append(note);}
 }
-async function dcLoadGuildMembers(guild){
+async function dcLoadGuildMembers(guild,force=false){
   const root=document.getElementById("dcMemberList"),count=document.getElementById("dcMemberCount"),search=document.getElementById("dcMemberSearch");
   if(!root||!guild?.id)return;
+  if(dcMemberCacheByGuild.has(guild.id)&&!force){dcMemberCache=dcMemberCacheByGuild.get(guild.id);dcRenderGuildMembers();return;}
+  if(dcMembersLoading.has(guild.id))return;
+  dcMembersLoading.add(guild.id);
   root.replaceChildren();const loading=document.createElement("div");loading.className="dc-live-empty";loading.textContent="Загружаем участников…";root.append(loading);
   if(count)count.textContent="…";
   try{
     const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guild.id)+"/members");
     if(dcActiveGuild?.id!==guild.id)return;
-    dcMemberCache=data.members||[];
+    dcMemberCache=data.members||[];dcMemberCacheByGuild.set(guild.id,dcMemberCache);
+    dcMemberRoleCache=data.roles||[];
     if(count)count.textContent=String(data.count??dcMemberCache.length);
     dcRenderGuildMembers();
   }catch(error){
+    if(dcActiveGuild?.id!==guild.id)return;
     root.replaceChildren();const message=document.createElement("div");message.className="dc-live-empty dc-member-error";message.textContent=error.message;root.append(message);if(count)count.textContent="—";
-  }
+  }finally{dcMembersLoading.delete(guild.id);}
 }
-let dcMemberCache=[];
+let dcMemberRoleCache=[];
 function dcRenderGuildMembers(){
   const root=document.getElementById("dcMemberList"),search=document.getElementById("dcMemberSearch"),count=document.getElementById("dcMemberCount");if(!root)return;
   const query=(search?.value||"").trim().toLocaleLowerCase("ru");
@@ -1039,9 +1044,21 @@ function dcRenderGuildMembers(){
   root.replaceChildren();
   if(count)count.textContent=query?members.length+" / "+dcMemberCache.length:String(dcMemberCache.length);
   if(!members.length){const empty=document.createElement("div");empty.className="dc-live-empty";empty.textContent=query?"Участники не найдены.":"На сервере нет участников для отображения.";root.append(empty);return;}
-  const humans=members.filter(member=>!member.bot),bots=members.filter(member=>member.bot);
-  const appendGroup=(label,items)=>{
-    if(!items.length)return;const heading=document.createElement("div");heading.className="dc-member-group-title";heading.textContent=label+" — "+items.length;root.append(heading);
+  const roleMap=new Map((dcMemberRoleCache||[]).map(role=>[String(role.id),role]));
+  const hoistedRoles=(dcMemberRoleCache||[]).filter(role=>role.hoist).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
+  const groups=new Map();
+  const ungrouped=[];
+  for(const member of members){
+    const memberRoles=(member.role_ids||[]).map(id=>roleMap.get(String(id))).filter(Boolean);
+    const primary=memberRoles.filter(role=>role.hoist).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0))[0];
+    if(primary){if(!groups.has(String(primary.id)))groups.set(String(primary.id),[]);groups.get(String(primary.id)).push(member);}
+    else ungrouped.push(member);
+  }
+  const appendGroup=(label,items,color)=>{
+    if(!items.length)return;
+    const heading=document.createElement("div");heading.className="dc-member-group-title";heading.textContent=label+" — "+items.length;
+    if(color)heading.style.color=color;root.append(heading);
+    items.sort((a,b)=>(a.global_name||a.username||"").localeCompare(b.global_name||b.username||"","ru"));
     items.forEach(member=>{
       const button=document.createElement("button");button.type="button";button.className="dc-member dc-member-button";button.title=(member.global_name||member.username)+" · @"+member.username;
       const avatar=document.createElement("span");avatar.innerHTML=dcAvatar(member,"dc-member-avatar");button.append(avatar.firstElementChild);
@@ -1050,7 +1067,21 @@ function dcRenderGuildMembers(){
       root.append(button);
     });
   };
-  appendGroup("УЧАСТНИКИ",humans);appendGroup("БОТЫ",bots);
+  hoistedRoles.forEach(role=>appendGroup(role.name,groups.get(String(role.id))||[],role.color_hex||""));
+  appendGroup("В СЕТИ",ungrouped.filter(member=>!member.bot),"");
+  appendGroup("БОТЫ",ungrouped.filter(member=>member.bot),"");
+}
+function dcRenderGuildChannels(data,list,title,guild){
+  if(!list||dcActiveGuild?.id!==guild.id)return;
+  if(title)title.textContent=data.guild?.name||guild.name;
+  list.replaceChildren();
+  const channels=data.channels||[],categories=data.categories||[];
+  if(!channels.length){list.textContent="Нет доступных текстовых каналов или у бота нет права их просматривать.";return;}
+  const grouped=new Map();channels.forEach(channel=>{const key=channel.category_id||"__none";if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(channel);});
+  const ordered=[...categories.filter(cat=>grouped.has(cat.id)).map(cat=>({id:cat.id,name:cat.name})),...(grouped.has("__none")?[{id:"__none",name:"БЕЗ КАТЕГОРИИ"}]:[])];
+  ordered.forEach(category=>{const heading=document.createElement("div");heading.className="dc-channel-category";heading.textContent=category.name;list.append(heading);(grouped.get(category.id)||[]).forEach(channel=>{
+    const button=document.createElement("button");button.type="button";button.className="dc-channel-item";button.dataset.channelId=channel.id;const hash=document.createElement("span");hash.textContent=channel.type==="announcement"?"▤":"#";const name=document.createElement("span");name.textContent=channel.name;button.append(hash,name);if(!channel.can_send){const lock=document.createElement("small");lock.textContent="Только чтение";button.append(lock);}button.addEventListener("click",()=>dcOpenGuildChannel(channel));list.append(button);
+  });});
 }
 async function dcOpenGuild(guild){
   if(!guild?.id)return;dcActiveGuild=guild;dcActiveChannel=null;dcActiveUser=null;dcSetMode("guild");
@@ -1058,16 +1089,15 @@ async function dcOpenGuild(guild){
   if(title)title.textContent=guild.name;if(subtitle)subtitle.textContent="Выбери текстовый канал";if(input){input.value="";input.disabled=true;}if(send)send.disabled=true;if(hint)hint.textContent="Сообщения будут отправляться от имени Discord-бота.";if(card)card.textContent="Выбран сервер: "+guild.name;
   dcLoadGuildMembers(guild);
   const root=document.getElementById("dcChatMessages");if(root){root.innerHTML="";const welcome=document.createElement("div");welcome.className="dc-live-welcome";welcome.innerHTML='<div class="dc-live-welcome-icon">#</div><h1>'+dcEscape(guild.name)+'</h1><p>Выбери канал слева, чтобы читать историю и отправлять сообщения.</p>';root.append(welcome);}
+  const cachedChannels=dcChannelsCacheByGuild.get(guild.id);
+  if(cachedChannels){dcRenderGuildChannels(cachedChannels,list,title,guild);return;}
+  if(dcChannelsLoading.has(guild.id))return;
+  dcChannelsLoading.add(guild.id);
   if(list)list.innerHTML='<div class="dc-live-loading">Загружаем список каналов…</div>';
   try{
-    const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guild.id)+"/channels");if(dcActiveGuild?.id!==guild.id)return;if(title)title.textContent=data.guild?.name||guild.name;if(!list)return;list.replaceChildren();
-    const channels=data.channels||[],categories=data.categories||[];if(!channels.length){list.textContent="Нет доступных текстовых каналов или у бота нет права их просматривать.";return;}
-    const grouped=new Map();channels.forEach(channel=>{const key=channel.category_id||"__none";if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(channel);});
-    const ordered=[...categories.filter(cat=>grouped.has(cat.id)).map(cat=>({id:cat.id,name:cat.name})),...(grouped.has("__none")?[{id:"__none",name:"БЕЗ КАТЕГОРИИ"}]:[])];
-    ordered.forEach(category=>{const heading=document.createElement("div");heading.className="dc-channel-category";heading.textContent=category.name;list.append(heading);(grouped.get(category.id)||[]).forEach(channel=>{
-      const button=document.createElement("button");button.type="button";button.className="dc-channel-item";button.dataset.channelId=channel.id;const hash=document.createElement("span");hash.textContent=channel.type==="announcement"?"▤":"#";const name=document.createElement("span");name.textContent=channel.name;button.append(hash,name);if(!channel.can_send){const lock=document.createElement("small");lock.textContent="Только чтение";button.append(lock);}button.addEventListener("click",()=>dcOpenGuildChannel(channel));list.append(button);
-    });});
-  }catch(error){if(list)list.textContent=error.message;}
+    const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guild.id)+"/channels");if(dcActiveGuild?.id!==guild.id)return;dcChannelsCacheByGuild.set(guild.id,data);dcRenderGuildChannels(data,list,title,guild);
+
+  }catch(error){if(dcActiveGuild?.id===guild.id&&list)list.textContent=error.message;}finally{dcChannelsLoading.delete(guild.id);}
 }
 async function dcOpenGuildChannel(channel,silent=false){
   if(!channel?.id||!dcActiveGuild)return;dcActiveChannel=channel;dcActiveUser=null;document.querySelectorAll(".dc-channel-item").forEach(x=>x.classList.toggle("active",x.dataset.channelId===channel.id));
@@ -1086,7 +1116,7 @@ function loadBotDiscord(){
   refreshChat?.addEventListener("click",()=>{if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel);else if(dcActiveUser)dcOpenConversation(dcActiveUser);});
   document.getElementById("dcHomeButton")?.addEventListener("click",()=>{dcActiveGuild=null;dcActiveChannel=null;dcActiveUser=null;dcSetMode("dm");dcLoadConversationList();});
   form?.addEventListener("submit",dcSendMessage);dcSetMode("dm");dcLoadConversationList();dcLoadGuilds();
-  dcPollTimer=setInterval(()=>{if(!document.getElementById("dcDmList")){clearInterval(dcPollTimer);dcPollTimer=null;return;}if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel,true);else if(dcActiveUser)dcOpenConversation(dcActiveUser,true);else if(!document.getElementById("dcChannelList")?.hidden&&dcActiveGuild)dcOpenGuild(dcActiveGuild);else dcLoadConversationList();},12000);
+  dcPollTimer=setInterval(()=>{if(!document.getElementById("dcDmList")){clearInterval(dcPollTimer);dcPollTimer=null;return;}if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel,true);else if(dcActiveUser)dcOpenConversation(dcActiveUser,true);else if(!dcActiveGuild)dcLoadConversationList();},12000);
 }
 
 async function apiGet(url){
