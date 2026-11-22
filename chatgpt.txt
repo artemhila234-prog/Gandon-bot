@@ -1911,3 +1911,19 @@ NaN: `pip install ... -r requirements.txt` затем `python3 -m uvicorn aaaa.b
 - Исправлено в aaaa/bot.py (panel_dm_list): last_message_id читается через getattr; если атрибута/ID нет, последнее сообщение получается через channel.history(limit=1). Commit: 1fe8fd072a77acd3b97b417cbb88b2608c60be0d.
 - Изменение находится в GitHub main; деплой и реальная проверка пока не подтверждены. После sync/restart проверить вкладку DM.
 - Следующий шаг: получить screenshot от пользователя, затем обновить Discord workspace layout CSS/HTML/JS, не делать визуальный редизайн наугад.
+
+21. DISCORD WORKSPACE — ФОРМАТИРОВАНИЕ СООБЩЕНИЙ И МЕТАДАННЫЕ УПОМИНАНИЙ (2026-11-22)
+- Пользователь попросил продолжить максимально полную реализацию Discord-интерфейса, не дожидаясь повторной загрузки скриншота из-за лимита вложений. Решение: двигаться по реальным паттернам Discord и доступным возможностям официального Bot API; не утверждать абсолютную идентичность клиенту Discord.
+- В aaaa/bot.py добавлен helper panel_message_mentions(message): передаёт метаданные упомянутых пользователей, ролей и каналов, флаг @everyone, время редактирования и pinned. История DM и текстовых каналов теперь включает эти данные; расширены поля вложений и embeds (тип контента, URL, картинка).
+- В dashboard/app.js переписан renderer сообщений: безопасное построение DOM без вставки пользовательского HTML; отображение user/role/channel mentions с именами вместо raw ID; поддержка Discord timestamp tokens, custom emoji, ссылок и основных inline markdown (bold, italic, underline, strike, spoiler, code, markdown links). Упоминание пользователя кликабельно и открывает DM, если Bot API позволяет. Добавлено контекстное меню сообщения с копированием текста и ID; улучшены отображение edited state, времени, embeds и image attachments.
+- В dashboard/style.css добавлены стили сообщений, mentions, timestamps, embeds, previews и context menu в палитре Discord.
+- dashboard/index.html: cache bust версии ресурсов обновлён на 20261122-discord-render2.
+- Commits:
+  - aaaa/bot.py: 67ead6a2e4020f7130c55733a805aa6b9f842831
+  - dashboard/app.js: 1cfd5c316d54f276051037586703cdfb9e86b36c
+  - dashboard/style.css: 385e5ffa1510b596eef0af8e49dfd9326a42ecef
+  - dashboard/index.html: ef1a42300193f0e88201341fef8a8163acb207b1
+- Проверка: dashboard/app.js успешно прошёл JS syntax parse через V8 new Function. В aaaa/bot.py проверено наличие helper и его включение в DM/channel history payload; полноценный Python compile/runtime и Discord API тест в этом сеансе не запускались.
+- Важно: изменения закоммичены в GitHub main, но production deploy и работа на Bot-Hosting не подтверждены. Нужно синхронизировать код, перезапустить сервис и проверить mentions, timestamps, embeds, картинки и контекстное меню в реальном серверном канале и DM.
+- Ограничения текущего этапа: контекстное меню пока содержит copy text / copy message ID; редактирование/удаление/ответы, uploads, reactions, threads, role/channel CRUD, permissions и модерация ещё требуют отдельных API endpoints и backend permission checks. Не считать вкладку законченным клоном Discord.
+- Следующие этапы: провести Python compile/runtime check на хостинге; затем расширить интерактивные сообщения (reply/reactions/edit/delete/pin, где бот имеет права), добавить CRUD ролей/каналов/категорий с backend permission enforcement, затем настройки сервера и moderation tools. Продолжать использовать только официальный Bot API.
