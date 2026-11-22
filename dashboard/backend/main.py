@@ -1277,6 +1277,39 @@ async def api_players(request: Request):
         raise HTTPException(status_code=502, detail="Не удалось получить полный список участников Discord. Проверь права бота и Server Members Intent.")
 
 
+@app.get("/api/sheets/staff-candidates")
+async def api_sheets_staff_candidates(request: Request):
+    await require_access(request, "co_adm")
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller or not controller.get("sheets_candidates"):
+        raise HTTPException(status_code=503, detail="Управление таблицей состава не подключено к боту.")
+    try:
+        return await controller["sheets_candidates"]()
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось получить состав Discord: {error}")
+
+
+@app.post("/api/sheets/staff-add")
+async def api_sheets_staff_add(request: Request):
+    await require_access(request, "co_adm")
+    payload = await request.json()
+    required = ("user_id", "nickname", "position", "profile_url", "personal_channel_id")
+    if any(not str(payload.get(key, "")).strip() for key in required):
+        raise HTTPException(status_code=400, detail="Заполни никнейм, должность, ссылку на профиль и ID личного канала.")
+    controller = getattr(app.state, "bot_controller", None)
+    if not controller or not controller.get("sheets_add_staff"):
+        raise HTTPException(status_code=503, detail="Добавление состава не подключено к боту.")
+    try:
+        return await controller["sheets_add_staff"](
+            payload["user_id"], payload["nickname"], payload["position"],
+            payload["profile_url"], payload["personal_channel_id"],
+        )
+    except (ValueError, RuntimeError) as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось добавить участника: {error}")
+
+
 @app.get("/api/status")
 async def api_status():
     """Проверяет именно API процесса Discord-бота, а не доступность самого Dashboard."""
