@@ -1122,6 +1122,37 @@ async def api_discord_guild_members(guild_id: str, request: Request):
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось загрузить участников сервера: {str(error)[:300]}")
 
+@app.get("/api/discord/guilds/{guild_id}/presence")
+async def api_discord_guild_presence(guild_id: str, request: Request):
+    await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        return await get_dm_controller("discord_presence")(guild_id)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось обновить статусы участников: {str(error)[:300]}")
+
+@app.post("/api/discord/guilds/{guild_id}/members/{member_id}/roles")
+async def api_discord_member_role(guild_id: str, member_id: str, request: Request):
+    await require_access(request, "adm")
+    if not guild_id.isdigit() or not member_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или участника.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный запрос роли.")
+    role_id = str(payload.get("role_id", "")) if isinstance(payload, dict) else ""
+    action = str(payload.get("action", "")) if isinstance(payload, dict) else ""
+    if not role_id.isdigit() or action not in {"add", "remove"}:
+        raise HTTPException(status_code=400, detail="Укажи роль и действие add/remove.")
+    try:
+        return await get_dm_controller("discord_member_role")(guild_id, member_id, role_id, action)
+    except Exception as error:
+        detail = str(error)[:300]
+        if "403" in detail or "Forbidden" in detail:
+            raise HTTPException(status_code=403, detail="Discord запретил изменение ролей. Проверь Manage Roles и иерархию ролей бота.")
+        raise HTTPException(status_code=502, detail=f"Не удалось изменить роль: {detail}")
+
 @app.get("/api/discord/guilds/{guild_id}/channels")
 async def api_discord_guild_channels(guild_id: str, request: Request):
     await require_access(request, "adm")
