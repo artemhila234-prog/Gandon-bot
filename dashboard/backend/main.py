@@ -1179,12 +1179,28 @@ async def api_discord_channel_send(channel_id: str, request: Request):
     if not channel_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID канала.")
     try:
-        payload = await request.json()
+        form = await request.form()
+        content = str(form.get("content") or "").strip()
+        uploads = form.getlist("files")
+        if len(uploads) > 10:
+            raise HTTPException(status_code=400, detail="Можно прикрепить не больше 10 файлов.")
+        files, total = [], 0
+        for upload in uploads:
+            data = await upload.read()
+            if len(data) > 8 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail=f"Файл «{upload.filename}» больше 8 МБ.")
+            total += len(data)
+            files.append((str(upload.filename or "file")[:255], data))
+        if total > 25 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Общий размер вложений не должен превышать 25 МБ.")
+        if not content and not files:
+            raise HTTPException(status_code=400, detail="Добавь текст или файл.")
+    except HTTPException:
+        raise
     except Exception:
-        raise HTTPException(status_code=400, detail="Некорректный JSON сообщения.")
-    content = str(payload.get("content") or "").strip() if isinstance(payload, dict) else ""
+        raise HTTPException(status_code=400, detail="Не удалось прочитать отправляемые файлы.")
     try:
-        return await get_dm_controller("discord_channel_send")(channel_id, content)
+        return await get_dm_controller("discord_channel_send")(channel_id, content, files)
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось отправить сообщение: {str(error)[:300]}")
 
@@ -1226,19 +1242,28 @@ DM_SEND_LAST_AT: dict[str, float] = {}
 async def api_discord_dm_send(user_id: str, request: Request):
     actor=await require_access(request, 'adm')
     if not user_id.isdigit(): raise HTTPException(status_code=400, detail='Некорректный Discord ID.')
-    try: payload=await request.json()
-    except Exception: raise HTTPException(status_code=400, detail='Некорректный JSON сообщения.')
-    content=str(payload.get('content') or '').strip() if isinstance(payload,dict) else ''
-    if not content: raise HTTPException(status_code=400, detail='Напиши текст сообщения.')
+    try:
+        form=await request.form()
+        content=str(form.get('content') or '').strip()
+        uploads=form.getlist('files')
+        if len(uploads)>10: raise HTTPException(status_code=400, detail='Можно прикрепить не больше 10 файлов.')
+        files=[];total=0
+        for upload in uploads:
+            data=await upload.read()
+            if len(data)>8*1024*1024: raise HTTPException(status_code=413, detail=f'Файл «{upload.filename}» больше 8 МБ.')
+            total+=len(data);files.append((str(upload.filename or 'file')[:255],data))
+        if total>25*1024*1024: raise HTTPException(status_code=413, detail='Общий размер вложений не должен превышать 25 МБ.')
+        if not content and not files: raise HTTPException(status_code=400, detail='Напиши сообщение или прикрепи файл.')
+    except HTTPException: raise
+    except Exception: raise HTTPException(status_code=400, detail='Не удалось прочитать отправляемые файлы.')
     if len(content)>2000: raise HTTPException(status_code=400, detail='Максимальная длина сообщения Discord — 2000 символов.')
     rate_key=f"{actor.get('id')}:{user_id}"
     now=datetime.now(timezone.utc).timestamp()
     last_sent=DM_SEND_LAST_AT.get(rate_key, 0.0)
-    if now-last_sent < 2.0:
-        raise HTTPException(status_code=429, detail='Подожди пару секунд перед следующим сообщением этому пользователю.')
+    if now-last_sent < 2.0: raise HTTPException(status_code=429, detail='Подожди пару секунд перед следующим сообщением этому пользователю.')
     DM_SEND_LAST_AT[rate_key]=now
     try:
-        result=await get_dm_controller('dm_send')(user_id, content)
+        result=await get_dm_controller('dm_send')(user_id, content, files)
         print(f'[PANEL DM] Администратор {actor.get("id")} отправил DM пользователю {user_id}.', flush=True)
         return result
     except Exception as error:
