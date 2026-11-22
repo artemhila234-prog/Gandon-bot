@@ -1134,9 +1134,9 @@ async def api_discord_dm_history(user_id: str, request: Request):
         if '403' in detail or 'Forbidden' in detail: detail='Discord не разрешил открыть личный диалог с этим пользователем. Возможно, действуют ограничения приватности.'
         raise HTTPException(status_code=502, detail=f'Не удалось открыть личные сообщения: {detail}')
 
-@app.post('/api/discord/dms/{user_id}/messages')
 DM_SEND_LAST_AT: dict[str, float] = {}
 
+@app.post('/api/discord/dms/{user_id}/messages')
 async def api_discord_dm_send(user_id: str, request: Request):
     actor=await require_access(request, 'adm')
     if not user_id.isdigit(): raise HTTPException(status_code=400, detail='Некорректный Discord ID.')
