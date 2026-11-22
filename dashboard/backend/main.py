@@ -226,6 +226,11 @@ async def terms_page():
 async def privacy_page():
     return FileResponse(os.path.join(BASE_DIR, "privacy.html"), media_type="text/html; charset=utf-8")
 
+@app.get("/gastworld-logo.svg")
+async def gastworld_logo():
+    return FileResponse(os.path.join(BASE_DIR, "gastworld-logo.svg"), media_type="image/svg+xml")
+
+
 @app.get("/style.css")
 async def stylesheet():
     return FileResponse(os.path.join(BASE_DIR, "style.css"), media_type="text/css")
