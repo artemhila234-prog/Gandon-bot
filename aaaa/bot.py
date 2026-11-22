@@ -3049,6 +3049,63 @@ async def panel_set_ticket_acceptance(enabled):
     return {"accepting": bool(enabled)}
 
 
+
+async def panel_dm_user_payload(user):
+    avatar = getattr(user, 'display_avatar', None)
+    return {'id': str(user.id), 'username': str(getattr(user, 'name', 'Unknown')), 'global_name': str(getattr(user, 'global_name', None) or getattr(user, 'display_name', None) or getattr(user, 'name', 'Unknown')), 'avatar_url': str(avatar.url) if avatar else '', 'bot': bool(getattr(user, 'bot', False))}
+
+async def panel_dm_list():
+    if not bot.is_ready(): raise RuntimeError('Discord-бот ещё подключается.')
+    items=[]; seen=set()
+    for channel in bot.private_channels:
+        if not isinstance(channel, discord.DMChannel): continue
+        recipient=channel.recipient
+        if not recipient or recipient.id in seen: continue
+        seen.add(recipient.id)
+        last=getattr(channel, 'last_message', None)
+        if last is None and channel.last_message_id:
+            try: last=await channel.fetch_message(channel.last_message_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException): last=None
+        items.append({'channel_id':str(channel.id),'user':await panel_dm_user_payload(recipient),'last_message':{'content':(last.content or '[Вложение/медиа]')[:180],'created_at':last.created_at.isoformat(),'author_id':str(last.author.id)} if last else None})
+    items.sort(key=lambda x:x['last_message']['created_at'] if x['last_message'] else '', reverse=True)
+    return {'conversations':items,'bot':await panel_dm_user_payload(bot.user) if bot.user else None}
+
+async def panel_dm_search(query):
+    if not bot.is_ready(): raise RuntimeError('Discord-бот ещё подключается.')
+    query=str(query or '').strip()
+    if len(query)<2: return {'users':[]}
+    found={}
+    if query.isdigit():
+        try:
+            user=await bot.fetch_user(int(query)); found[user.id]=await panel_dm_user_payload(user)
+        except (discord.NotFound, discord.HTTPException): pass
+    else:
+        needle=query.casefold().lstrip('@')
+        for member in bot.get_all_members():
+            if needle in str(member.name or '').casefold() or needle in str(member.display_name or '').casefold() or needle in str(getattr(member,'global_name','') or '').casefold():
+                found[member.id]=await panel_dm_user_payload(member)
+                if len(found)>=25: break
+    return {'users':list(found.values())[:25]}
+
+async def panel_dm_history(user_id, limit=60):
+    if not bot.is_ready(): raise RuntimeError('Discord-бот ещё подключается.')
+    if not str(user_id).isdigit(): raise ValueError('Некорректный Discord ID.')
+    user=await bot.fetch_user(int(user_id)); channel=await user.create_dm(); messages=[]
+    async for message in channel.history(limit=max(1,min(int(limit),100))):
+        messages.append({'id':str(message.id),'content':message.content or '', 'created_at':message.created_at.isoformat(), 'author':await panel_dm_user_payload(message.author), 'attachments':[{'filename':x.filename,'url':x.url} for x in message.attachments[:10]], 'embeds':[{'title':x.title,'description':(x.description or '')[:500]} for x in message.embeds[:3]]})
+    messages.reverse()
+    return {'user':await panel_dm_user_payload(user),'channel_id':str(channel.id),'messages':messages}
+
+async def panel_dm_send(user_id, content):
+    if not bot.is_ready(): raise RuntimeError('Discord-бот ещё подключается.')
+    content=str(content or '').strip()
+    if not content: raise ValueError('Сообщение не может быть пустым.')
+    if len(content)>2000: raise ValueError('Discord ограничивает обычное сообщение 2000 символами.')
+    if not str(user_id).isdigit(): raise ValueError('Некорректный Discord ID.')
+    user=await bot.fetch_user(int(user_id)); channel=await user.create_dm()
+    message=await channel.send(content, allowed_mentions=discord.AllowedMentions.none())
+    return {'ok':True,'message':{'id':str(message.id),'content':message.content,'created_at':message.created_at.isoformat(),'author':await panel_dm_user_payload(message.author),'attachments':[],'embeds':[]}}
+
 async def run_services():
     """Запускает Discord-бота и FastAPI в одном процессе Bot-Hosting."""
     from dashboard.backend.main import app as panel_app
@@ -3064,6 +3121,10 @@ async def run_services():
         "set_ticket_acceptance": panel_set_ticket_acceptance,
         "sheets_candidates": panel_sheets_candidates,
         "sheets_add_staff": panel_sheets_add_staff,
+        "dm_list": panel_dm_list,
+        "dm_search": panel_dm_search,
+        "dm_history": panel_dm_history,
+        "dm_send": panel_dm_send,
         "actions": {
             "sync_commands": panel_sync_commands,
             "sync_roles": panel_sync_roles,
