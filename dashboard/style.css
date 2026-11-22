@@ -1597,3 +1597,6 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .dc-dm-profile-details p{margin:0;font-size:11px;overflow-wrap:anywhere}
 .dc-dm-profile-action{display:block;width:calc(100% - 28px);margin:0 14px;padding:9px;border:0;border-radius:5px;background:#5865f2;color:white;font-weight:600;cursor:pointer}
 .dc-dm-profile-action:hover{background:#4752c4}
+
+/* Discord profile: show every server role, while clearly marking roles the bot cannot manage. */
+.dc-profile-role-unmanageable{opacity:.58;cursor:not-allowed}.dc-profile-role-unmanageable input{cursor:not-allowed}.dc-profile-role-hint{font-size:12px;line-height:1.45;color:var(--muted,#9aa0aa);margin:8px 0 0}
