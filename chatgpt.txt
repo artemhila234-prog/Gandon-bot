@@ -1732,3 +1732,10 @@ NaN: `pip install ... -r requirements.txt` затем `python3 -m uvicorn aaaa.b
 - Причина: `dashboard/index.html` ссылался на `/gastworld-logo.svg`, но в `dashboard/backend/main.py` были отдельные маршруты только для `/`, `/terms`, `/privacy`, `/style.css`, `/app.js` и TikTok verification; маршрут SVG отсутствовал. Поэтому браузер получал 404, хотя SVG был в GitHub.
 - Добавлен маршрут `GET /gastworld-logo.svg`, который отдаёт `dashboard/gastworld-logo.svg` с MIME-типом `image/svg+xml`.
 - После GitHub sync и перезапуска сервиса панели проверить `https://media.apps.bot-hosting.cloud/gastworld-logo.svg?v=20261122-gastworld-logo1` и главную страницу. Живой хостинг в момент исправления недоступен для внешней проверки; deploy не подтверждён.
+
+
+## 2026-11-22 — Единый логотип на юридических страницах
+- В `dashboard/terms.html` и `dashboard/privacy.html` заменена старая текстовая буква G на общий `dashboard/gastworld-logo.svg` в боковом меню и верхнем брендинге.
+- На обе страницы добавлен favicon `/gastworld-logo.svg` и обновлена версия CSS для сброса кеша.
+- Commits: terms `bce0d2edae829342ac331ebdb79dcdb05134e1fb`; privacy `e4f3e329b1cf15d9bdbbdda486334b27b15a07c6`.
+- Для публикации синхронизировать GitHub на Bot-Hosting и перезапустить панель; живой deploy не подтверждён.
