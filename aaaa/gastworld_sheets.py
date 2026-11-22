@@ -89,17 +89,24 @@ def sync_staff_row(
     nickname = _cell_text(nickname)
     personal_channel_url = _cell_text(personal_channel_url)
     profile_url = _cell_text(profile_url)
-    position = _cell_text(position).upper()
+    position = _cell_text(position)
     discord_id = _cell_text(discord_id)
     discord_username = _cell_text(discord_username)
-    if not nickname or not personal_channel_url or not profile_url or position not in {"TT", "YT"} or not discord_id or not discord_username:
-        raise ValueError("Для записи нужны ник, ссылки, должность TT/YT, Discord username и ID.")
+    allowed_positions = {"YouTube", "YouTube+", "TikTok", "TikTok+", "Media Adm"}
+    if not nickname or not personal_channel_url or not profile_url or position not in allowed_positions or not discord_id or not discord_username:
+        raise ValueError("Для записи нужны ник, ссылки, одна из должностей YouTube/YouTube+/TikTok/TikTok+/Media Adm, Discord username и ID.")
     if not personal_channel_url.startswith(("https://", "http://")) or not profile_url.startswith(("https://", "http://")):
         raise ValueError("Ссылки должны начинаться с http:// или https://")
-    if position == "TT" and "tiktok.com/@" not in profile_url.lower():
-        raise ValueError("Для TT нужна ссылка на TikTok-профиль.")
-    if position == "YT" and "youtube.com/" not in profile_url.lower():
-        raise ValueError("Для YT нужна ссылка на YouTube-профиль.")
+    profile_lower = profile_url.lower()
+    is_tiktok_profile = "tiktok.com/@" in profile_lower
+    is_youtube_profile = any(host in profile_lower for host in ("youtube.com/", "youtu.be/"))
+    if position in {"TikTok", "TikTok+"} and not is_tiktok_profile:
+        raise ValueError("Для должности TikTok/TikTok+ нужна ссылка на TikTok-профиль.")
+    if position in {"YouTube", "YouTube+"} and not is_youtube_profile:
+        raise ValueError("Для должности YouTube/YouTube+ нужна ссылка на YouTube-профиль.")
+    if position == "Media Adm" and not (is_tiktok_profile or is_youtube_profile):
+        raise ValueError("Для Media Adm нужна ссылка на TikTok или YouTube-профиль.")
+    platform_group = "TT" if is_tiktok_profile else "YT"
 
     worksheet = _worksheet()
     ids = worksheet.col_values(DISCORD_ID_COLUMN)
@@ -115,7 +122,7 @@ def sync_staff_row(
 
     row_was_existing = existing_row is not None
     preserved_row = None
-    if existing_row is not None and _cell_text(positions[existing_row - 1]).upper() != position:
+    if existing_row is not None and _cell_text(positions[existing_row - 1]) != position:
         preserved_row = worksheet.get(
             "A{}:I{}".format(existing_row, existing_row), value_render_option="FORMULA"
         )
@@ -130,13 +137,13 @@ def sync_staff_row(
 
     if existing_row is not None:
         target_row = existing_row
-    elif position == "TT":
+    elif platform_group == "TT":
         first_yt = next(
             (r for r in range(FIRST_STAFF_ROW, last_row + 1)
              if ((r <= len(ids) and _cell_text(ids[r - 1]))
                  or (r <= len(legacy_ids) and _cell_text(legacy_ids[r - 1])))
              and r <= len(positions)
-             and _cell_text(positions[r - 1]).upper() == "YT"),
+             and _cell_text(positions[r - 1]) in {"YouTube", "YouTube+"}),
             None,
         )
         if first_yt is not None:
@@ -179,7 +186,7 @@ def sync_staff_row(
     else:
         worksheet.update(
             range_name=f"B{target_row}:E{target_row}",
-            values=[[nickname_formula, position, profile_formula, int(warns)]],
+            values=[[nickname_formula, position, profile_formula, f"{min(max(int(warns), 0), 3)}/3"]],
             value_input_option="USER_ENTERED",
         )
         worksheet.update(
