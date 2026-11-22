@@ -1102,6 +1102,56 @@ async def api_send_message(request: Request):
         sent = await discord_request("POST", f"/channels/{channel_id}/messages", payload=payload)
     return {"ok": True, "message_id": str(sent.get("id", "")), "attachments": len(discord_files)}
 
+
+# ================== DISCORD BOT DIRECT MESSAGES ==================
+def get_dm_controller(action: str):
+    controller=getattr(app.state, 'bot_controller', None)
+    callback=controller.get(action) if controller else None
+    if not callback: raise HTTPException(status_code=503, detail='Discord DM-модуль не подключён к работающему процессу бота.')
+    return callback
+
+@app.get('/api/discord/dms')
+async def api_discord_dm_list(request: Request):
+    await require_access(request, 'adm')
+    try: return await get_dm_controller('dm_list')()
+    except Exception as error: raise HTTPException(status_code=502, detail=f'Не удалось загрузить личные диалоги: {str(error)[:300]}')
+
+@app.get('/api/discord/dms/search')
+async def api_discord_dm_search(request: Request, q: str = ''):
+    await require_access(request, 'adm')
+    query=str(q or '').strip()[:100]
+    if len(query)<2: return {'users':[]}
+    try: return await get_dm_controller('dm_search')(query)
+    except Exception as error: raise HTTPException(status_code=502, detail=f'Поиск пользователей не выполнен: {str(error)[:300]}')
+
+@app.get('/api/discord/dms/{user_id}/messages')
+async def api_discord_dm_history(user_id: str, request: Request):
+    await require_access(request, 'adm')
+    if not user_id.isdigit(): raise HTTPException(status_code=400, detail='Некорректный Discord ID.')
+    try: return await get_dm_controller('dm_history')(user_id, 60)
+    except Exception as error:
+        detail=str(error)[:350]
+        if '403' in detail or 'Forbidden' in detail: detail='Discord не разрешил открыть личный диалог с этим пользователем. Возможно, действуют ограничения приватности.'
+        raise HTTPException(status_code=502, detail=f'Не удалось открыть личные сообщения: {detail}')
+
+@app.post('/api/discord/dms/{user_id}/messages')
+async def api_discord_dm_send(user_id: str, request: Request):
+    actor=await require_access(request, 'adm')
+    if not user_id.isdigit(): raise HTTPException(status_code=400, detail='Некорректный Discord ID.')
+    try: payload=await request.json()
+    except Exception: raise HTTPException(status_code=400, detail='Некорректный JSON сообщения.')
+    content=str(payload.get('content') or '').strip() if isinstance(payload,dict) else ''
+    if not content: raise HTTPException(status_code=400, detail='Напиши текст сообщения.')
+    if len(content)>2000: raise HTTPException(status_code=400, detail='Максимальная длина сообщения Discord — 2000 символов.')
+    try:
+        result=await get_dm_controller('dm_send')(user_id, content)
+        print(f'[PANEL DM] Администратор {actor.get("id")} отправил DM пользователю {user_id}.', flush=True)
+        return result
+    except Exception as error:
+        detail=str(error)[:350]
+        if '403' in detail or 'Forbidden' in detail: detail='Discord запретил отправку этому пользователю. Он мог закрыть личные сообщения или ограничить взаимодействие с ботами.'
+        raise HTTPException(status_code=502, detail=f'Не удалось отправить личное сообщение: {detail}')
+
 SHOP_ITEMS_PANEL = [
     {"name": "PVP", "price": 1000, "type": "kit"}, {"name": "CYBER", "price": 1500, "type": "kit"},
     {"name": "RICH", "price": 2000, "type": "kit"}, {"name": "TOPER", "price": 2500, "type": "kit"},
