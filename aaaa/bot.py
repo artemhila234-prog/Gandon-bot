@@ -275,6 +275,96 @@ async def sync_staff_member_to_sheets(member):
         print(f"⚠️ [GOOGLE SHEETS] Не удалось обновить участника {member.id}: {error}", flush=True)
         return "error"
 
+async def panel_sheets_candidates():
+    guild = bot.get_guild(VERIFICATION_GUILD_ID)
+    if guild is None:
+        raise RuntimeError("Основной сервер Медиа не найден.")
+    candidates = []
+    async for member in guild.fetch_members(limit=None):
+        if not any(role.id == MEDIA_TEAM_ROLE_ID for role in member.roles):
+            continue
+        profile = conn.execute("SELECT 1 FROM media_staff_profiles WHERE user_id = ?", (int(member.id),)).fetchone()
+        if profile:
+            continue
+        channel_id = get_personal_channel(member.id)
+        candidates.append({
+            "user_id": str(member.id),
+            "username": member.global_name or member.name,
+            "discord_username": member.name,
+            "personal_channel_id": str(channel_id) if channel_id else "",
+        })
+    candidates.sort(key=lambda item: item["username"].casefold())
+    return {"candidates": candidates, "count": len(candidates), "role_id": str(MEDIA_TEAM_ROLE_ID)}
+
+
+async def panel_sheets_add_staff(user_id, nickname, position, profile_url, personal_channel_id):
+    guild = bot.get_guild(VERIFICATION_GUILD_ID)
+    if guild is None:
+        raise RuntimeError("Основной сервер Медиа не найден.")
+    try:
+        user_id = int(user_id)
+        personal_channel_id = int(personal_channel_id)
+    except (TypeError, ValueError):
+        raise ValueError("Укажи корректные Discord ID участника и личного канала.")
+    nickname = str(nickname or "").strip()[:100]
+    position = str(position or "").strip().upper()
+    profile_url = str(profile_url or "").strip()
+    if not nickname:
+        raise ValueError("Укажи никнейм участника.")
+    if position not in {"TT", "YT"}:
+        raise ValueError("Должность должна быть TT или YT.")
+    if not profile_url.startswith(("https://", "http://")):
+        raise ValueError("Укажи корректную ссылку на профиль.")
+    if position == "TT" and "tiktok.com/@" not in profile_url.lower():
+        raise ValueError("Для TT нужна ссылка на TikTok-профиль.")
+    if position == "YT" and not any(host in profile_url.lower() for host in ("youtube.com/", "youtu.be/")):
+        raise ValueError("Для YT нужна ссылка на YouTube-профиль.")
+    member = guild.get_member(user_id)
+    if member is None:
+        try:
+            member = await guild.fetch_member(user_id)
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            raise ValueError("Участник не найден на основном сервере.")
+    if not any(role.id == MEDIA_TEAM_ROLE_ID for role in member.roles):
+        raise ValueError("У участника нет роли Команда медиа.")
+    channel = guild.get_channel(personal_channel_id)
+    if channel is None:
+        try:
+            channel = await guild.fetch_channel(personal_channel_id)
+        except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+            raise ValueError("Личный канал не найден или бот не имеет к нему доступа.")
+    if not isinstance(channel, discord.TextChannel) or channel.guild.id != VERIFICATION_GUILD_ID:
+        raise ValueError("Выбранный личный канал должен быть текстовым каналом основного сервера Медиа.")
+
+    conn.execute(
+        """INSERT INTO media_staff_profiles (user_id, nickname, position, profile_url, updated_at)
+           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(user_id) DO UPDATE SET
+             nickname=excluded.nickname, position=excluded.position,
+             profile_url=excluded.profile_url, updated_at=CURRENT_TIMESTAMP""",
+        (user_id, nickname, position, profile_url),
+    )
+    conn.execute(
+        """INSERT INTO users (user_id, balance, warns, personal_channel_id)
+           VALUES (?, 0, 0, ?)
+           ON CONFLICT(user_id) DO UPDATE SET
+             personal_channel_id=COALESCE(users.personal_channel_id, excluded.personal_channel_id)""",
+        (user_id, personal_channel_id),
+    )
+    conn.commit()
+    sync_result = await sync_staff_member_to_sheets(member)
+    data = get_user_data(user_id)
+    return {
+        "user_id": str(user_id),
+        "nickname": nickname,
+        "position": position,
+        "sheets_synced": sync_result == "ok",
+        "sync_result": sync_result,
+        "balance": data["balance"],
+        "warns": data["warns"],
+        "personal_channel_id": str(get_personal_channel(user_id) or ""),
+    }
+
 
 def add_report(message_id, author_id, ban_number, mute_number, proof):
     cursor.execute('INSERT INTO reports (message_id, author_id, ban_number, mute_number, proof) VALUES (?, ?, ?, ?, ?)',
@@ -876,6 +966,49 @@ async def on_member_join(member):
 # ================== КОМАНДЫ ==================
 def is_allowed_guild(interaction):
     return interaction.guild is not None and interaction.guild.id in ALLOWED_GUILDS
+
+# -------- /sheets_add_staff --------
+@bot.tree.command(name="sheets_add_staff", description="Добавить участника с ролью Команда медиа в таблицу")
+@app_commands.describe(
+    member="Участник с ролью Команда медиа",
+    nickname="Никнейм для таблицы",
+    position="Платформа участника",
+    profile_url="Ссылка на TikTok или YouTube профиль",
+    personal_channel="Личный текстовый канал участника",
+)
+@app_commands.choices(position=[
+    app_commands.Choice(name="TikTok (TT)", value="TT"),
+    app_commands.Choice(name="YouTube (YT)", value="YT"),
+])
+async def sheets_add_staff(
+    interaction: discord.Interaction,
+    member: discord.Member,
+    nickname: str,
+    position: app_commands.Choice[str],
+    profile_url: str,
+    personal_channel: discord.TextChannel,
+):
+    if interaction.guild_id != VERIFICATION_GUILD_ID:
+        await interaction.response.send_message("❌ Команда доступна только на основном сервере Медиа.", ephemeral=True)
+        return
+    if not (interaction.user.guild_permissions.administrator or has_verification_role(interaction.user)):
+        await interaction.response.send_message("❌ Недостаточно прав. Нужна роль проверки заявок или Administrator.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    try:
+        result = await panel_sheets_add_staff(
+            member.id, nickname, position.value, profile_url, personal_channel.id
+        )
+    except (ValueError, RuntimeError) as error:
+        await interaction.followup.send(f"❌ {error}", ephemeral=True)
+        return
+    status = "✅ Профиль добавлен в базу и Google Sheets." if result["sheets_synced"] else "⚠️ Профиль сохранён в базе, но запись в Google Sheets не удалась. Запусти /sheets_sync после проверки доступа Google."
+    await interaction.followup.send(
+        f"{status}\n👤 {discord.utils.escape_markdown(result['nickname'])} · **{result['position']}**\n"
+        f"💰 Баланс сохранён: **{result['balance']}** · Выговоры сохранены: **{result['warns']}**",
+        ephemeral=True,
+    )
+
 
 # -------- /sheets_sync --------
 @bot.tree.command(name="sheets_sync", description="Синхронизировать действующий состав Медиа с Google Sheets")
@@ -2882,6 +3015,8 @@ async def run_services():
         "ticket_status": panel_ticket_status,
         "ticket_acceptance": panel_ticket_acceptance,
         "set_ticket_acceptance": panel_set_ticket_acceptance,
+        "sheets_candidates": panel_sheets_candidates,
+        "sheets_add_staff": panel_sheets_add_staff,
         "actions": {
             "sync_commands": panel_sync_commands,
             "sync_roles": panel_sync_roles,
