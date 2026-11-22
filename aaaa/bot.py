@@ -3128,6 +3128,13 @@ async def panel_guild_members(guild_id):
     guild = bot.get_guild(int(guild_id))
     if guild is None:
         raise ValueError("Сервер не найден среди серверов, где состоит бот.")
+    roles = [{
+        "id": str(role.id),
+        "name": role.name,
+        "position": int(role.position),
+        "hoist": bool(role.hoist),
+        "color_hex": f"#{role.color.value:06x}" if role.color.value else "",
+    } for role in sorted(guild.roles, key=lambda item: item.position, reverse=True) if role.id != guild.default_role.id]
     members = []
     try:
         async for member in guild.fetch_members(limit=None):
@@ -3135,11 +3142,12 @@ async def panel_guild_members(guild_id):
                 **(await panel_dm_user_payload(member)),
                 "global_name": str(member.nick or member.global_name or member.name),
                 "bot": bool(member.bot),
+                "role_ids": [str(role.id) for role in member.roles if role.id != guild.default_role.id],
             })
     except discord.Forbidden:
         raise RuntimeError("Discord не разрешил получить список участников. Проверь Server Members Intent в Discord Developer Portal и включи его в настройках бота.")
     members.sort(key=lambda item: (bool(item["bot"]), (item["global_name"] or item["username"]).casefold()))
-    return {"guild": {"id": str(guild.id), "name": guild.name}, "members": members, "count": len(members)}
+    return {"guild": {"id": str(guild.id), "name": guild.name}, "members": members, "roles": roles, "count": len(members)}
 
 
 async def panel_guild_channels(guild_id):
