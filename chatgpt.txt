@@ -1963,3 +1963,5 @@ NaN: `pip install ... -r requirements.txt` затем `python3 -m uvicorn aaaa.b
 
 - Дополнительно реализована правая колонка DM: в режиме личных сообщений она показывает профиль выбранного собеседника (аватар, display name, username и Discord ID); в режиме сервера та же колонка остаётся списком участников. Визуально сохраняется тема GastWorld, а компоновка повторяет трёхколоночный паттерн скриншота. Это не выдаёт недоступные Bot API поля (например, произвольное bio или mutual friends).
 - Дополнительные commits правой панели: app.js ac8e2dc667585762ad19395c7b658a6c9cae7420; style.css f2185a73535561d2ee637434847a5e5dc8cd76b9; index.html 645060ddf39e0e479766ae64e60b36f8abdb801a.
+
+- Проверка после правок: dashboard/app.js успешно прошёл JS syntax parse через V8 new Function (GitHub blob SHA 7fa87a25263e4c4b438884025e04eae70f609c98). Python compile и фактическая отправка в Discord API ещё не запускались; runtime/deploy не подтверждены.
