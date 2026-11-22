@@ -253,7 +253,7 @@ def get_personal_channel(user_id):
     row = cursor.fetchone()
     return row[0] if row else None
 
-async def sync_staff_member_to_sheets(member):
+async def sync_staff_member_to_sheets(member, preserve_sheet_stats=None):
     if member is None:
         return "skip_member"
     try:
@@ -266,9 +266,12 @@ async def sync_staff_member_to_sheets(member):
             print(f"⚠️ [GOOGLE SHEETS] Не найден личный канал участника {member.id} в users.", flush=True)
             return "skip_channel"
         nickname, position, profile_url = profile
+        user_record_exists = conn.execute("SELECT 1 FROM users WHERE user_id = ?", (int(member.id),)).fetchone() is not None
+        if preserve_sheet_stats is None:
+            preserve_sheet_stats = not user_record_exists
         data = get_user_data(member.id)
         personal_channel_url = f"https://discord.com/channels/{VERIFICATION_GUILD_ID}/{int(channel_id)}"
-        row_number = await asyncio.to_thread(sync_staff_row, nickname=nickname, personal_channel_url=personal_channel_url, profile_url=profile_url, position=position, warns=data['warns'], discord_id=member.id, points=data['balance'])
+        row_number = await asyncio.to_thread(sync_staff_row, nickname=nickname, personal_channel_url=personal_channel_url, profile_url=profile_url, position=position, warns=data['warns'], discord_id=member.id, points=data['balance'], preserve_stats=preserve_sheet_stats)
         print(f"📊 [GOOGLE SHEETS] Обновлена строка {row_number} для {member.id} ({position}).", flush=True)
         return "ok"
     except Exception as error:
@@ -344,6 +347,7 @@ async def panel_sheets_add_staff(user_id, nickname, position, profile_url, perso
              profile_url=excluded.profile_url, updated_at=CURRENT_TIMESTAMP""",
         (user_id, nickname, position, profile_url),
     )
+    had_user_record = conn.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,)).fetchone() is not None
     conn.execute(
         """INSERT INTO users (user_id, balance, warns, personal_channel_id)
            VALUES (?, 0, 0, ?)
@@ -352,7 +356,7 @@ async def panel_sheets_add_staff(user_id, nickname, position, profile_url, perso
         (user_id, personal_channel_id),
     )
     conn.commit()
-    sync_result = await sync_staff_member_to_sheets(member)
+    sync_result = await sync_staff_member_to_sheets(member, preserve_sheet_stats=not had_user_record)
     data = get_user_data(user_id)
     return {
         "user_id": str(user_id),
