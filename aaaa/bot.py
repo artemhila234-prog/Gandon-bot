@@ -1023,6 +1023,40 @@ async def sheets_add_staff(
     )
 
 
+# -------- /unstaff --------
+@bot.tree.command(name="unstaff", description="Убрать участника из таблицы состава Медиа")
+@app_commands.describe(member="Участник, которого нужно убрать из состава и таблицы")
+async def unstaff(interaction: discord.Interaction, member: discord.Member):
+    if interaction.guild_id != VERIFICATION_GUILD_ID:
+        await interaction.response.send_message("❌ Команда доступна только на основном сервере Медиа.", ephemeral=True)
+        return
+    if not (interaction.user.guild_permissions.administrator or has_verification_role(interaction.user)):
+        await interaction.response.send_message("❌ Недостаточно прав. Нужна роль проверки заявок или Administrator.", ephemeral=True)
+        return
+
+    await interaction.response.defer(ephemeral=True, thinking=True)
+    try:
+        row_removed = await asyncio.to_thread(remove_staff_row, member.id)
+    except Exception as error:
+        print(f"⚠️ [GOOGLE SHEETS] Не удалось убрать участника {member.id} из таблицы: {error}", flush=True)
+        await interaction.followup.send(
+            "❌ Не удалось изменить Google Sheets. Профиль в базе оставлен, чтобы /sheets_sync не добавил участника обратно. Проверь доступ Google и повтори команду.",
+            ephemeral=True,
+        )
+        return
+
+    # Удаляем профиль из источника /sheets_sync, но не трогаем баланс,
+    # выговоры, покупки, личный канал и Discord-роли участника.
+    conn.execute("DELETE FROM media_staff_profiles WHERE user_id = ?", (int(member.id),))
+    conn.commit()
+
+    if row_removed:
+        message = f"✅ {member.mention} убран из таблицы Google Sheets и из сохранённого состава Медиа."
+    else:
+        message = f"ℹ️ Строка {member.mention} в Google Sheets не найдена; профиль удалён из сохранённого состава, чтобы /sheets_sync не добавил его обратно."
+    await interaction.followup.send(message, ephemeral=True)
+
+
 # -------- /sheets_sync --------
 @bot.tree.command(name="sheets_sync", description="Синхронизировать действующий состав Медиа с Google Sheets")
 async def sheets_sync(interaction: discord.Interaction):
