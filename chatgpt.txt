@@ -1726,3 +1726,9 @@ NaN: `pip install ... -r requirements.txt` затем `python3 -m uvicorn aaaa.b
 - В репозитории уже существовал прежний TikTok verification-файл; его содержимое подтверждает формат `tiktok-developers-site-verification=<token>`.
 - Добавлен новый файл в корень статических файлов панели: `dashboard/tiktokNEvOBgWz96r5cFK2UTy4aOnFcHceyM8D`, с соответствующим токеном в формате TikTok verification.
 - После синхронизации GitHub на Bot-Hosting нужно проверить, что указанный HTTPS URL возвращает текстовый файл с HTTP 200 без перенаправления, затем нажать Verify в TikTok Developer Portal. Проверка доступности на работающем хостинге пока не выполнена.
+
+
+## 2026-11-22 — Исправление загрузки логотипа GastWorld
+- Причина: `dashboard/index.html` ссылался на `/gastworld-logo.svg`, но в `dashboard/backend/main.py` были отдельные маршруты только для `/`, `/terms`, `/privacy`, `/style.css`, `/app.js` и TikTok verification; маршрут SVG отсутствовал. Поэтому браузер получал 404, хотя SVG был в GitHub.
+- Добавлен маршрут `GET /gastworld-logo.svg`, который отдаёт `dashboard/gastworld-logo.svg` с MIME-типом `image/svg+xml`.
+- После GitHub sync и перезапуска сервиса панели проверить `https://media.apps.bot-hosting.cloud/gastworld-logo.svg?v=20261122-gastworld-logo1` и главную страницу. Живой хостинг в момент исправления недоступен для внешней проверки; deploy не подтверждён.
