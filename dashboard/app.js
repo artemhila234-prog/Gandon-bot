@@ -997,7 +997,7 @@ function dcRenderMessageContent(parent,message){
     }else if(match[4]){
       const stamp=Number(match[4]);node=document.createElement("time");node.className="dc-timestamp";node.dateTime=new Date(stamp*1000).toISOString();const date=new Date(stamp*1000);const style=(match[5]||"f").toLowerCase();node.textContent=style==="r"?new Intl.RelativeTimeFormat("ru",{numeric:"auto"}).format(Math.round((stamp*1000-Date.now())/60000),"minute"):date.toLocaleString("ru-RU",style==="t"||style==="T"?{hour:"2-digit",minute:"2-digit"}:style==="d"?{day:"2-digit",month:"2-digit",year:"numeric"}:style==="f"?{day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}:{weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"});node.title=date.toLocaleString("ru-RU");
     }else if(match[7]){
-      node=document.createElement("img");node.className="dc-custom-emoji";node.alt=":"+match[8]+":";node.title=node.alt;node.src="https://cdn.discordapp.com/emojis/"+match[9]+".webp?size=48&quality=lossless";node.onerror=()=>{node.replaceWith(document.createTextNode(node.alt));};
+      node=document.createElement("img");node.className="dc-custom-emoji";node.alt=":"+match[8]+":";node.title=node.alt;const animateEmoji=match[7]==="a"&&dcAccessibilityPrefs.animatedEmoji&&!dcAccessibilityPrefs.reducedMotion;node.src="https://cdn.discordapp.com/emojis/"+match[9]+"."+(animateEmoji?"gif":"png")+"?size=48&quality=lossless";node.onerror=()=>{if(animateEmoji){node.src="https://cdn.discordapp.com/emojis/"+match[9]+".png?size=48&quality=lossless";}else node.replaceWith(document.createTextNode(node.alt));};
     }else{
       node=document.createElement("a");node.href=match[10];node.target="_blank";node.rel="noopener noreferrer";node.textContent=match[10];
     }
@@ -1027,9 +1027,30 @@ function dcRenderMessages(messages){
     if(message.edited_at){const edited=document.createElement("small");edited.className="dc-edited-label";edited.textContent="(изменено)";head.append(edited);}
     body.append(head);
     if(message.content){const text=document.createElement("p");text.className="dc-message-content";dcRenderMessageContent(text,message);body.append(text);}
-    (message.attachments||[]).forEach(file=>{const link=document.createElement("a");link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.filename;link.className="dc-attachment-link";body.append(link);if((file.content_type||"").startsWith("image/")){const preview=document.createElement("img");preview.className="dc-attachment-preview";preview.src=file.url;preview.alt=file.filename;preview.loading="lazy";body.append(preview);}});
+    (message.attachments||[]).forEach(file=>{
+      const link=document.createElement("a");link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.filename;link.className="dc-attachment-link";body.append(link);
+      if((file.content_type||"").startsWith("image/")){
+        const isGif=(file.content_type||"").toLowerCase().includes("gif")||/\.gif(?:$|\?)/i.test(file.filename||file.url||"");
+        const showImage= !isGif || (dcAccessibilityPrefs.autoplayGifs&&!dcAccessibilityPrefs.reducedMotion);
+        if(showImage){const preview=document.createElement("img");preview.className="dc-attachment-preview";preview.src=file.url;preview.alt=file.filename;preview.loading="lazy";body.append(preview);}
+        else{const play=document.createElement("button");play.type="button";play.className="dc-animated-media-trigger";play.textContent="▶  Воспроизвести GIF";play.addEventListener("click",()=>{const preview=document.createElement("img");preview.className="dc-attachment-preview";preview.src=file.url;preview.alt=file.filename;preview.loading="lazy";play.replaceWith(preview);});body.append(play);}
+      }
+    });
+    if((message.stickers||[]).length){
+      const stickerWrap=document.createElement("div");stickerWrap.className="dc-message-stickers";
+      (message.stickers||[]).forEach(sticker=>{
+        const animated=["apng","gif","2","4"].includes(String(sticker.format||"").toLowerCase());
+        const mode=dcAccessibilityPrefs.reducedMotion?"never":dcAccessibilityPrefs.stickerAnimation;
+        const showNow=!animated||mode==="always";
+        if(!sticker.url){const label=document.createElement("span");label.textContent="Стикер: "+(sticker.name||"Discord");stickerWrap.append(label);return;}
+        if(showNow){const image=document.createElement("img");image.className="dc-message-sticker";image.src=sticker.url;image.alt=sticker.name||"Стикер Discord";image.loading="lazy";stickerWrap.append(image);}
+        else if(mode==="interaction"){const trigger=document.createElement("button");trigger.type="button";trigger.className="dc-sticker-trigger";trigger.textContent="✦  "+(sticker.name||"Показать стикер");trigger.addEventListener("click",()=>{const image=document.createElement("img");image.className="dc-message-sticker";image.src=sticker.url;image.alt=sticker.name||"Стикер Discord";image.loading="lazy";trigger.replaceWith(image);});stickerWrap.append(trigger);}
+        else{const label=document.createElement("span");label.className="dc-sticker-static-label";label.textContent="Стикер · "+(sticker.name||"Discord");stickerWrap.append(label);}
+      });
+      body.append(stickerWrap);
+    }
     (message.embeds||[]).forEach(embed=>{const card=document.createElement("div");card.className="dc-embed-card";if(embed.title){const title=document.createElement(embed.url?"a":"strong");title.textContent=embed.title;if(embed.url){title.href=embed.url;title.target="_blank";title.rel="noopener noreferrer";}card.append(title);}if(embed.description){const description=document.createElement("p");dcAppendInlineMarkdown(description,embed.description);card.append(description);}if(embed.image_url){const image=document.createElement("img");image.src=embed.image_url;image.alt="";image.loading="lazy";card.append(image);}body.append(card);});
-    if(!message.content&&!message.attachments?.length&&!message.embeds?.length){const empty=document.createElement("p");empty.className="dc-message-content";empty.textContent="[Сообщение без текста]";body.append(empty);}
+    if(!message.content&&!message.attachments?.length&&!message.embeds?.length&&!message.stickers?.length){const empty=document.createElement("p");empty.className="dc-message-content";empty.textContent="[Сообщение без текста]";body.append(empty);}
     row.append(avatar,body);root.append(row);
   });
   root.scrollTop=root.scrollHeight;
@@ -1167,7 +1188,7 @@ function dcOpenProfile(member){
   const footer=document.createElement("div");footer.className="dc-profile-actions";const dm=document.createElement("button");dm.type="button";dm.textContent="Открыть ЛС";dm.addEventListener("click",()=>{modal.remove();dcActiveChannel=null;dcSetMode("dm");dcOpenConversation(member);});footer.append(dm);card.append(footer);
   modal.append(card);document.addEventListener("keydown",function esc(event){if(event.key==="Escape"){modal.remove();document.removeEventListener("keydown",esc);}});
 }
-const dcAccessibilityDefaults={roleColorMode:"name",saturation:100,highContrast:false,reducedMotion:false};
+const dcAccessibilityDefaults={roleColorMode:"name",saturation:100,highContrast:false,reducedMotion:false,autoplayGifs:true,stickerAnimation:"interaction",animatedEmoji:true};
 function dcReadAccessibilityPreferences(){
   try{return {...dcAccessibilityDefaults,...JSON.parse(localStorage.getItem("gastworld-discord-accessibility")||"{}")};}
   catch{return {...dcAccessibilityDefaults};}
@@ -1223,6 +1244,12 @@ function dcOpenAccessibilitySettings(){
   };
   toggle("Высокая контрастность","highContrast","Усиливает контраст границ, текста и интерактивных элементов.");
   toggle("Уменьшить движение","reducedMotion","Отключает декоративную анимацию и переливание в этой панели.");
+  toggle("Автоматически воспроизводить GIF","autoplayGifs","При отключении GIF открываются только после нажатия.");
+  toggle("Воспроизводить анимированные эмодзи","animatedEmoji","При отключении вместо анимации используется статичное изображение эмодзи.");
+  const stickerLabel=document.createElement("label");stickerLabel.className="dc-settings-field";const stickerTitle=document.createElement("span");stickerTitle.textContent="Анимация стикеров";
+  const stickerSelect=document.createElement("select");[["always","Всегда анимировать"],["interaction","Анимировать при взаимодействии"],["never","Никогда не анимировать"]].forEach(([value,label])=>{const option=document.createElement("option");option.value=value;option.textContent=label;stickerSelect.append(option);});
+  stickerSelect.value=dcAccessibilityPrefs.stickerAnimation;stickerSelect.addEventListener("change",()=>{dcAccessibilityPrefs.stickerAnimation=stickerSelect.value;dcSaveAccessibilityPreferences();});
+  stickerLabel.append(stickerTitle,stickerSelect);body.append(stickerLabel);
   const foot=document.createElement("p");foot.className="dc-accessibility-footnote";foot.textContent="Эти параметры меняют отображение GastWorld в этом браузере. Они не изменяют настройки Discord и не влияют на других участников.";
   body.append(foot);card.append(head,body);modal.append(card);modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});document.body.append(modal);
   dcApplyAccessibilityPreferences();
