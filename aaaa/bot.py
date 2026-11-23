@@ -3818,21 +3818,39 @@ async def panel_guild_members(guild_id, actor_id=None):
     } for role in sorted(guild.roles, key=lambda item: item.position, reverse=True) if role.id != guild.default_role.id]
     members = []
     try:
-        # Gateway member chunks include presence objects when PRESENCE INTENT is enabled.
-        await guild.chunk(cache=True)
-        for member in guild.members:
+        # Берём полный список через HTTP API, а не полагаемся только на Gateway cache.
+        # Присутствие и activity сохраняем из кэша, если участник уже есть в нём.
+        cached_members = {member.id: member for member in guild.members}
+        async for fetched_member in guild.fetch_members(limit=None):
+            cached_member = cached_members.get(fetched_member.id)
+            presence_member = cached_member or fetched_member
+            activity = getattr(presence_member, "activity", None)
             members.append({
-                **(await panel_dm_user_payload(member)),
-                "global_name": str(member.nick or member.global_name or member.name),
-                "bot": bool(member.bot),
-                "role_ids": [str(role.id) for role in member.roles if role.id != guild.default_role.id],
-                "status": str(getattr(member, "status", "offline")),
-                "activity": str(member.activity.name)[:100] if getattr(member, "activity", None) and getattr(member.activity, "name", None) else "",
-                "joined_at": member.joined_at.isoformat() if member.joined_at else "",
-                "created_at": member.created_at.isoformat(),
+                **(await panel_dm_user_payload(fetched_member)),
+                "global_name": str(fetched_member.nick or fetched_member.global_name or fetched_member.name),
+                "bot": bool(fetched_member.bot),
+                "role_ids": [str(role.id) for role in fetched_member.roles if role.id != guild.default_role.id],
+                "status": str(getattr(presence_member, "status", "offline")),
+                "activity": str(activity.name)[:100] if activity and getattr(activity, "name", None) else "",
+                "joined_at": fetched_member.joined_at.isoformat() if fetched_member.joined_at else "",
+                "created_at": fetched_member.created_at.isoformat(),
             })
-    except discord.Forbidden:
-        raise RuntimeError("Discord не разрешил получить список участников. Проверь Server Members Intent в Discord Developer Portal и включи его в настройках бота.")
+    except discord.ClientException as error:
+        raise RuntimeError(
+            "Для загрузки полного списка участников включи Server Members Intent "
+            "в Discord Developer Portal → Bot → Privileged Gateway Intents. "
+            f"Детали: {str(error)[:180]}"
+        )
+    except discord.Forbidden as error:
+        raise RuntimeError(
+            "Discord запретил получить список участников. Проверь Server Members Intent "
+            "в Discord Developer Portal → Bot → Privileged Gateway Intents. "
+            f"Детали: {str(error)[:180]}"
+        )
+    except discord.HTTPException as error:
+        raise RuntimeError(
+            f"Discord API вернул ошибку при загрузке участников (HTTP {error.status}): {str(error)[:180]}"
+        )
     members.sort(key=lambda item: (bool(item["bot"]), (item["global_name"] or item["username"]).casefold()))
     online_counts = {
         "online": sum(1 for item in members if item["status"] == "online"),
