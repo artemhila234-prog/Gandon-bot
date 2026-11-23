@@ -1198,6 +1198,11 @@ function dcSaveAccessibilityPreferences(){
   try{localStorage.setItem("gastworld-discord-accessibility",JSON.stringify(dcAccessibilityPrefs));}catch{}
   dcApplyAccessibilityPreferences();
 }
+function dcRefreshAccessibilityViews(){
+  if(dcActiveGuild)dcRenderGuildMembers();
+  if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel,true);
+  else if(dcActiveUser)dcOpenConversation(dcActiveUser,true);
+}
 function dcApplyAccessibilityPreferences(){
   const app=document.querySelector(".dc-live-app");if(!app)return;
   app.style.setProperty("--dc-saturation",Math.max(0,Math.min(150,Number(dcAccessibilityPrefs.saturation)||100))+"%");
@@ -1236,12 +1241,12 @@ function dcOpenAccessibilitySettings(){
   intro.append(eyebrow,title,sub);const close=document.createElement("button");close.type="button";close.className="dc-settings-close";close.textContent="×";close.addEventListener("click",()=>modal.remove());head.append(intro,close);
   const body=document.createElement("div");body.className="dc-accessibility-body";
   const roleMode=document.createElement("label");roleMode.className="dc-settings-field";const modeTitle=document.createElement("span");modeTitle.textContent="Отображение цветов ролей";
-  const select=document.createElement("select");[["name","Показывать цвет в имени"],["dot","Показывать цвет рядом с именем"],["none","Не показывать цвет роли"]].forEach(([value,label])=>{const option=document.createElement("option");option.value=value;option.textContent=label;select.append(option);});select.value=dcAccessibilityPrefs.roleColorMode;select.addEventListener("change",()=>{dcAccessibilityPrefs.roleColorMode=select.value;dcSaveAccessibilityPreferences();if(dcActiveGuild)dcRenderGuildMembers();});roleMode.append(modeTitle,select);body.append(roleMode);
+  const select=document.createElement("select");[["name","Показывать цвет в имени"],["dot","Показывать цвет рядом с именем"],["none","Не показывать цвет роли"]].forEach(([value,label])=>{const option=document.createElement("option");option.value=value;option.textContent=label;select.append(option);});select.value=dcAccessibilityPrefs.roleColorMode;select.addEventListener("change",()=>{dcAccessibilityPrefs.roleColorMode=select.value;dcSaveAccessibilityPreferences();dcRefreshAccessibilityViews();});roleMode.append(modeTitle,select);body.append(roleMode);
   const saturation=document.createElement("label");saturation.className="dc-settings-field dc-accessibility-slider";const saturationTitle=document.createElement("span");saturationTitle.textContent="Насыщенность цветов";
   const slider=document.createElement("input");slider.type="range";slider.min="0";slider.max="150";slider.step="5";slider.value=String(dcAccessibilityPrefs.saturation);const saturationValue=document.createElement("strong");saturationValue.textContent=slider.value+"%";
   slider.addEventListener("input",()=>{dcAccessibilityPrefs.saturation=Number(slider.value);saturationValue.textContent=slider.value+"%";dcSaveAccessibilityPreferences();});saturation.append(saturationTitle,slider,saturationValue);body.append(saturation);
   const toggle=(labelText,key,description)=>{
-    const label=document.createElement("label");label.className="dc-accessibility-toggle";const copy=document.createElement("span");const strong=document.createElement("strong");strong.textContent=labelText;const small=document.createElement("small");small.textContent=description;copy.append(strong,small);const input=document.createElement("input");input.type="checkbox";input.checked=!!dcAccessibilityPrefs[key];input.addEventListener("change",()=>{dcAccessibilityPrefs[key]=input.checked;dcSaveAccessibilityPreferences();if(dcActiveGuild)dcRenderGuildMembers();});label.append(copy,input);body.append(label);
+    const label=document.createElement("label");label.className="dc-accessibility-toggle";const copy=document.createElement("span");const strong=document.createElement("strong");strong.textContent=labelText;const small=document.createElement("small");small.textContent=description;copy.append(strong,small);const input=document.createElement("input");input.type="checkbox";input.checked=!!dcAccessibilityPrefs[key];input.addEventListener("change",()=>{dcAccessibilityPrefs[key]=input.checked;dcSaveAccessibilityPreferences();dcRefreshAccessibilityViews();});label.append(copy,input);body.append(label);
   };
   toggle("Высокая контрастность","highContrast","Усиливает контраст границ, текста и интерактивных элементов.");
   toggle("Уменьшить движение","reducedMotion","Отключает декоративную анимацию и переливание в этой панели.");
@@ -1249,7 +1254,7 @@ function dcOpenAccessibilitySettings(){
   toggle("Воспроизводить анимированные эмодзи","animatedEmoji","При отключении вместо анимации используется статичное изображение эмодзи.");
   const stickerLabel=document.createElement("label");stickerLabel.className="dc-settings-field";const stickerTitle=document.createElement("span");stickerTitle.textContent="Анимация стикеров";
   const stickerSelect=document.createElement("select");[["always","Всегда анимировать"],["interaction","Анимировать при взаимодействии"],["never","Никогда не анимировать"]].forEach(([value,label])=>{const option=document.createElement("option");option.value=value;option.textContent=label;stickerSelect.append(option);});
-  stickerSelect.value=dcAccessibilityPrefs.stickerAnimation;stickerSelect.addEventListener("change",()=>{dcAccessibilityPrefs.stickerAnimation=stickerSelect.value;dcSaveAccessibilityPreferences();});
+  stickerSelect.value=dcAccessibilityPrefs.stickerAnimation;stickerSelect.addEventListener("change",()=>{dcAccessibilityPrefs.stickerAnimation=stickerSelect.value;dcSaveAccessibilityPreferences();dcRefreshAccessibilityViews();});
   stickerLabel.append(stickerTitle,stickerSelect);body.append(stickerLabel);
   const foot=document.createElement("p");foot.className="dc-accessibility-footnote";foot.textContent="Эти параметры меняют отображение GastWorld в этом браузере. Они не изменяют настройки Discord и не влияют на других участников.";
   body.append(foot);card.append(head,body);modal.append(card);modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});document.body.append(modal);
@@ -1576,7 +1581,7 @@ function dcRenderServerSettings(data){
           const styleLabel=document.createElement("label");styleLabel.className="dc-settings-field dc-role-style-field";const styleCaption=document.createElement("span");styleCaption.textContent="Стиль роли";
           const styleSelect=document.createElement("select");styleSelect.name="role_style";
           [["solid","Сплошной"],["gradient","Градиент"],["holographic","Голографический"]].forEach(([value,label])=>{const option=document.createElement("option");option.value=value;option.textContent=label;styleSelect.append(option);});
-          styleSelect.value=draft.style||"solid";styleSelect.disabled=!roleDisplayEditable||(!rolesData.enhanced_role_styles_enabled&&draft.style==="solid");
+          styleSelect.value=draft.style||"solid";styleSelect.disabled=!roleDisplayEditable||!rolesData.enhanced_role_styles_enabled;
           const styleHint=document.createElement("small");styleHint.className="dc-role-style-hint";
           const secondaryLabel=document.createElement("label");secondaryLabel.className="dc-settings-field";const secondaryCaption=document.createElement("span");secondaryCaption.textContent="Второй цвет градиента";
           const secondaryRow=document.createElement("div");secondaryRow.className="dc-role-color-input-row";
