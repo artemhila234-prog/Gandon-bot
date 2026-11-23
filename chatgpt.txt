@@ -2093,3 +2093,13 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - После коммитов требуется синхронизация GitHub на Bot-Hosting, перезапуск сервиса панели и Ctrl+F5. Реальная вставка из Windows clipboard и Discord API отправка не были проверены в браузере/на хостинге.
 
 - Коммиты реализации: dashboard/app.js — 6b2fac07d03e805a8a4ebdfd114cf863c3c976d9 (paste handler и preview), ac098af9e7d03f5121d56e0f704248703ba39a79 (исправлена ссылка на composer hint); dashboard/style.css — 900b87c0ed6909ebb77cb73a1e6aa06d56458085; dashboard/index.html — 4e14dc3e232ba60fd3b5133e14029429cbe21a32; chatgpt.txt — 2c84261b53d57d9697e2156a6ec3c2cf8dceb0e5. JavaScript после исправления успешно проверен на синтаксис через V8 new Function.
+
+
+30. DISCORD — РЕДАКТОР ПРОФИЛЯ И ПРИСУТСТВИЯ БОТА (2026-11-23)
+- Пользователь попросил добавить открытие настроек из нижнего левого блока аккаунта бота, как в Discord: изменение имени, статуса и информации о боте.
+- Нижний левый аккаунт-блок превращён в кнопку, открывающую профильный редактор. Мини-блок показывает фактическое имя/аватар и выбранное присутствие/активность.
+- В редакторе реализованы: изменение Discord username (2–32 символа), загрузка аватара PNG/JPG/GIF до 8 МБ с предпросмотром, выбор статуса online/idle/dnd/invisible, тип активности none/playing/listening/watching/competing и текст активности до 128 символов, редактирование описания приложения до 4000 символов (показывается в профиле бота как описание приложения).
+- В bot SQLite добавлена таблица bot_profile_settings; статус и активность сохраняются и повторно применяются при каждом on_ready после перезапуска. Начальное значение сохранено прежним: online + Playing /shop | модерация.
+- Bot handler использует discord.py ClientUser.edit для изменения username/avatar, bot.change_presence для статуса/активности и AppInfo.edit(description=...) для описания приложения. Настройки доступны с уровнем Adm и выше через защищённый backend API GET/PATCH /api/discord/bot-profile.
+- Discord не позволяет боту устанавливать обычный пользовательский custom status (эмодзи + произвольный текст) как у личного аккаунта. Эта функция не имитируется; вместо неё в UI честно указаны реальные bot presence/activity options. Global display name не отображается как отдельное поле редактирования, поскольку API Modify Current User его не предоставляет. Username меняется с ограничением Discord rate limit; слишком частые изменения будут отклонены Discord.
+- Профильные действия затрагивают реальный Discord bot account и могут быть ограничены API/rate-limits. На реальном хостинге изменения не проверены; требуется обновить зависимости/запустить сервис, затем проверить username, avatar, application description and presence from Discord.
