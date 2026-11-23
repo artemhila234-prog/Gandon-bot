@@ -3242,6 +3242,10 @@ def panel_role_payload(guild, role, actor_member, bot_member):
         "color": f"#{role.color.value:06x}",
         "color_value": int(role.color.value),
         "position": int(role.position),
+        "max_position": max(1, min(
+            bot_member.top_role.position - 1,
+            (actor_member.top_role.position - 1) if actor_member.id != guild.owner_id else (bot_member.top_role.position - 1),
+        )),
         "hoist": bool(role.hoist),
         "mentionable": bool(role.mentionable),
         "managed": bool(role.managed),
@@ -3633,7 +3637,7 @@ async def panel_member_role(guild_id, member_id, role_id, action, actor_id=None)
     actor_member = await panel_fetch_guild_member(guild, actor_id) if actor_id is not None else None
     if role is None or role.is_default() or role.managed:
         raise ValueError("Эту роль нельзя выдать или снять вручную.")
-    if me is None or not me.guild_permissions.manage_roles:
+    if me is None or not (me.guild_permissions.administrator or me.guild_permissions.manage_roles):
         raise PermissionError("У бота нет разрешения «Управлять ролями».")
     if role >= me.top_role:
         raise PermissionError("Роль находится выше или на одном уровне с высшей ролью бота.")
@@ -3643,8 +3647,10 @@ async def panel_member_role(guild_id, member_id, role_id, action, actor_id=None)
             raise PermissionError("У тебя нет права «Управлять ролями».")
         if actor_member.id != guild.owner_id and role >= actor_member.top_role:
             raise PermissionError("Нельзя управлять ролью на уровне твоей высшей роли или выше.")
+        if actor_member.id != guild.owner_id and target.top_role >= actor_member.top_role:
+            raise PermissionError("Нельзя менять роли участника с равной или более высокой твоей ролью.")
     if target.top_role >= me.top_role and target.id != me.id:
-        raise PermissionError("Нельзя менять роли участника с равной или более высокой ролью.")
+        raise PermissionError("Нельзя менять роли участника с равной или более высокой ролью бота.")
     if action == "add":
         await target.add_roles(role, reason="GastWorld Control Panel")
     elif action == "remove":
