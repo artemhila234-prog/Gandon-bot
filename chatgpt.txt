@@ -2158,3 +2158,11 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Актуальные blob SHAs: app.js b746f6ea237ad2b1b3cc3ed69bb937367d982326; style.css a9d0a0b3b122a2d4432159af6b192020f57073ef; index.html 01836498846301fde6e3a884c16066f9de0e666b. Cache versions: style.css?v=20261123-discord-layout4 и app.js?v=20261123-discord-layout4.
 - Итоговая статическая проверка после всех последних коммитов: JS успешно проходит V8 new Function; CSS braces balanced; проверены body fullscreen mode, скрытие outer sidebar, сброс main-area margin-left, колонка участников справа, toggle participants, mobile drawer/open/close, collapsible categories и exit button. Это не заменяет browser screenshot/e2e или deploy verification.
 - Следующий обязательный шаг остаётся: обновить сервис панели с GitHub main, открыть LIVE с Ctrl+F5 и проверить desktop/mobile layout, interactions, server switching, category collapse, member panel toggle and exit-to-dashboard. Не говорить пользователю, что production уже проверен.
+
+
+35. АРХИВ КОПИИ САЙТА ПОЛУЧЕН В GITHUB, НО БИНАРНЫЙ RAR НЕ МАТЕРИАЛИЗУЕТСЯ ЧЕРЕЗ CONNECTOR (2026-11-23)
+- Пользователь передал ссылку на файл в приватном репозитории: https://github.com/artemhila234-prog/Gandon-bot/blob/main/%D0%9C%D0%BE%D0%B8%20Web%20%D0%A1%D0%B0%D0%B9%D1%82%D1%8B.rar (path: «Мои Web Сайты.rar»).
+- Сначала перечитан актуальный chatgpt.txt перед обработкой. Файл существует в main; Git blob SHA: 80bc75211a127b19d6fdbd1ba65ee7d2571905b4.
+- Попытка fetch_file с encoding=base64 вернула пустое содержимое (length 0), несмотря на непустой SHA. fetch_blob по SHA завершился UnicodeDecodeError на бинарных данных; GitHub fetch blob/raw HTML также сообщил unsupported/too large file contents. Следовательно, сам архив не был получен и его содержимое не инспектировалось.
+- Никаких файлов из RAR не переносили, не извлекали и не меняли. Нельзя утверждать, что архив разобран.
+- Следующий шаг: попросить пользователя прикрепить сам «Мои Web Сайты.rar» непосредственно к сообщению (или дать ZIP export, если исходное приложение поддерживает). После того как bytes появятся в текущем чате/контейнере, проверить архив и извлечь список файлов; затем изучить HTML/CSS/JS и определить безопасную интеграцию интерфейса в dashboard LIVE, сохранив текущие Discord bot API handlers.
