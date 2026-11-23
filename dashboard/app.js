@@ -54,7 +54,7 @@ function showPage(page){
       loadMessages(section);
     } else if(page==="discord"){
       section.classList.add("bot-discord-preview");
-      section.innerHTML='<div class="dc-app dc-live-app"><aside class="dc-guildbar"><div class="dc-guild-icon dc-home">GW</div><div class="dc-guild-divider"></div><div class="dc-live-guilds" id="dcGuildList"><button type="button" class="dc-guild-icon selected" id="dcHomeButton" title="Личные сообщения">＠</button></div><div class="dc-guild-spacer"></div><div class="dc-guild-icon dc-avatar">W</div></aside><aside class="dc-dm-sidebar"><div class="dc-dm-search" id="dcDmSearch"><input id="dcUserSearch" type="search" placeholder="Найти пользователя или ID"><button id="dcSearchButton" type="button">⌕</button></div><div id="dcSearchResults" class="dc-search-results" hidden></div><div class="dc-dm-section"><span id="dcSidebarTitle">ЛИЧНЫЕ СООБЩЕНИЯ</span><button id="dcRefreshDms" type="button" title="Обновить">↻</button></div><div id="dcDmList" class="dc-live-dm-list"><div class="dc-live-loading">Загружаем диалоги…</div></div><div id="dcChannelList" class="dc-live-dm-list" hidden><div class="dc-live-loading">Выбери сервер слева</div></div><div class="dc-account"><div class="dc-account-avatar">WG<span></span></div><div class="dc-account-name"><strong id="dcBotName">WhiteGrief</strong><small>Бот · подключение</small></div></div></aside><main class="dc-main"><header class="dc-topbar"><div class="dc-topbar-title"><span class="dc-hash">＠</span><strong id="dcChatTitle">Личные сообщения</strong><span class="dc-topic" id="dcChatSubtitle">Выбери диалог или найди пользователя</span></div><div class="dc-topbar-actions"><button id="dcRefreshChat" type="button" title="Обновить переписку">↻</button></div></header><div class="dc-channel-layout dc-live-layout"><section class="dc-chat"><div id="dcChatMessages" class="dc-chat-scroll"><div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени бота GastWorld.</p></div></div><div class="dc-composer-wrap"><form id="dcComposerForm" class="dc-composer dc-live-composer"><button class="dc-composer-add" id="dcAttachButton" type="button" title="Прикрепить файл" aria-label="Прикрепить файл">＋</button><input id="dcFileInput" type="file" multiple hidden><textarea id="dcMessageInput" rows="1" maxlength="2000" placeholder="Написать сообщение…" disabled></textarea><button id="dcSendButton" type="submit" disabled>➤</button></form><div id="dcFilePreview" class="dc-file-preview" hidden></div><div id="dcComposerHint" class="dc-composer-hint">Сначала выбери пользователя. Discord может ограничивать отправку DM.</div></div></section><aside class="dc-members dc-live-members" id="dcMembersPanel"><div id="dcDmProfilePanel" class="dc-dm-profile-panel" hidden></div><div class="dc-members-head"><strong>УЧАСТНИКИ</strong><span id="dcMemberCount">—</span></div><input id="dcMemberSearch" class="dc-member-search" type="search" placeholder="Поиск участника"><div id="dcMemberList" class="dc-member-list"><div class="dc-live-empty">Выбери сервер слева</div></div></aside></div><div class="dc-release-ribbon"><span>●</span> ОФИЦИАЛЬНОЕ BOT-ПОДКЛЮЧЕНИЕ <i>•</i> Не личный аккаунт</div></main></div>';
+      section.innerHTML='<div class="dc-app dc-live-app"><aside class="dc-guildbar"><div class="dc-guild-icon dc-home">GW</div><div class="dc-guild-divider"></div><div class="dc-live-guilds" id="dcGuildList"><button type="button" class="dc-guild-icon selected" id="dcHomeButton" title="Личные сообщения">＠</button></div><div class="dc-guild-spacer"></div><div class="dc-guild-icon dc-avatar">W</div></aside><aside class="dc-dm-sidebar"><div class="dc-dm-search" id="dcDmSearch"><input id="dcUserSearch" type="search" placeholder="Найти пользователя или ID"><button id="dcSearchButton" type="button">⌕</button></div><div id="dcSearchResults" class="dc-search-results" hidden></div><div class="dc-dm-section"><span id="dcSidebarTitle">ЛИЧНЫЕ СООБЩЕНИЯ</span><button id="dcRefreshDms" type="button" title="Обновить">↻</button></div><div id="dcDmList" class="dc-live-dm-list"><div class="dc-live-loading">Загружаем диалоги…</div></div><div id="dcChannelList" class="dc-live-dm-list" hidden><div class="dc-live-loading">Выбери сервер слева</div></div><div class="dc-account"><div class="dc-account-avatar">WG<span></span></div><div class="dc-account-name"><strong id="dcBotName">WhiteGrief</strong><small>Бот · подключение</small></div></div></aside><main class="dc-main"><header class="dc-topbar"><div class="dc-topbar-title"><span class="dc-hash">＠</span><strong id="dcChatTitle">Личные сообщения</strong><span class="dc-topic" id="dcChatSubtitle">Выбери диалог или найди пользователя</span></div><div class="dc-topbar-actions"><button id="dcServerSettingsButton" type="button" title="Настройки сервера" hidden>⚙</button><button id="dcRefreshChat" type="button" title="Обновить переписку">↻</button></div></header><div class="dc-channel-layout dc-live-layout"><section class="dc-chat"><div id="dcChatMessages" class="dc-chat-scroll"><div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени бота GastWorld.</p></div></div><div class="dc-composer-wrap"><form id="dcComposerForm" class="dc-composer dc-live-composer"><button class="dc-composer-add" id="dcAttachButton" type="button" title="Прикрепить файл" aria-label="Прикрепить файл">＋</button><input id="dcFileInput" type="file" multiple hidden><textarea id="dcMessageInput" rows="1" maxlength="2000" placeholder="Написать сообщение…" disabled></textarea><button id="dcSendButton" type="submit" disabled>➤</button></form><div id="dcFilePreview" class="dc-file-preview" hidden></div><div id="dcComposerHint" class="dc-composer-hint">Сначала выбери пользователя. Discord может ограничивать отправку DM.</div></div></section><aside class="dc-members dc-live-members" id="dcMembersPanel"><div id="dcDmProfilePanel" class="dc-dm-profile-panel" hidden></div><div class="dc-members-head"><strong>УЧАСТНИКИ</strong><span id="dcMemberCount">—</span></div><input id="dcMemberSearch" class="dc-member-search" type="search" placeholder="Поиск участника"><div id="dcMemberList" class="dc-member-list"><div class="dc-live-empty">Выбери сервер слева</div></div></aside></div><div class="dc-release-ribbon"><span>●</span> ОФИЦИАЛЬНОЕ BOT-ПОДКЛЮЧЕНИЕ <i>•</i> Не личный аккаунт</div></main></div>';
     } else if(page==="console"){
       section.innerHTML='<div class="panel-heading"><div><h2>Управление ботом</h2><p>Состояние Discord-подключения и безопасные действия управления.</p></div><button class="text-button" id="refreshConsole">↻ Обновить</button></div><div id="consoleWorkspace" class="console-workspace"><div class="empty-state">Подключаемся к боту…</div></div>';
       loadConsole(section);
@@ -1090,7 +1090,7 @@ function dcSetMode(mode){
   const dm=mode==="dm",search=document.getElementById("dcDmSearch"),searchResults=document.getElementById("dcSearchResults"),dmList=document.getElementById("dcDmList"),channelList=document.getElementById("dcChannelList"),title=document.getElementById("dcSidebarTitle"),refresh=document.getElementById("dcRefreshDms");
   if(search)search.hidden=!dm;if(searchResults)searchResults.hidden=true;if(dmList)dmList.hidden=!dm;if(channelList)channelList.hidden=dm;
   const membersPanel=document.getElementById("dcMembersPanel"),profilePanel=document.getElementById("dcDmProfilePanel"),membersHead=membersPanel?.querySelector(".dc-members-head"),memberSearch=document.getElementById("dcMemberSearch"),memberList=document.getElementById("dcMemberList");
-  if(membersPanel)membersPanel.hidden=false;if(profilePanel)profilePanel.hidden=!dm;if(membersHead)membersHead.hidden=dm;if(memberSearch)memberSearch.hidden=dm;if(memberList)memberList.hidden=dm;
+  if(membersPanel)membersPanel.hidden=false;if(profilePanel)profilePanel.hidden=!dm;if(membersHead)membersHead.hidden=dm;if(memberSearch)memberSearch.hidden=dm;if(memberList)memberList.hidden=dm;const settingsButton=document.getElementById("dcServerSettingsButton");if(settingsButton)settingsButton.hidden=dm||!dcActiveGuild;
   if(title)title.textContent=dm?"ЛИЧНЫЕ СООБЩЕНИЯ":"ТЕКСТОВЫЕ КАНАЛЫ";if(refresh)refresh.title=dm?"Обновить диалоги":"Обновить каналы";
   document.querySelectorAll(".dc-guild-icon").forEach(x=>x.classList.toggle("selected",dm?x.id==="dcHomeButton":x.dataset.guildId===dcActiveGuild?.id));
 }
@@ -1175,15 +1175,13 @@ function dcRenderGuildMembers(){
   const onlineTotal=dcMemberCache.filter(member=>dcStatusClass(member.status)!=="offline").length;
   if(count)count.textContent=(query?members.length+" / "+dcMemberCache.length:String(dcMemberCache.length))+" · "+onlineTotal+" в сети";
   if(!members.length){const empty=document.createElement("div");empty.className="dc-live-empty";empty.textContent=query?"Участники не найдены.":"На сервере нет участников для отображения.";root.append(empty);return;}
-  const roleMap=new Map((dcMemberRoleCache||[]).map(role=>[String(role.id),role]));
-  // Match Discord member-list grouping: only hoisted (Display role members separately) roles create groups.
-  // If a member has several hoisted roles, place them under their highest one by role position.
+  const onlineMembers=members.filter(member=>dcStatusClass(member.status)!=="offline");
+  const offlineMembers=members.filter(member=>dcStatusClass(member.status)==="offline");
   const displayRoles=(dcMemberRoleCache||[]).filter(role=>role.hoist===true).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
-  const groups=new Map();
-  const ungrouped=[];
-  for(const member of members){
-    const memberRoleIds=new Set((member.role_ids||[]).map(id=>String(id)));
-    const primary=displayRoles.find(role=>memberRoleIds.has(String(role.id)));
+  const groups=new Map(),ungrouped=[];
+  for(const member of onlineMembers){
+    const roleIds=new Set((member.role_ids||[]).map(id=>String(id)));
+    const primary=displayRoles.find(role=>roleIds.has(String(role.id)));
     if(primary){if(!groups.has(String(primary.id)))groups.set(String(primary.id),[]);groups.get(String(primary.id)).push(member);}
     else ungrouped.push(member);
   }
@@ -1197,14 +1195,118 @@ function dcRenderGuildMembers(){
       const button=document.createElement("button");button.type="button";button.className="dc-member dc-member-button";button.title=(member.global_name||member.username)+" · @"+member.username;
       const avatar=document.createElement("span");avatar.className="dc-member-avatar-wrap";avatar.innerHTML=dcAvatar(member,"dc-member-avatar");const status=document.createElement("i");status.className="dc-status-dot "+dcStatusClass(member.status);avatar.append(status);button.append(avatar);
       const info=document.createElement("span");info.className="dc-member-copy";const name=document.createElement("strong");name.textContent=member.global_name||member.username;const handle=document.createElement("small");handle.textContent="@"+member.username;info.append(name,handle);button.append(info);
-      button.addEventListener("click",()=>dcOpenProfile(member));
-      root.append(button);
+      button.addEventListener("click",()=>dcOpenProfile(member));root.append(button);
     });
   };
   displayRoles.forEach(role=>appendGroup(role.name,groups.get(String(role.id))||[],role.color_hex||""));
-  appendGroup("В СЕТИ",ungrouped.filter(member=>!member.bot&&dcStatusClass(member.status)!=="offline"),"");
-  appendGroup("НЕ В СЕТИ",ungrouped.filter(member=>!member.bot&&dcStatusClass(member.status)==="offline"),"");
+  appendGroup("В СЕТИ",ungrouped.filter(member=>!member.bot),"");
   appendGroup("БОТЫ",ungrouped.filter(member=>member.bot),"");
+  // Discord-style offline section is deliberately rendered last, regardless of role/hoist assignments.
+  appendGroup("НЕ В СЕТИ",offlineMembers,"");
+}
+async function dcOpenServerSettings(){
+  if(!dcActiveGuild?.id)return;
+  const guild=dcActiveGuild;
+  const button=document.getElementById("dcServerSettingsButton");
+  if(button){button.disabled=true;button.textContent="…";}
+  try{
+    const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guild.id)+"/settings");
+    if(dcActiveGuild?.id!==guild.id)return;
+    dcRenderServerSettings(data);
+  }catch(error){if(typeof showToast==="function")showToast(error.message);else alert(error.message);}
+  finally{if(button){button.disabled=false;button.textContent="⚙";}}
+}
+function dcRenderServerSettings(data){
+  document.getElementById("dcServerSettingsModal")?.remove();
+  const modal=document.createElement("div");modal.id="dcServerSettingsModal";modal.className="dc-settings-backdrop";
+  const card=document.createElement("section");card.className="dc-settings-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
+  const head=document.createElement("header");head.className="dc-settings-header";
+  const heading=document.createElement("div");heading.className="dc-settings-heading";
+  const eyebrow=document.createElement("span");eyebrow.textContent="GASTWORLD • DISCORD SERVER";
+  const title=document.createElement("h2");title.textContent="Настройки сервера";
+  const sub=document.createElement("p");sub.textContent=data.guild?.name||dcActiveGuild?.name||"Discord";
+  heading.append(eyebrow,title,sub);
+  const close=document.createElement("button");close.type="button";close.className="dc-settings-close";close.textContent="×";close.title="Закрыть";close.addEventListener("click",()=>modal.remove());
+  head.append(heading,close);
+  const stats=document.createElement("div");stats.className="dc-settings-stats";
+  [["УЧАСТНИКИ",data.guild?.member_count??"—"],["РОЛИ",data.guild?.roles_count??"—"],["КАНАЛЫ",data.guild?.channels_count??"—"]].forEach(([label,value])=>{const item=document.createElement("div");const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=String(value);item.append(small,strong);stats.append(item);});
+  const form=document.createElement("form");form.className="dc-settings-form";
+  const section=document.createElement("section");section.className="dc-settings-section";
+  const sectionTitle=document.createElement("h3");sectionTitle.textContent="ОБЗОР";section.append(sectionTitle);
+  const fields=document.createElement("div");fields.className="dc-settings-fields";
+  const makeInput=(labelText,name,value,options={})=>{
+    const wrap=document.createElement("label");wrap.className="dc-settings-field"+(options.wide?" wide":"");
+    const caption=document.createElement("span");caption.textContent=labelText;
+    const input=document.createElement(options.multiline?"textarea":"input");if(!options.multiline)input.type="text";
+    input.name=name;input.value=value??"";if(options.maxLength)input.maxLength=options.maxLength;
+    if(options.multiline){input.rows=3;input.maxLength=options.maxLength||120;}
+    wrap.append(caption,input);fields.append(wrap);return input;
+  };
+  const makeSelect=(labelText,name,value,options,wide=false)=>{
+    const wrap=document.createElement("label");wrap.className="dc-settings-field"+(wide?" wide":"");
+    const caption=document.createElement("span");caption.textContent=labelText;
+    const select=document.createElement("select");select.name=name;
+    options.forEach(([optionValue,optionLabel])=>{const option=document.createElement("option");option.value=String(optionValue);option.textContent=optionLabel;select.append(option);});
+    select.value=String(value??"");wrap.append(caption,select);fields.append(wrap);return select;
+  };
+  const settings=data.settings||{},textChannels=data.text_channels||[],voiceChannels=data.voice_channels||[];
+  makeInput("Название сервера","name",data.guild?.name,{maxLength:100});
+  makeInput("Описание сервера","description",data.guild?.description,{maxLength:120,multiline:true,wide:true});
+  makeSelect("Уровень проверки","verification_level",settings.verification_level,[[0,"Без ограничений"],[1,"Низкий — подтверждённая почта"],[2,"Средний — аккаунт старше 5 минут"],[3,"Высокий — участник на сервере 10 минут"],[4,"Самый высокий — подтверждённый телефон"]]);
+  makeSelect("Фильтр контента","explicit_content_filter",settings.explicit_content_filter,[[0,"Не сканировать"],[1,"Участники без ролей"],[2,"Все участники"]]);
+  makeSelect("Уведомления по умолчанию","default_notifications",settings.default_notifications,[[0,"Все сообщения"],[1,"Только упоминания"]]);
+  makeSelect("Время до AFK","afk_timeout",settings.afk_timeout,[[60,"1 минута"],[300,"5 минут"],[900,"15 минут"],[1800,"30 минут"],[3600,"1 час"]]);
+  const channelOptions=list=>[["","Не выбран"],...list.map(channel=>[channel.id,channel.name])];
+  makeSelect("AFK голосовой канал","afk_channel_id",settings.afk_channel_id,channelOptions(voiceChannels),true);
+  makeSelect("Системный канал","system_channel_id",settings.system_channel_id,channelOptions(textChannels),true);
+  const community=(data.guild?.features||[]).includes("COMMUNITY");
+  if(community){
+    makeSelect("Канал правил","rules_channel_id",settings.rules_channel_id,channelOptions(textChannels),true);
+    makeSelect("Канал обновлений Discord","public_updates_channel_id",settings.public_updates_channel_id,channelOptions(textChannels),true);
+    makeSelect("Канал уведомлений безопасности","safety_alerts_channel_id",settings.safety_alerts_channel_id,channelOptions(textChannels),true);
+  }
+  section.append(fields);form.append(section);
+  const featureStrip=document.createElement("div");featureStrip.className="dc-settings-features";
+  const featureTitle=document.createElement("strong");featureTitle.textContent="Возможности сервера";featureStrip.append(featureTitle);
+  const features=data.guild?.features||[];
+  if(features.length){features.forEach(feature=>{const tag=document.createElement("span");tag.textContent=feature.replaceAll("_"," ").toLowerCase();featureStrip.append(tag);});}
+  else{const note=document.createElement("span");note.textContent="Дополнительные функции сервера не включены.";featureStrip.append(note);}
+  form.append(featureStrip);
+  const permissionNote=document.createElement("div");permissionNote.className="dc-settings-permission";
+  if(!data.actor_can_edit)permissionNote.textContent="У твоего Discord-аккаунта нет права «Управлять сервером». Настройки доступны только для просмотра.";
+  else if(!data.bot_can_edit)permissionNote.textContent="У бота нет права «Управлять сервером». Выдать это право боту можно в настройках ролей Discord.";
+  else permissionNote.textContent="Изменения сохраняются непосредственно в Discord от имени бота с проверкой прав.";
+  form.append(permissionNote);
+  const status=document.createElement("p");status.className="dc-settings-status";status.setAttribute("aria-live","polite");form.append(status);
+  const footer=document.createElement("footer");footer.className="dc-settings-footer";
+  const cancel=document.createElement("button");cancel.type="button";cancel.className="dc-settings-cancel";cancel.textContent="Закрыть";cancel.addEventListener("click",()=>modal.remove());
+  const save=document.createElement("button");save.type="submit";save.className="dc-settings-save";save.textContent="Сохранить изменения";save.disabled=!data.can_edit;
+  footer.append(cancel,save);form.append(footer);
+  form.querySelectorAll("input,textarea,select").forEach(input=>input.disabled=!data.can_edit);
+  form.addEventListener("submit",async event=>{
+    event.preventDefault();if(!data.can_edit||save.disabled)return;
+    save.disabled=true;save.textContent="Сохраняем…";status.textContent="";
+    const payload={
+      name:form.elements.name.value.trim(),
+      description:form.elements.description.value.trim(),
+      verification_level:Number(form.elements.verification_level.value),
+      explicit_content_filter:Number(form.elements.explicit_content_filter.value),
+      default_notifications:Number(form.elements.default_notifications.value),
+      afk_timeout:Number(form.elements.afk_timeout.value),
+      afk_channel_id:form.elements.afk_channel_id.value||null,
+      system_channel_id:form.elements.system_channel_id.value||null
+    };
+    ["rules_channel_id","public_updates_channel_id","safety_alerts_channel_id"].forEach(key=>{if(form.elements[key])payload[key]=form.elements[key].value||null;});
+    try{
+      const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/settings",{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось сохранить настройки.");
+      if(typeof showToast==="function")showToast("Настройки сервера сохранены.");
+      dcRenderServerSettings(result);
+    }catch(error){status.textContent=error.message;save.disabled=false;save.textContent="Повторить сохранение";}
+  });
+  card.append(head,stats,form);modal.append(card);modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});
+  document.body.append(modal);
+  document.addEventListener("keydown",function esc(event){if(event.key==="Escape"){modal.remove();document.removeEventListener("keydown",esc);}});
 }
 function dcRenderGuildChannels(data,list,title,guild){
   if(!list||dcActiveGuild?.id!==guild.id)return;
@@ -1245,6 +1347,7 @@ async function dcOpenGuildChannel(channel,silent=false){
 function loadBotDiscord(){
   if(dcPollTimer)clearInterval(dcPollTimer);dcActiveUser=null;dcActiveChannel=null;dcActiveGuild=null;
   const search=document.getElementById("dcUserSearch"),searchButton=document.getElementById("dcSearchButton"),refresh=document.getElementById("dcRefreshDms"),refreshChat=document.getElementById("dcRefreshChat"),form=document.getElementById("dcComposerForm");
+  document.getElementById("dcServerSettingsButton")?.addEventListener("click",dcOpenServerSettings);
   searchButton?.addEventListener("click",dcSearchUsers);search?.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();dcSearchUsers();}});
   document.getElementById("dcMemberSearch")?.addEventListener("input",dcRenderGuildMembers);
   refresh?.addEventListener("click",()=>{if(dcActiveGuild)dcOpenGuild(dcActiveGuild);else dcLoadConversationList();});
