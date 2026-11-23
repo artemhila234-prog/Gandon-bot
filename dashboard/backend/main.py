@@ -1148,13 +1148,75 @@ async def api_discord_guild_settings_update(guild_id: str, request: Request):
         raise HTTPException(status_code=502, detail=f"Не удалось сохранить настройки сервера: {str(error)[:300]}")
 
 
-@app.get("/api/discord/guilds/{guild_id}/members")
-async def api_discord_guild_members(guild_id: str, request: Request):
-    await require_access(request, "adm")
+@app.get("/api/discord/guilds/{guild_id}/roles")
+async def api_discord_guild_roles(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
     try:
-        return await get_dm_controller("discord_members")(guild_id)
+        return await get_dm_controller("discord_roles")(guild_id, str(actor.get("id", "")))
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить роли: {str(error)[:300]}")
+
+
+@app.post("/api/discord/guilds/{guild_id}/roles")
+async def api_discord_guild_role_create(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        payload = await request.json()
+        return await get_dm_controller("discord_role_create")(guild_id, str(actor.get("id", "")), payload)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось создать роль: {str(error)[:300]}")
+
+
+@app.patch("/api/discord/guilds/{guild_id}/roles/{role_id}")
+async def api_discord_guild_role_update(guild_id: str, role_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not role_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или роли.")
+    try:
+        payload = await request.json()
+        return await get_dm_controller("discord_role_update")(guild_id, str(actor.get("id", "")), role_id, payload)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось сохранить роль: {str(error)[:300]}")
+
+
+@app.delete("/api/discord/guilds/{guild_id}/roles/{role_id}")
+async def api_discord_guild_role_delete(guild_id: str, role_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not role_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или роли.")
+    try:
+        return await get_dm_controller("discord_role_delete")(guild_id, str(actor.get("id", "")), role_id)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось удалить роль: {str(error)[:300]}")
+
+
+@app.get("/api/discord/guilds/{guild_id}/members")
+async def api_discord_guild_members(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        return await get_dm_controller("discord_members")(guild_id, str(actor.get("id", "")))
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось загрузить участников сервера: {str(error)[:300]}")
 
@@ -1170,7 +1232,7 @@ async def api_discord_guild_presence(guild_id: str, request: Request):
 
 @app.post("/api/discord/guilds/{guild_id}/members/{member_id}/roles")
 async def api_discord_member_role(guild_id: str, member_id: str, request: Request):
-    await require_access(request, "adm")
+    actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not member_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID сервера или участника.")
     try:
@@ -1182,7 +1244,7 @@ async def api_discord_member_role(guild_id: str, member_id: str, request: Reques
     if not role_id.isdigit() or action not in {"add", "remove"}:
         raise HTTPException(status_code=400, detail="Укажи роль и действие add/remove.")
     try:
-        return await get_dm_controller("discord_member_role")(guild_id, member_id, role_id, action)
+        return await get_dm_controller("discord_member_role")(guild_id, member_id, role_id, action, str(actor.get("id", "")))
     except Exception as error:
         detail = str(error)[:300]
         if "403" in detail or "Forbidden" in detail:
