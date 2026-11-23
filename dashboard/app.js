@@ -26,6 +26,7 @@ function showPage(page){
   if(!pageNames[page]) return;
   if(!canOpenPage(page)){page="dashboard";}
   document.getElementById("pageContent")?.classList.toggle("discord-fullscreen",page==="discord");
+  document.body.classList.toggle("discord-mode",page==="discord");
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
   breadcrumb.textContent=pageNames[page];
   if(page!=="dashboard"){
@@ -54,7 +55,7 @@ function showPage(page){
       loadMessages(section);
     } else if(page==="discord"){
       section.classList.add("bot-discord-preview");
-      section.innerHTML='<div class="dc-app dc-live-app"><aside class="dc-guildbar"><div class="dc-guild-icon dc-home">GW</div><div class="dc-guild-divider"></div><div class="dc-live-guilds" id="dcGuildList"><button type="button" class="dc-guild-icon selected" id="dcHomeButton" title="Личные сообщения">＠</button></div><div class="dc-guild-spacer"></div><div class="dc-guild-icon dc-avatar">W</div></aside><aside class="dc-dm-sidebar"><div class="dc-dm-search" id="dcDmSearch"><input id="dcUserSearch" type="search" placeholder="Найти пользователя или ID"><button id="dcSearchButton" type="button">⌕</button></div><div id="dcSearchResults" class="dc-search-results" hidden></div><div class="dc-dm-section"><span id="dcSidebarTitle">ЛИЧНЫЕ СООБЩЕНИЯ</span><button id="dcRefreshDms" type="button" title="Обновить">↻</button></div><div id="dcDmList" class="dc-live-dm-list"><div class="dc-live-loading">Загружаем диалоги…</div></div><div id="dcChannelList" class="dc-live-dm-list" hidden><div class="dc-live-loading">Выбери сервер слева</div></div><button type="button" class="dc-account dc-account-trigger" id="dcBotAccountTrigger" title="Настройки профиля бота" aria-haspopup="dialog"><div class="dc-account-avatar" id="dcBotAccountAvatar">WG<span class="dc-account-status-dot dc-status-online"></span></div><span class="dc-account-name"><strong id="dcBotName">WhiteGrief</strong><small id="dcBotStatusText">Бот · подключение</small></span><span class="dc-account-open">⌄</span></button></aside><main class="dc-main"><header class="dc-topbar"><div class="dc-topbar-title"><span class="dc-hash">＠</span><strong id="dcChatTitle">Личные сообщения</strong><span class="dc-topic" id="dcChatSubtitle">Выбери диалог или найди пользователя</span></div><div class="dc-topbar-actions"><button id="dcAccessibilityButton" type="button" title="Специальные возможности">◉</button><button id="dcServerSettingsButton" type="button" title="Настройки сервера" hidden>⚙</button><button id="dcRefreshChat" type="button" title="Обновить переписку">↻</button></div></header><div class="dc-channel-layout dc-live-layout"><section class="dc-chat"><div id="dcChatMessages" class="dc-chat-scroll"><div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени бота GastWorld.</p></div></div><div class="dc-composer-wrap"><form id="dcComposerForm" class="dc-composer dc-live-composer"><button class="dc-composer-add" id="dcAttachButton" type="button" title="Прикрепить файл" aria-label="Прикрепить файл">＋</button><input id="dcFileInput" type="file" multiple hidden><textarea id="dcMessageInput" rows="1" maxlength="2000" placeholder="Написать сообщение…" disabled></textarea><button id="dcSendButton" type="submit" disabled>➤</button></form><div id="dcFilePreview" class="dc-file-preview" hidden></div><div id="dcComposerHint" class="dc-composer-hint">Сначала выбери пользователя. Discord может ограничивать отправку DM.</div></div></section><aside class="dc-members dc-live-members" id="dcMembersPanel"><div id="dcDmProfilePanel" class="dc-dm-profile-panel" hidden></div><div class="dc-members-head"><strong>УЧАСТНИКИ</strong><span id="dcMemberCount">—</span></div><input id="dcMemberSearch" class="dc-member-search" type="search" placeholder="Поиск участника"><div id="dcMemberList" class="dc-member-list"><div class="dc-live-empty">Выбери сервер слева</div></div></aside></div><div class="dc-release-ribbon"><span>●</span> ОФИЦИАЛЬНОЕ BOT-ПОДКЛЮЧЕНИЕ <i>•</i> Не личный аккаунт</div></main></div>';
+      section.innerHTML='<div class="dc-app dc-live-app"><aside class="dc-guildbar"><div class="dc-guild-icon dc-home">GW</div><div class="dc-guild-divider"></div><div class="dc-live-guilds" id="dcGuildList"><button type="button" class="dc-guild-icon selected" id="dcHomeButton" title="Личные сообщения">＠</button></div><div class="dc-guild-spacer"></div><button type="button" class="dc-guild-icon dc-avatar dc-exit-live" id="dcExitLive" title="Вернуться в панель" aria-label="Вернуться в панель">↩</button></aside><aside class="dc-dm-sidebar"><div class="dc-dm-search" id="dcDmSearch"><input id="dcUserSearch" type="search" placeholder="Найти пользователя или ID"><button id="dcSearchButton" type="button">⌕</button></div><div id="dcSearchResults" class="dc-search-results" hidden></div><div class="dc-dm-section"><span id="dcSidebarTitle">ЛИЧНЫЕ СООБЩЕНИЯ</span><button id="dcRefreshDms" type="button" title="Обновить">↻</button></div><div id="dcDmList" class="dc-live-dm-list"><div class="dc-live-loading">Загружаем диалоги…</div></div><div id="dcChannelList" class="dc-live-dm-list" hidden><div class="dc-live-loading">Выбери сервер слева</div></div><button type="button" class="dc-account dc-account-trigger" id="dcBotAccountTrigger" title="Настройки профиля бота" aria-haspopup="dialog"><div class="dc-account-avatar" id="dcBotAccountAvatar">WG<span class="dc-account-status-dot dc-status-online"></span></div><span class="dc-account-name"><strong id="dcBotName">WhiteGrief</strong><small id="dcBotStatusText">Бот · подключение</small></span><span class="dc-account-open">⌄</span></button></aside><main class="dc-main"><header class="dc-topbar"><div class="dc-topbar-title"><span class="dc-hash">＠</span><strong id="dcChatTitle">Личные сообщения</strong><span class="dc-topic" id="dcChatSubtitle">Выбери диалог или найди пользователя</span></div><div class="dc-topbar-actions"><button id="dcAccessibilityButton" type="button" title="Специальные возможности">◉</button><button id="dcToggleMembers" type="button" title="Скрыть участников" aria-label="Показать или скрыть участников" aria-pressed="true">☷</button><button id="dcServerSettingsButton" type="button" title="Настройки сервера" hidden>⚙</button><button id="dcRefreshChat" type="button" title="Обновить переписку">↻</button></div></header><div class="dc-channel-layout dc-live-layout"><section class="dc-chat"><div id="dcChatMessages" class="dc-chat-scroll"><div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени бота GastWorld.</p></div></div><div class="dc-composer-wrap"><form id="dcComposerForm" class="dc-composer dc-live-composer"><button class="dc-composer-add" id="dcAttachButton" type="button" title="Прикрепить файл" aria-label="Прикрепить файл">＋</button><input id="dcFileInput" type="file" multiple hidden><textarea id="dcMessageInput" rows="1" maxlength="2000" placeholder="Написать сообщение…" disabled></textarea><button id="dcSendButton" type="submit" disabled>➤</button></form><div id="dcFilePreview" class="dc-file-preview" hidden></div><div id="dcComposerHint" class="dc-composer-hint">Сначала выбери пользователя. Discord может ограничивать отправку DM.</div></div></section><aside class="dc-members dc-live-members" id="dcMembersPanel"><div id="dcDmProfilePanel" class="dc-dm-profile-panel" hidden></div><div class="dc-members-head"><strong>УЧАСТНИКИ</strong><span id="dcMemberCount">—</span></div><input id="dcMemberSearch" class="dc-member-search" type="search" placeholder="Поиск участника"><div id="dcMemberList" class="dc-member-list"><div class="dc-live-empty">Выбери сервер слева</div></div></aside></div><div class="dc-release-ribbon"><span>●</span> ОФИЦИАЛЬНОЕ BOT-ПОДКЛЮЧЕНИЕ <i>•</i> Не личный аккаунт</div></main></div>';
     } else if(page==="console"){
       section.innerHTML='<div class="panel-heading"><div><h2>Управление ботом</h2><p>Состояние Discord-подключения и безопасные действия управления.</p></div><button class="text-button" id="refreshConsole">↻ Обновить</button></div><div id="consoleWorkspace" class="console-workspace"><div class="empty-state">Подключаемся к боту…</div></div>';
       loadConsole(section);
@@ -1826,11 +1827,36 @@ function dcRenderGuildChannels(data,list,title,guild){
   list.replaceChildren();
   const channels=data.channels||[],categories=data.categories||[];
   if(!channels.length){list.textContent="Нет доступных текстовых каналов или у бота нет права их просматривать.";return;}
-  const grouped=new Map();channels.forEach(channel=>{const key=channel.category_id||"__none";if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(channel);});
-  const ordered=[...categories.filter(cat=>grouped.has(cat.id)).map(cat=>({id:cat.id,name:cat.name})),...(grouped.has("__none")?[{id:"__none",name:"БЕЗ КАТЕГОРИИ"}]:[])];
-  ordered.forEach(category=>{const heading=document.createElement("div");heading.className="dc-channel-category";heading.textContent=category.name;list.append(heading);(grouped.get(category.id)||[]).forEach(channel=>{
-    const button=document.createElement("button");button.type="button";button.className="dc-channel-item";button.dataset.channelId=channel.id;const hash=document.createElement("span");hash.textContent=channel.type==="announcement"?"▤":"#";const name=document.createElement("span");name.textContent=channel.name;button.append(hash,name);if(!channel.can_send){const lock=document.createElement("small");lock.textContent="Только чтение";button.append(lock);}button.addEventListener("click",()=>dcOpenGuildChannel(channel));list.append(button);
-  });});
+  const grouped=new Map();
+  channels.forEach(channel=>{const key=channel.category_id||"__none";if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(channel);});
+  const ordered=[
+    ...categories.filter(category=>grouped.has(category.id)).map(category=>({id:category.id,name:category.name})),
+    ...(grouped.has("__none")?[{id:"__none",name:"БЕЗ КАТЕГОРИИ"}]:[])
+  ];
+  ordered.forEach(category=>{
+    const heading=document.createElement("button");
+    heading.type="button";heading.className="dc-channel-category";
+    heading.setAttribute("aria-expanded","true");
+    const chevron=document.createElement("span");chevron.className="dc-category-chevron";chevron.textContent="⌄";
+    const label=document.createElement("span");label.className="dc-category-label";label.textContent=category.name;
+    heading.append(chevron,label);
+    const items=document.createElement("div");items.className="dc-channel-category-items";
+    heading.addEventListener("click",()=>{
+      const collapsed=heading.getAttribute("aria-expanded")==="true";
+      heading.setAttribute("aria-expanded",String(!collapsed));
+      items.hidden=collapsed;
+    });
+    list.append(heading,items);
+    (grouped.get(category.id)||[]).forEach(channel=>{
+      const button=document.createElement("button");button.type="button";button.className="dc-channel-item";button.dataset.channelId=channel.id;
+      const hash=document.createElement("span");hash.className="dc-channel-symbol";hash.textContent=channel.type==="announcement"?"▤":"#";
+      const name=document.createElement("span");name.textContent=channel.name;
+      button.append(hash,name);
+      if(!channel.can_send){const lock=document.createElement("small");lock.textContent="Только чтение";button.append(lock);}
+      button.addEventListener("click",()=>dcOpenGuildChannel(channel));
+      items.append(button);
+    });
+  });
 }
 async function dcOpenGuild(guild){
   if(!guild?.id)return;dcActiveGuild=guild;dcActiveChannel=null;dcActiveUser=null;dcSetMode("guild");
@@ -1862,6 +1888,8 @@ function loadBotDiscord(){
   document.getElementById("dcServerSettingsButton")?.addEventListener("click",dcOpenServerSettings);
   document.getElementById("dcAccessibilityButton")?.addEventListener("click",dcOpenAccessibilitySettings);
   document.getElementById("dcBotAccountTrigger")?.addEventListener("click",dcOpenBotProfileSettings);
+  document.getElementById("dcExitLive")?.addEventListener("click",()=>showPage("dashboard"));
+  document.getElementById("dcToggleMembers")?.addEventListener("click",()=>{const layout=document.querySelector(".dc-live-layout");if(!layout)return;const hidden=layout.classList.toggle("dc-hide-members");const button=document.getElementById("dcToggleMembers");button?.setAttribute("aria-pressed",String(!hidden));if(button)button.title=hidden?"Показать участников":"Скрыть участников";});
   dcLoadBotProfile();
   searchButton?.addEventListener("click",dcSearchUsers);search?.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();dcSearchUsers();}});
   document.getElementById("dcMemberSearch")?.addEventListener("input",dcRenderGuildMembers);
