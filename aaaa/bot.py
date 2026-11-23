@@ -3172,6 +3172,156 @@ async def panel_guild_list():
     return {"guilds": guilds, "bot": await panel_dm_user_payload(bot.user) if bot.user else None}
 
 
+async def panel_guild_settings_payload(guild, actor_member=None):
+    me = guild.me or guild.get_member(bot.user.id)
+    text_channels = [
+        {"id": str(channel.id), "name": channel.name}
+        for channel in guild.text_channels
+    ]
+    voice_channels = [
+        {"id": str(channel.id), "name": channel.name}
+        for channel in guild.voice_channels
+    ]
+    return {
+        "guild": {
+            "id": str(guild.id),
+            "name": guild.name,
+            "description": guild.description or "",
+            "icon_url": str(guild.icon.url) if guild.icon else "",
+            "owner_id": str(guild.owner_id or ""),
+            "member_count": int(guild.member_count or 0),
+            "roles_count": len(guild.roles),
+            "channels_count": len(guild.channels),
+            "features": list(guild.features or []),
+        },
+        "settings": {
+            "verification_level": int(guild.verification_level.value),
+            "default_notifications": int(guild.default_notifications.value),
+            "explicit_content_filter": int(guild.explicit_content_filter.value),
+            "afk_timeout": int(guild.afk_timeout),
+            "afk_channel_id": str(guild.afk_channel.id) if guild.afk_channel else "",
+            "system_channel_id": str(guild.system_channel.id) if guild.system_channel else "",
+            "rules_channel_id": str(guild.rules_channel.id) if getattr(guild, "rules_channel", None) else "",
+            "public_updates_channel_id": str(guild.public_updates_channel.id) if getattr(guild, "public_updates_channel", None) else "",
+            "safety_alerts_channel_id": str(guild.safety_alerts_channel.id) if getattr(guild, "safety_alerts_channel", None) else "",
+            "preferred_locale": str(guild.preferred_locale),
+            "premium_progress_bar_enabled": bool(guild.premium_progress_bar_enabled),
+        },
+        "text_channels": text_channels,
+        "voice_channels": voice_channels,
+        "can_edit": bool(
+            me and me.guild_permissions.manage_guild
+            and actor_member and (actor_member.id == guild.owner_id or actor_member.guild_permissions.manage_guild)
+        ),
+        "bot_can_edit": bool(me and me.guild_permissions.manage_guild),
+        "actor_can_edit": bool(actor_member and (actor_member.id == guild.owner_id or actor_member.guild_permissions.manage_guild)),
+    }
+
+
+async def panel_guild_settings(guild_id, actor_id):
+    if not bot.is_ready() or not str(guild_id).isdigit() or not str(actor_id).isdigit():
+        raise ValueError("Некорректный ID сервера или администратора.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден среди серверов, где состоит бот.")
+    actor_member = guild.get_member(int(actor_id))
+    if actor_member is None:
+        try:
+            actor_member = await guild.fetch_member(int(actor_id))
+        except discord.NotFound:
+            raise PermissionError("Текущий пользователь больше не состоит на этом сервере.")
+    return await panel_guild_settings_payload(guild, actor_member)
+
+
+async def panel_guild_settings_update(guild_id, actor_id, payload):
+    if not bot.is_ready() or not str(guild_id).isdigit() or not str(actor_id).isdigit():
+        raise ValueError("Некорректный ID сервера или администратора.")
+    if not isinstance(payload, dict):
+        raise ValueError("Некорректные настройки сервера.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден.")
+    me = guild.me or guild.get_member(bot.user.id)
+    actor_member = guild.get_member(int(actor_id))
+    if actor_member is None:
+        try:
+            actor_member = await guild.fetch_member(int(actor_id))
+        except discord.NotFound:
+            raise PermissionError("Текущий пользователь больше не состоит на этом сервере.")
+    if me is None or not me.guild_permissions.manage_guild:
+        raise PermissionError("У бота нет разрешения «Управлять сервером».")
+    if actor_member.id != guild.owner_id and not actor_member.guild_permissions.manage_guild:
+        raise PermissionError("Для изменения настроек сервера требуется право «Управлять сервером».")
+    allowed = {
+        "name", "description", "verification_level", "default_notifications",
+        "explicit_content_filter", "afk_timeout", "afk_channel_id",
+        "system_channel_id", "rules_channel_id", "public_updates_channel_id",
+        "safety_alerts_channel_id",
+    }
+    unknown = set(payload) - allowed
+    if unknown:
+        raise ValueError("Переданы неизвестные параметры настроек.")
+    changes = {}
+    if "name" in payload:
+        name = str(payload.get("name") or "").strip()
+        if not name or len(name) > 100:
+            raise ValueError("Название сервера должно содержать от 1 до 100 символов.")
+        changes["name"] = name
+    if "description" in payload:
+        description = str(payload.get("description") or "").strip()
+        if len(description) > 120:
+            raise ValueError("Описание сервера не должно превышать 120 символов.")
+        changes["description"] = description or None
+    enum_fields = {
+        "verification_level": (discord.VerificationLevel, 0, 4),
+        "default_notifications": (discord.NotificationLevel, 0, 1),
+        "explicit_content_filter": (discord.ContentFilter, 0, 2),
+    }
+    for key, (enum_type, minimum, maximum) in enum_fields.items():
+        if key in payload:
+            try:
+                value = int(payload[key])
+                if value < minimum or value > maximum:
+                    raise ValueError()
+                changes[key] = enum_type(value)
+            except (TypeError, ValueError):
+                raise ValueError("Недопустимое значение настройки: " + key)
+    if "afk_timeout" in payload:
+        try:
+            timeout = int(payload["afk_timeout"])
+        except (TypeError, ValueError):
+            raise ValueError("Некорректный AFK timeout.")
+        if timeout not in {60, 300, 900, 1800, 3600}:
+            raise ValueError("Недопустимый интервал AFK.")
+        changes["afk_timeout"] = timeout
+    channel_fields = {
+        "afk_channel_id": ("afk_channel", discord.VoiceChannel),
+        "system_channel_id": ("system_channel", discord.TextChannel),
+        "rules_channel_id": ("rules_channel", discord.TextChannel),
+        "public_updates_channel_id": ("public_updates_channel", discord.TextChannel),
+        "safety_alerts_channel_id": ("safety_alerts_channel", discord.TextChannel),
+    }
+    for key, (argument, expected_type) in channel_fields.items():
+        if key not in payload:
+            continue
+        raw_id = str(payload.get(key) or "").strip()
+        channel = None
+        if raw_id:
+            if not raw_id.isdigit():
+                raise ValueError("Некорректный ID канала для " + key)
+            channel = guild.get_channel(int(raw_id))
+            if channel is None or not isinstance(channel, expected_type):
+                raise ValueError("Выбранный канал имеет неподходящий тип для " + key)
+        if key in {"rules_channel_id", "public_updates_channel_id", "safety_alerts_channel_id"} and channel and "COMMUNITY" not in guild.features:
+            raise ValueError("Эти каналы доступны только на Community-сервере Discord.")
+        changes[argument] = channel
+    if not changes:
+        raise ValueError("Нет изменений для сохранения.")
+    await guild.edit(**changes, reason="GastWorld Control Panel")
+    refreshed_actor = guild.get_member(int(actor_id)) or actor_member
+    return await panel_guild_settings_payload(guild, refreshed_actor)
+
+
 async def panel_guild_members(guild_id):
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
