@@ -1431,6 +1431,7 @@ function dcRenderServerSettings(data){
     const renderRoleEditor=(role,rolesData,refresh)=>{
       editor.replaceChildren();
       const isEditable=role.editable===true;
+      const roleDisplayEditable=isEditable&&!role.is_default;
       let draft={name:role.name,color:role.color||"#000000",position:Number(role.position)||1,hoist:!!role.hoist,mentionable:!!role.mentionable,permissions:{...(role.permissions||{})}};
       const top=document.createElement("div");top.className="dc-role-editor-top";
       const rolePreview=document.createElement("div");rolePreview.className="dc-role-editor-preview";
@@ -1457,7 +1458,8 @@ function dcRenderServerSettings(data){
       saveButton.addEventListener("click",async()=>{
         saveButton.disabled=true;saveButton.textContent="Сохраняем…";saveStatus.textContent="";
         try{
-          const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(draft)});
+          const payload=role.is_default?{permissions:draft.permissions}:draft;
+          const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
           const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось сохранить роль.");
           await refresh(result.role?.id);if(typeof showToast==="function")showToast("Настройки роли сохранены.");
         }catch(error){saveStatus.textContent=error.message;saveButton.disabled=false;saveButton.textContent="Повторить сохранение";}
@@ -1472,19 +1474,20 @@ function dcRenderServerSettings(data){
         if(activeTab==="display"){
           const fields=document.createElement("div");fields.className="dc-role-display-fields";
           const nameLabel=document.createElement("label");nameLabel.className="dc-settings-field";const nameCaption=document.createElement("span");nameCaption.textContent="Название роли";
-          const nameInput=document.createElement("input");nameInput.value=draft.name;nameInput.maxLength=100;nameInput.disabled=!isEditable;nameInput.addEventListener("input",()=>{draft.name=nameInput.value;previewName.textContent=draft.name;});nameLabel.append(nameCaption,nameInput);
+          const nameInput=document.createElement("input");nameInput.value=draft.name;nameInput.maxLength=100;nameInput.disabled=!roleDisplayEditable;nameInput.addEventListener("input",()=>{draft.name=nameInput.value;previewName.textContent=draft.name;});nameLabel.append(nameCaption,nameInput);
           const colorLabel=document.createElement("label");colorLabel.className="dc-settings-field";const colorCaption=document.createElement("span");colorCaption.textContent="Цвет роли";
           const colorRow=document.createElement("div");colorRow.className="dc-role-color-input-row";
-          const colorInput=document.createElement("input");colorInput.type="color";colorInput.value=/^#[0-9a-f]{6}$/i.test(draft.color)?draft.color:"#000000";colorInput.disabled=!isEditable;
-          const colorText=document.createElement("input");colorText.type="text";colorText.value=draft.color;colorText.maxLength=7;colorText.disabled=!isEditable;
+          const colorInput=document.createElement("input");colorInput.type="color";colorInput.value=/^#[0-9a-f]{6}$/i.test(draft.color)?draft.color:"#000000";colorInput.disabled=!roleDisplayEditable;
+          const colorText=document.createElement("input");colorText.type="text";colorText.value=draft.color;colorText.maxLength=7;colorText.disabled=!roleDisplayEditable;
           const setColor=value=>{if(/^#[0-9a-f]{6}$/i.test(value)){draft.color=value;colorInput.value=value;colorText.value=value;previewDot.style.background=value;}};
           colorInput.addEventListener("input",()=>setColor(colorInput.value));colorText.addEventListener("change",()=>setColor(colorText.value));colorRow.append(colorInput,colorText);colorLabel.append(colorCaption,colorRow);
           const positionLabel=document.createElement("label");positionLabel.className="dc-settings-field";const positionCaption=document.createElement("span");positionCaption.textContent="Позиция в иерархии";
-          const positionInput=document.createElement("input");positionInput.type="number";positionInput.min="1";positionInput.max=String(Math.max(1,Number(role.max_position)||Number(role.position)||1));positionInput.value=String(draft.position);positionInput.disabled=!isEditable;positionInput.addEventListener("input",()=>{draft.position=Number(positionInput.value)||1;tag.textContent="Позиция #"+draft.position;});positionLabel.append(positionCaption,positionInput);
-          const hoistLabel=document.createElement("label");hoistLabel.className="dc-role-switch";const hoist=document.createElement("input");hoist.type="checkbox";hoist.checked=draft.hoist;hoist.disabled=!isEditable;hoist.addEventListener("change",()=>draft.hoist=hoist.checked);const hoistCopy=document.createElement("span");const hoistTitle=document.createElement("strong");hoistTitle.textContent="Отображать отдельно";const hoistDesc=document.createElement("small");hoistDesc.textContent="Создаёт отдельную группу этой роли в списке участников сервера.";hoistCopy.append(hoistTitle,hoistDesc);hoistLabel.append(hoist,hoistCopy);
-          const mentionLabel=document.createElement("label");mentionLabel.className="dc-role-switch";const mention=document.createElement("input");mention.type="checkbox";mention.checked=draft.mentionable;mention.disabled=!isEditable;mention.addEventListener("change",()=>draft.mentionable=mention.checked);const mentionCopy=document.createElement("span");const mentionTitle=document.createElement("strong");mentionTitle.textContent="Разрешить упоминание роли";const mentionDesc=document.createElement("small");mentionDesc.textContent="Участники смогут упоминать эту роль через @название.";mentionCopy.append(mentionTitle,mentionDesc);mentionLabel.append(mention,mentionCopy);
+          const positionInput=document.createElement("input");positionInput.type="number";positionInput.min="1";positionInput.max=String(Math.max(1,Number(role.max_position)||Number(role.position)||1));positionInput.value=String(draft.position);positionInput.disabled=!roleDisplayEditable;positionInput.addEventListener("input",()=>{draft.position=Number(positionInput.value)||1;tag.textContent="Позиция #"+draft.position;});positionLabel.append(positionCaption,positionInput);
+          const hoistLabel=document.createElement("label");hoistLabel.className="dc-role-switch";const hoist=document.createElement("input");hoist.type="checkbox";hoist.checked=draft.hoist;hoist.disabled=!roleDisplayEditable;hoist.addEventListener("change",()=>draft.hoist=hoist.checked);const hoistCopy=document.createElement("span");const hoistTitle=document.createElement("strong");hoistTitle.textContent="Отображать отдельно";const hoistDesc=document.createElement("small");hoistDesc.textContent="Создаёт отдельную группу этой роли в списке участников сервера.";hoistCopy.append(hoistTitle,hoistDesc);hoistLabel.append(hoist,hoistCopy);
+          const mentionLabel=document.createElement("label");mentionLabel.className="dc-role-switch";const mention=document.createElement("input");mention.type="checkbox";mention.checked=draft.mentionable;mention.disabled=!roleDisplayEditable;mention.addEventListener("change",()=>draft.mentionable=mention.checked);const mentionCopy=document.createElement("span");const mentionTitle=document.createElement("strong");mentionTitle.textContent="Разрешить упоминание роли";const mentionDesc=document.createElement("small");mentionDesc.textContent="Участники смогут упоминать эту роль через @название.";mentionCopy.append(mentionTitle,mentionDesc);mentionLabel.append(mention,mentionCopy);
           fields.append(nameLabel,colorLabel,positionLabel,hoistLabel,mentionLabel);
-          if(role.managed){const note=document.createElement("div");note.className="dc-settings-permission";note.textContent="Эта роль создана интеграцией. Её параметры управляются внешним сервисом Discord.";fields.append(note);}
+          if(role.is_default){const note=document.createElement("div");note.className="dc-settings-permission";note.textContent="Это базовая роль @everyone. Здесь можно настраивать только разрешения, которые наследуют все участники сервера.";fields.append(note);}
+          else if(role.managed){const note=document.createElement("div");note.className="dc-settings-permission";note.textContent="Эта роль создана интеграцией. Её параметры управляются внешним сервисом Discord.";fields.append(note);}
           panel.append(fields);
         }else if(activeTab==="permissions"){
           const intro=document.createElement("p");intro.className="dc-role-permissions-intro";intro.textContent="Разрешения роли действуют на сервере. Ограничения конкретных каналов задаются отдельно в переопределениях прав.";panel.append(intro);
