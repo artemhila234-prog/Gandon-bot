@@ -3111,12 +3111,28 @@ async def panel_message_mentions(message):
         roles.append({
             "id": str(role.id), "name": role.name,
             "color_hex": f"#{role.color.value:06x}" if role.color.value else "",
+            "secondary_color_hex": f"#{role.secondary_color.value:06x}" if getattr(role, "secondary_color", None) else "",
+            "tertiary_color_hex": f"#{role.tertiary_color.value:06x}" if getattr(role, "tertiary_color", None) else "",
+            "style": "holographic" if getattr(role, "tertiary_color", None) else ("gradient" if getattr(role, "secondary_color", None) else "solid"),
         })
     for channel in message.channel_mentions[:25]:
         channels.append({"id": str(channel.id), "name": channel.name})
+    author_roles = []
+    author_member_roles = getattr(message.author, "roles", None) or []
+    for role in sorted(author_member_roles, key=lambda item: item.position, reverse=True):
+        if message.guild and role.id == message.guild.default_role.id:
+            continue
+        author_roles.append({
+            "id": str(role.id), "name": role.name, "position": int(role.position),
+            "color_hex": f"#{role.color.value:06x}" if role.color.value else "",
+            "secondary_color_hex": f"#{role.secondary_color.value:06x}" if getattr(role, "secondary_color", None) else "",
+            "tertiary_color_hex": f"#{role.tertiary_color.value:06x}" if getattr(role, "tertiary_color", None) else "",
+            "style": "holographic" if getattr(role, "tertiary_color", None) else ("gradient" if getattr(role, "secondary_color", None) else "solid"),
+        })
     return {
         "mentions": users,
         "role_mentions": roles,
+        "author_roles": author_roles,
         "channel_mentions": channels,
         "mention_everyone": bool(message.mention_everyone),
         "edited_at": message.edited_at.isoformat() if message.edited_at else None,
