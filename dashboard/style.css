@@ -1721,3 +1721,31 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .dc-settings-content>.dc-settings-permission{margin-top:14px}
 @media(max-width:850px){.dc-settings-layout{grid-template-columns:185px minmax(0,1fr)}.dc-settings-content{padding:18px}.dc-roles-workspace{grid-template-columns:185px minmax(0,1fr)}}
 @media(max-width:650px){.dc-settings-discord-card{height:98vh}.dc-settings-layout{grid-template-columns:1fr}.dc-settings-sidebar{display:flex;overflow-x:auto;gap:6px;padding:8px;border-right:0;border-bottom:1px solid #373a43}.dc-settings-nav-group{display:flex;gap:4px;margin:0;flex:0 0 auto}.dc-settings-nav-label{display:none}.dc-settings-nav-item{width:auto;white-space:nowrap}.dc-settings-nav-item small{display:none}.dc-settings-content{padding:12px}.dc-roles-workspace{grid-template-columns:1fr}.dc-roles-list-pane{max-height:220px}.dc-roles-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));max-height:150px}.dc-role-member-list{grid-template-columns:1fr}.dc-role-display-fields{grid-template-columns:1fr}.dc-role-display-fields .dc-role-switch{grid-column:auto}}
+
+/* Discord role color styles + accessibility controls */
+.dc-topbar-actions #dcAccessibilityButton{width:32px;height:32px;border:0;border-radius:6px;background:transparent;color:#b8bec9;font-size:17px;cursor:pointer}
+.dc-topbar-actions #dcAccessibilityButton:hover{background:#383b45;color:#fff}
+.dc-member-role-color{display:inline-block;width:9px;height:9px;flex:0 0 9px;border-radius:50%;margin:0 4px 0 1px;vertical-align:middle;box-shadow:0 0 0 1px #ffffff22}
+.dc-holographic-text,.dc-role-color-holographic{background-size:220% 220%!important;animation:dcRoleHolographic 4.2s ease-in-out infinite}
+@keyframes dcRoleHolographic{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.dc-role-style-field{grid-column:1/-1}
+.dc-role-style-hint{font-size:9px;line-height:1.4;color:#9fa6b3}
+.dc-role-style-hint.warning{color:#e3b66e}
+.dc-role-holo-note{grid-column:1/-1;padding:9px 10px;border:1px solid #51465d;border-radius:5px;background:#302a39;color:#d6c2ee;font-size:10px;line-height:1.45}
+.dc-role-holo-note[hidden],.dc-role-style-field[hidden],.dc-settings-field[hidden]{display:none!important}
+.dc-accessibility-card{width:min(560px,100%);max-height:90vh;overflow:auto;border:1px solid #3a3d46;border-radius:12px;background:#202127;color:#e4e6eb;box-shadow:0 24px 90px #000a}
+.dc-accessibility-body{display:grid;gap:15px;padding:20px 24px 24px}
+.dc-accessibility-slider{grid-template-columns:minmax(0,1fr) auto;align-items:center}
+.dc-accessibility-slider>span{grid-column:1/-1}
+.dc-accessibility-slider input{width:100%;accent-color:#737ee9}
+.dc-accessibility-slider strong{color:#dfe2ea;font-size:11px}
+.dc-accessibility-toggle{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:12px;border:1px solid #3a3e48;border-radius:6px;background:#272a32;cursor:pointer}
+.dc-accessibility-toggle span{display:grid;gap:4px}
+.dc-accessibility-toggle strong{font-size:11px;color:#e5e8ee}
+.dc-accessibility-toggle small{font-size:9px;line-height:1.4;color:#9fa6b3}
+.dc-accessibility-toggle input{width:17px;height:17px;flex:0 0 17px;accent-color:#737ee9}
+.dc-accessibility-footnote{margin:0;color:#9098a7;font-size:10px;line-height:1.5}
+.dc-live-app.dc-high-contrast .dc-topbar,.dc-live-app.dc-high-contrast .dc-dm-sidebar,.dc-live-app.dc-high-contrast .dc-members{border-color:#f0f2f7!important}
+.dc-live-app.dc-high-contrast .dc-member-group-title,.dc-live-app.dc-high-contrast .dc-member-copy strong,.dc-live-app.dc-high-contrast .dc-channel-item{color:#fff}
+.dc-live-app.dc-high-contrast .dc-channel-item,.dc-live-app.dc-high-contrast .dc-dm-item,.dc-live-app.dc-high-contrast .dc-member-button{outline:1px solid #8f96a7;outline-offset:-1px}
+.dc-live-app.dc-reduced-motion *,#dcServerSettingsModal.dc-reduced-motion *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
