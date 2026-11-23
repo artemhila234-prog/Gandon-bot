@@ -1286,17 +1286,18 @@ function dcRenderServerSettings(data){
   form.addEventListener("submit",async event=>{
     event.preventDefault();if(!data.can_edit||save.disabled)return;
     save.disabled=true;save.textContent="Сохраняем…";status.textContent="";
+    const fieldValue=name=>form.querySelector('[name="'+name+'"]')?.value??"";
     const payload={
-      name:form.elements.name.value.trim(),
-      description:form.elements.description.value.trim(),
-      verification_level:Number(form.elements.verification_level.value),
-      explicit_content_filter:Number(form.elements.explicit_content_filter.value),
-      default_notifications:Number(form.elements.default_notifications.value),
-      afk_timeout:Number(form.elements.afk_timeout.value),
-      afk_channel_id:form.elements.afk_channel_id.value||null,
-      system_channel_id:form.elements.system_channel_id.value||null
+      name:fieldValue("name").trim(),
+      description:fieldValue("description").trim(),
+      verification_level:Number(fieldValue("verification_level")),
+      explicit_content_filter:Number(fieldValue("explicit_content_filter")),
+      default_notifications:Number(fieldValue("default_notifications")),
+      afk_timeout:Number(fieldValue("afk_timeout")),
+      afk_channel_id:fieldValue("afk_channel_id")||null,
+      system_channel_id:fieldValue("system_channel_id")||null
     };
-    ["rules_channel_id","public_updates_channel_id","safety_alerts_channel_id"].forEach(key=>{if(form.elements[key])payload[key]=form.elements[key].value||null;});
+    ["rules_channel_id","public_updates_channel_id","safety_alerts_channel_id"].forEach(key=>{if(form.querySelector('[name="'+key+'"]'))payload[key]=fieldValue(key)||null;});
     try{
       const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/settings",{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось сохранить настройки.");
