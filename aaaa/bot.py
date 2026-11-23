@@ -1,4 +1,5 @@
 import re
+import base64
 import discord
 import asyncio
 import aiohttp
@@ -3312,6 +3313,7 @@ async def panel_guild_roles(guild_id, actor_id):
     return {
         "guild": {"id": str(guild.id), "name": guild.name, "enhanced_role_styles_enabled": "ENHANCED_ROLE_COLORS" in guild.features, "features": list(guild.features or [])},
         "enhanced_role_styles_enabled": "ENHANCED_ROLE_COLORS" in guild.features,
+        "role_icons_enabled": "ROLE_ICONS" in guild.features,
         "roles": roles,
         "can_create": bool(can_manage and bot_can_manage),
         "actor_can_manage": bool(can_manage),
@@ -3395,7 +3397,7 @@ async def panel_guild_role_update(guild_id, actor_id, role_id, payload):
     if bot_member is None:
         raise RuntimeError("Не удалось определить участника-бота.")
     actor_perms, bot_perms = panel_role_management_context(guild, actor_member, bot_member, role)
-    allowed = {"permissions"} if role.is_default() else {"name", "color", "style", "secondary_color", "hoist", "mentionable", "permissions", "position"}
+    allowed = {"permissions"} if role.is_default() else {"name", "color", "style", "secondary_color", "hoist", "mentionable", "permissions", "position", "icon_data", "icon_emoji", "remove_icon"}
     if set(payload) - allowed:
         raise ValueError("Роль @everyone позволяет изменять только серверные разрешения." if role.is_default() else "Переданы неизвестные параметры роли.")
     changes = {}
@@ -3428,6 +3430,28 @@ async def panel_guild_role_update(guild_id, actor_id, role_id, payload):
             changes["colour"] = discord.Colour(0xA9C9FF)
             changes["secondary_colour"] = discord.Colour(0xFFBBEC)
             changes["tertiary_colour"] = discord.Colour(0xFFC3A0)
+    if any(key in payload for key in ("icon_data", "icon_emoji", "remove_icon")):
+        if "ROLE_ICONS" not in guild.features:
+            raise PermissionError("Значки ролей доступны только если на сервере включена функция Role Icons.")
+        if payload.get("remove_icon") is True:
+            changes["display_icon"] = None
+        elif payload.get("icon_data"):
+            encoded = str(payload.get("icon_data") or "")
+            match = re.fullmatch(r"data:image/(png|jpeg);base64,([A-Za-z0-9+/=]+)", encoded)
+            if not match:
+                raise ValueError("Значок роли должен быть PNG или JPEG изображением.")
+            try:
+                icon_bytes = base64.b64decode(match.group(2), validate=True)
+            except Exception:
+                raise ValueError("Не удалось прочитать изображение значка роли.")
+            if not icon_bytes or len(icon_bytes) > 256 * 1024:
+                raise ValueError("Значок роли должен быть не больше 256 КБ.")
+            changes["display_icon"] = icon_bytes
+        elif payload.get("icon_emoji"):
+            emoji = str(payload.get("icon_emoji") or "").strip()
+            if not emoji or len(emoji) > 32:
+                raise ValueError("Укажи один Unicode-эмодзи для значка роли.")
+            changes["display_icon"] = emoji
     for key in ("hoist", "mentionable"):
         if key in payload:
             if not isinstance(payload[key], bool):
@@ -3651,6 +3675,8 @@ async def panel_guild_members(guild_id, actor_id=None):
         "secondary_color_hex": f"#{role.secondary_color.value:06x}" if getattr(role, "secondary_color", None) else "",
         "tertiary_color_hex": f"#{role.tertiary_color.value:06x}" if getattr(role, "tertiary_color", None) else "",
         "style": "holographic" if getattr(role, "tertiary_color", None) else ("gradient" if getattr(role, "secondary_color", None) else "solid"),
+        "icon_url": str(role.icon.url) if getattr(role, "icon", None) else "",
+        "unicode_emoji": getattr(role, "unicode_emoji", None),
     } for role in sorted(guild.roles, key=lambda item: item.position, reverse=True) if role.id != guild.default_role.id]
     members = []
     try:
