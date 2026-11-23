@@ -1112,6 +1112,42 @@ async def api_discord_guilds(request: Request):
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось загрузить серверы Discord: {str(error)[:300]}")
 
+@app.get("/api/discord/guilds/{guild_id}/settings")
+async def api_discord_guild_settings(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        return await get_dm_controller("discord_settings")(guild_id, str(actor.get("id", "")))
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить настройки сервера: {str(error)[:300]}")
+
+
+@app.patch("/api/discord/guilds/{guild_id}/settings")
+async def api_discord_guild_settings_update(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректные настройки сервера.")
+    try:
+        return await get_dm_controller("discord_settings_update")(
+            guild_id, str(actor.get("id", "")), payload
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось сохранить настройки сервера: {str(error)[:300]}")
+
+
 @app.get("/api/discord/guilds/{guild_id}/members")
 async def api_discord_guild_members(guild_id: str, request: Request):
     await require_access(request, "adm")
