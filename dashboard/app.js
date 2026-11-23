@@ -1219,94 +1219,338 @@ async function dcOpenServerSettings(){
 function dcRenderServerSettings(data){
   document.getElementById("dcServerSettingsModal")?.remove();
   const modal=document.createElement("div");modal.id="dcServerSettingsModal";modal.className="dc-settings-backdrop";
-  const card=document.createElement("section");card.className="dc-settings-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
+  const card=document.createElement("section");card.className="dc-settings-card dc-settings-discord-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
   const head=document.createElement("header");head.className="dc-settings-header";
   const heading=document.createElement("div");heading.className="dc-settings-heading";
-  const eyebrow=document.createElement("span");eyebrow.textContent="GASTWORLD • DISCORD SERVER";
+  const eyebrow=document.createElement("span");eyebrow.textContent="GASTWORLD • SERVER SETTINGS";
   const title=document.createElement("h2");title.textContent="Настройки сервера";
   const sub=document.createElement("p");sub.textContent=data.guild?.name||dcActiveGuild?.name||"Discord";
   heading.append(eyebrow,title,sub);
   const close=document.createElement("button");close.type="button";close.className="dc-settings-close";close.textContent="×";close.title="Закрыть";close.addEventListener("click",()=>modal.remove());
   head.append(heading,close);
-  const stats=document.createElement("div");stats.className="dc-settings-stats";
-  [["УЧАСТНИКИ",data.guild?.member_count??"—"],["РОЛИ",data.guild?.roles_count??"—"],["КАНАЛЫ",data.guild?.channels_count??"—"]].forEach(([label,value])=>{const item=document.createElement("div");const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=String(value);item.append(small,strong);stats.append(item);});
-  const form=document.createElement("form");form.className="dc-settings-form";
-  const section=document.createElement("section");section.className="dc-settings-section";
-  const sectionTitle=document.createElement("h3");sectionTitle.textContent="ОБЗОР";section.append(sectionTitle);
-  const fields=document.createElement("div");fields.className="dc-settings-fields";
-  const makeInput=(labelText,name,value,options={})=>{
-    const wrap=document.createElement("label");wrap.className="dc-settings-field"+(options.wide?" wide":"");
-    const caption=document.createElement("span");caption.textContent=labelText;
-    const input=document.createElement(options.multiline?"textarea":"input");if(!options.multiline)input.type="text";
-    input.name=name;input.value=value??"";if(options.maxLength)input.maxLength=options.maxLength;
-    if(options.multiline){input.rows=3;input.maxLength=options.maxLength||120;}
-    wrap.append(caption,input);fields.append(wrap);return input;
-  };
-  const makeSelect=(labelText,name,value,options,wide=false)=>{
-    const wrap=document.createElement("label");wrap.className="dc-settings-field"+(wide?" wide":"");
-    const caption=document.createElement("span");caption.textContent=labelText;
-    const select=document.createElement("select");select.name=name;
-    options.forEach(([optionValue,optionLabel])=>{const option=document.createElement("option");option.value=String(optionValue);option.textContent=optionLabel;select.append(option);});
-    select.value=String(value??"");wrap.append(caption,select);fields.append(wrap);return select;
-  };
-  const settings=data.settings||{},textChannels=data.text_channels||[],voiceChannels=data.voice_channels||[];
-  makeInput("Название сервера","name",data.guild?.name,{maxLength:100});
-  makeInput("Описание сервера","description",data.guild?.description,{maxLength:120,multiline:true,wide:true});
-  makeSelect("Уровень проверки","verification_level",settings.verification_level,[[0,"Без ограничений"],[1,"Низкий — подтверждённая почта"],[2,"Средний — аккаунт старше 5 минут"],[3,"Высокий — участник на сервере 10 минут"],[4,"Самый высокий — подтверждённый телефон"]]);
-  makeSelect("Фильтр контента","explicit_content_filter",settings.explicit_content_filter,[[0,"Не сканировать"],[1,"Участники без ролей"],[2,"Все участники"]]);
-  makeSelect("Уведомления по умолчанию","default_notifications",settings.default_notifications,[[0,"Все сообщения"],[1,"Только упоминания"]]);
-  makeSelect("Время до AFK","afk_timeout",settings.afk_timeout,[[60,"1 минута"],[300,"5 минут"],[900,"15 минут"],[1800,"30 минут"],[3600,"1 час"]]);
-  const channelOptions=list=>[["","Не выбран"],...list.map(channel=>[channel.id,channel.name])];
-  makeSelect("AFK голосовой канал","afk_channel_id",settings.afk_channel_id,channelOptions(voiceChannels),true);
-  makeSelect("Системный канал","system_channel_id",settings.system_channel_id,channelOptions(textChannels),true);
-  const community=(data.guild?.features||[]).includes("COMMUNITY");
-  if(community){
-    makeSelect("Канал правил","rules_channel_id",settings.rules_channel_id,channelOptions(textChannels),true);
-    makeSelect("Канал обновлений Discord","public_updates_channel_id",settings.public_updates_channel_id,channelOptions(textChannels),true);
-    makeSelect("Канал уведомлений безопасности","safety_alerts_channel_id",settings.safety_alerts_channel_id,channelOptions(textChannels),true);
-  }
-  section.append(fields);form.append(section);
-  const featureStrip=document.createElement("div");featureStrip.className="dc-settings-features";
-  const featureTitle=document.createElement("strong");featureTitle.textContent="Возможности сервера";featureStrip.append(featureTitle);
-  const features=data.guild?.features||[];
-  if(features.length){features.forEach(feature=>{const tag=document.createElement("span");tag.textContent=feature.replaceAll("_"," ").toLowerCase();featureStrip.append(tag);});}
-  else{const note=document.createElement("span");note.textContent="Дополнительные функции сервера не включены.";featureStrip.append(note);}
-  form.append(featureStrip);
-  const permissionNote=document.createElement("div");permissionNote.className="dc-settings-permission";
-  if(!data.actor_can_edit)permissionNote.textContent="У твоего Discord-аккаунта нет права «Управлять сервером». Настройки доступны только для просмотра.";
-  else if(!data.bot_can_edit)permissionNote.textContent="У бота нет права «Управлять сервером». Выдать это право боту можно в настройках ролей Discord.";
-  else permissionNote.textContent="Изменения сохраняются непосредственно в Discord от имени бота с проверкой прав.";
-  form.append(permissionNote);
-  const status=document.createElement("p");status.className="dc-settings-status";status.setAttribute("aria-live","polite");form.append(status);
-  const footer=document.createElement("footer");footer.className="dc-settings-footer";
-  const cancel=document.createElement("button");cancel.type="button";cancel.className="dc-settings-cancel";cancel.textContent="Закрыть";cancel.addEventListener("click",()=>modal.remove());
-  const save=document.createElement("button");save.type="submit";save.className="dc-settings-save";save.textContent="Сохранить изменения";save.disabled=!data.can_edit;
-  footer.append(cancel,save);form.append(footer);
-  form.querySelectorAll("input,textarea,select").forEach(input=>input.disabled=!data.can_edit);
-  form.addEventListener("submit",async event=>{
-    event.preventDefault();if(!data.can_edit||save.disabled)return;
-    save.disabled=true;save.textContent="Сохраняем…";status.textContent="";
-    const fieldValue=name=>form.querySelector('[name="'+name+'"]')?.value??"";
-    const payload={
-      name:fieldValue("name").trim(),
-      description:fieldValue("description").trim(),
-      verification_level:Number(fieldValue("verification_level")),
-      explicit_content_filter:Number(fieldValue("explicit_content_filter")),
-      default_notifications:Number(fieldValue("default_notifications")),
-      afk_timeout:Number(fieldValue("afk_timeout")),
-      afk_channel_id:fieldValue("afk_channel_id")||null,
-      system_channel_id:fieldValue("system_channel_id")||null
-    };
-    ["rules_channel_id","public_updates_channel_id","safety_alerts_channel_id"].forEach(key=>{if(form.querySelector('[name="'+key+'"]'))payload[key]=fieldValue(key)||null;});
-    try{
-      const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/settings",{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось сохранить настройки.");
-      if(typeof showToast==="function")showToast("Настройки сервера сохранены.");
-      dcRenderServerSettings(result);
-    }catch(error){status.textContent=error.message;save.disabled=false;save.textContent="Повторить сохранение";}
+
+  const layout=document.createElement("div");layout.className="dc-settings-layout";
+  const sidebar=document.createElement("aside");sidebar.className="dc-settings-sidebar";
+  const main=document.createElement("main");main.className="dc-settings-content";
+  layout.append(sidebar,main);
+
+  const navSections=[
+    {title:"НАСТРОЙКИ СЕРВЕРА",items:[["overview","Обзор","▦",true],["roles","Роли","♙",true],["channels","Каналы и категории","#",false],["members","Участники","♧",false],["invites","Приглашения","↗",false]]},
+    {title:"МОДЕРАЦИЯ",items:[["safety","Настройка безопасности","⛨",false],["audit","Журнал аудита","≋",false],["automod","AutoMod","◇",false]]},
+    {title:"СЕРВИСЫ",items:[["integrations","Интеграции","⌘",false],["emoji","Эмодзи и стикеры","☺",false],["events","События","◷",false]]}
+  ];
+  const navButtons=new Map();
+  navSections.forEach(group=>{
+    const block=document.createElement("div");block.className="dc-settings-nav-group";
+    const label=document.createElement("div");label.className="dc-settings-nav-label";label.textContent=group.title;block.append(label);
+    group.items.forEach(([key,text,icon,enabled])=>{
+      const button=document.createElement("button");button.type="button";button.className="dc-settings-nav-item";button.disabled=!enabled;button.title=enabled?text:"Этот раздел ещё не реализован.";
+      const symbol=document.createElement("span");symbol.textContent=icon;const name=document.createElement("span");name.textContent=text;button.append(symbol,name);
+      if(!enabled){const tag=document.createElement("small");tag.textContent="Скоро";button.append(tag);}
+      navButtons.set(key,button);block.append(button);
+    });
+    sidebar.append(block);
   });
-  card.append(head,stats,form);modal.append(card);modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});
+
+  const renderOverview=()=>{
+    main.replaceChildren();
+    const pageHead=document.createElement("div");pageHead.className="dc-settings-page-heading";
+    const pageTitle=document.createElement("h3");pageTitle.textContent="Обзор";
+    const pageDesc=document.createElement("p");pageDesc.textContent="Основные параметры сервера и безопасности участников.";
+    pageHead.append(pageTitle,pageDesc);main.append(pageHead);
+    const stats=document.createElement("div");stats.className="dc-settings-stats";
+    [["УЧАСТНИКИ",data.guild?.member_count??"—"],["РОЛИ",data.guild?.roles_count??"—"],["КАНАЛЫ",data.guild?.channels_count??"—"]].forEach(([label,value])=>{const item=document.createElement("div");const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=String(value);item.append(small,strong);stats.append(item);});
+    main.append(stats);
+    const form=document.createElement("form");form.className="dc-settings-form";
+    const section=document.createElement("section");section.className="dc-settings-section";
+    const sectionTitle=document.createElement("h4");sectionTitle.textContent="ОБЩИЕ СВЕДЕНИЯ";section.append(sectionTitle);
+    const fields=document.createElement("div");fields.className="dc-settings-fields";
+    const makeInput=(labelText,name,value,options={})=>{
+      const wrap=document.createElement("label");wrap.className="dc-settings-field"+(options.wide?" wide":"");
+      const caption=document.createElement("span");caption.textContent=labelText;
+      const input=document.createElement(options.multiline?"textarea":"input");if(!options.multiline)input.type="text";
+      input.name=name;input.value=value??"";if(options.maxLength)input.maxLength=options.maxLength;
+      if(options.multiline){input.rows=3;input.maxLength=options.maxLength||120;}
+      wrap.append(caption,input);fields.append(wrap);return input;
+    };
+    const makeSelect=(labelText,name,value,options,wide=false)=>{
+      const wrap=document.createElement("label");wrap.className="dc-settings-field"+(wide?" wide":"");
+      const caption=document.createElement("span");caption.textContent=labelText;
+      const select=document.createElement("select");select.name=name;
+      options.forEach(([optionValue,optionLabel])=>{const option=document.createElement("option");option.value=String(optionValue);option.textContent=optionLabel;select.append(option);});
+      select.value=String(value??"");wrap.append(caption,select);fields.append(wrap);return select;
+    };
+    const settings=data.settings||{},textChannels=data.text_channels||[],voiceChannels=data.voice_channels||[];
+    makeInput("Название сервера","name",data.guild?.name,{maxLength:100});
+    makeInput("Описание сервера","description",data.guild?.description,{maxLength:120,multiline:true,wide:true});
+    section.append(fields);form.append(section);
+    const safety=document.createElement("section");safety.className="dc-settings-section";
+    const safetyTitle=document.createElement("h4");safetyTitle.textContent="БЕЗОПАСНОСТЬ И УВЕДОМЛЕНИЯ";safety.append(safetyTitle);
+    const safetyFields=document.createElement("div");safetyFields.className="dc-settings-fields";
+    const originalFields=fields;
+    // Reuse the same input builders for the second section without detaching fields already in the first one.
+    const appendSelect=(parent,labelText,name,value,options,wide=false)=>{
+      const wrap=document.createElement("label");wrap.className="dc-settings-field"+(wide?" wide":"");
+      const caption=document.createElement("span");caption.textContent=labelText;
+      const select=document.createElement("select");select.name=name;
+      options.forEach(([optionValue,optionLabel])=>{const option=document.createElement("option");option.value=String(optionValue);option.textContent=optionLabel;select.append(option);});
+      select.value=String(value??"");wrap.append(caption,select);parent.append(wrap);return select;
+    };
+    appendSelect(safetyFields,"Уровень проверки","verification_level",settings.verification_level,[[0,"Без ограничений"],[1,"Низкий — подтверждённая почта"],[2,"Средний — аккаунт старше 5 минут"],[3,"Высокий — участник на сервере 10 минут"],[4,"Самый высокий — подтверждённый телефон"]]);
+    appendSelect(safetyFields,"Фильтр контента","explicit_content_filter",settings.explicit_content_filter,[[0,"Не сканировать"],[1,"Участники без ролей"],[2,"Все участники"]]);
+    appendSelect(safetyFields,"Уведомления по умолчанию","default_notifications",settings.default_notifications,[[0,"Все сообщения"],[1,"Только упоминания"]]);
+    appendSelect(safetyFields,"Время до AFK","afk_timeout",settings.afk_timeout,[[60,"1 минута"],[300,"5 минут"],[900,"15 минут"],[1800,"30 минут"],[3600,"1 час"]]);
+    const channelOptions=list=>[["","Не выбран"],...list.map(channel=>[channel.id,channel.name])];
+    appendSelect(safetyFields,"AFK голосовой канал","afk_channel_id",settings.afk_channel_id,channelOptions(voiceChannels),true);
+    appendSelect(safetyFields,"Системный канал","system_channel_id",settings.system_channel_id,channelOptions(textChannels),true);
+    const community=(data.guild?.features||[]).includes("COMMUNITY");
+    if(community){
+      appendSelect(safetyFields,"Канал правил","rules_channel_id",settings.rules_channel_id,channelOptions(textChannels),true);
+      appendSelect(safetyFields,"Канал обновлений Discord","public_updates_channel_id",settings.public_updates_channel_id,channelOptions(textChannels),true);
+      appendSelect(safetyFields,"Канал уведомлений безопасности","safety_alerts_channel_id",settings.safety_alerts_channel_id,channelOptions(textChannels),true);
+    }
+    safety.append(safetyFields);form.append(safety);
+    const featureStrip=document.createElement("div");featureStrip.className="dc-settings-features";
+    const featureTitle=document.createElement("strong");featureTitle.textContent="ВОЗМОЖНОСТИ СЕРВЕРА";featureStrip.append(featureTitle);
+    const features=data.guild?.features||[];
+    if(features.length){features.forEach(feature=>{const tag=document.createElement("span");tag.textContent=feature.replaceAll("_"," ").toLowerCase();featureStrip.append(tag);});}
+    else{const note=document.createElement("span");note.textContent="Дополнительные функции сервера не включены.";featureStrip.append(note);}
+    form.append(featureStrip);
+    const permissionNote=document.createElement("div");permissionNote.className="dc-settings-permission";
+    if(!data.actor_can_edit)permissionNote.textContent="У твоего Discord-аккаунта нет права «Управлять сервером». Настройки доступны только для просмотра.";
+    else if(!data.bot_can_edit)permissionNote.textContent="У бота нет права «Управлять сервером». Выдать это право боту можно в настройках ролей Discord.";
+    else permissionNote.textContent="Изменения сохраняются непосредственно в Discord от имени бота с серверной проверкой прав.";
+    form.append(permissionNote);
+    const status=document.createElement("p");status.className="dc-settings-status";status.setAttribute("aria-live","polite");form.append(status);
+    const footer=document.createElement("footer");footer.className="dc-settings-footer";
+    const save=document.createElement("button");save.type="submit";save.className="dc-settings-save";save.textContent="Сохранить изменения";save.disabled=!data.can_edit;footer.append(save);form.append(footer);
+    form.querySelectorAll("input,textarea,select").forEach(input=>input.disabled=!data.can_edit);
+    form.addEventListener("submit",async event=>{
+      event.preventDefault();if(!data.can_edit||save.disabled)return;
+      save.disabled=true;save.textContent="Сохраняем…";status.textContent="";
+      const fieldValue=name=>form.querySelector('[name="'+name+'"]')?.value??"";
+      const payload={
+        name:fieldValue("name").trim(),
+        description:fieldValue("description").trim(),
+        verification_level:Number(fieldValue("verification_level")),
+        explicit_content_filter:Number(fieldValue("explicit_content_filter")),
+        default_notifications:Number(fieldValue("default_notifications")),
+        afk_timeout:Number(fieldValue("afk_timeout")),
+        afk_channel_id:fieldValue("afk_channel_id")||null,
+        system_channel_id:fieldValue("system_channel_id")||null
+      };
+      ["rules_channel_id","public_updates_channel_id","safety_alerts_channel_id"].forEach(key=>{if(form.querySelector('[name="'+key+'"]'))payload[key]=fieldValue(key)||null;});
+      try{
+        const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/settings",{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+        const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось сохранить настройки.");
+        if(typeof showToast==="function")showToast("Настройки сервера сохранены.");
+        data=result;renderOverview();
+      }catch(error){status.textContent=error.message;save.disabled=false;save.textContent="Повторить сохранение";}
+    });
+    main.append(form);
+  };
+
+  const permissionLabels={
+    administrator:"Администратор",manage_guild:"Управлять сервером",view_audit_log:"Просмотр журнала аудита",
+    manage_roles:"Управлять ролями",manage_channels:"Управлять каналами",manage_webhooks:"Управлять вебхуками",
+    manage_expressions:"Управлять эмодзи и стикерами",manage_events:"Управлять событиями",manage_threads:"Управлять ветками",
+    manage_messages:"Управлять сообщениями",manage_nicknames:"Управлять никами",create_instant_invite:"Создавать приглашения",
+    change_nickname:"Изменять свой ник",kick_members:"Исключать участников",ban_members:"Банить участников",
+    moderate_members:"Выдавать тайм-аут",view_channel:"Просматривать каналы",send_messages:"Отправлять сообщения",
+    send_messages_in_threads:"Отправлять сообщения в ветках",send_tts_messages:"Отправлять TTS-сообщения",
+    read_message_history:"Читать историю сообщений",mention_everyone:"Упоминать @everyone и роли",
+    embed_links:"Встраивать ссылки",attach_files:"Прикреплять файлы",add_reactions:"Добавлять реакции",
+    use_external_emojis:"Использовать внешние эмодзи",use_external_stickers:"Использовать внешние стикеры",
+    use_application_commands:"Использовать команды приложений",create_public_threads:"Создавать публичные ветки",
+    create_private_threads:"Создавать приватные ветки",connect:"Подключаться к голосовым каналам",
+    speak:"Говорить",stream:"Передавать видео и экран",use_vad:"Использовать голосовую активацию",
+    priority_speaker:"Приоритетный участник",mute_members:"Отключать микрофон участников",
+    deafen_members:"Отключать звук участникам",move_members:"Перемещать участников",
+    request_to_speak:"Запрашивать выступление",use_soundboard:"Использовать звуковую панель",
+    use_external_sounds:"Использовать внешние звуки",send_voice_messages:"Отправлять голосовые сообщения",
+    send_polls:"Создавать опросы",pin_messages:"Закреплять сообщения",bypass_slowmode:"Обходить медленный режим"
+  };
+  const permissionGroups=[
+    {title:"ОБЩИЕ ПРАВА СЕРВЕРА",keys:["administrator","manage_guild","view_audit_log","manage_roles","manage_channels","manage_webhooks","manage_expressions","manage_events","manage_threads"]},
+    {title:"УПРАВЛЕНИЕ УЧАСТНИКАМИ",keys:["create_instant_invite","change_nickname","manage_nicknames","kick_members","ban_members","moderate_members"]},
+    {title:"ТЕКСТОВЫЕ КАНАЛЫ",keys:["view_channel","send_messages","send_messages_in_threads","read_message_history","embed_links","attach_files","add_reactions","mention_everyone","manage_messages","send_tts_messages","use_external_emojis","use_external_stickers","use_application_commands","create_public_threads","create_private_threads","pin_messages","send_polls","bypass_slowmode"]},
+    {title:"ГОЛОСОВЫЕ КАНАЛЫ",keys:["connect","speak","stream","use_vad","priority_speaker","mute_members","deafen_members","move_members","request_to_speak","use_soundboard","use_external_sounds","send_voice_messages"]}
+  ];
+
+  const renderRoles=async()=>{
+    main.replaceChildren();
+    const pageHead=document.createElement("div");pageHead.className="dc-settings-page-heading";
+    const pageTitle=document.createElement("h3");pageTitle.textContent="Роли";
+    const pageDesc=document.createElement("p");pageDesc.textContent="Создавай роли, настраивай цвет, положение в иерархии и разрешения сервера.";
+    pageHead.append(pageTitle,pageDesc);main.append(pageHead);
+    const work=document.createElement("div");work.className="dc-roles-workspace";
+    const listPane=document.createElement("aside");listPane.className="dc-roles-list-pane";
+    const listTitle=document.createElement("div");listTitle.className="dc-roles-list-title";listTitle.textContent="РОЛИ СЕРВЕРА";
+    const add=document.createElement("button");add.type="button";add.className="dc-role-create-button";add.textContent="＋ Создать роль";
+    const roleList=document.createElement("div");roleList.className="dc-roles-list";
+    listPane.append(listTitle,add,roleList);
+    const editor=document.createElement("section");editor.className="dc-role-editor";
+    work.append(listPane,editor);main.append(work);
+    const hint=document.createElement("div");hint.className="dc-settings-permission";
+    const refreshRoles=async(selectId)=>{
+      roleList.textContent="Загрузка ролей…";
+      const rolesData=await apiGet("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles");
+      roleList.replaceChildren();
+      const roles=rolesData.roles||[];
+      const current=roles.find(role=>String(role.id)===String(selectId))||roles.find(role=>role.editable)||roles[0];
+      roles.forEach(role=>{
+        const item=document.createElement("button");item.type="button";item.className="dc-role-list-item"+(current&&String(current.id)===String(role.id)?" active":"");
+        const color=document.createElement("i");color.className="dc-role-color-dot";color.style.background=role.color||"#000000";
+        const name=document.createElement("span");name.textContent=role.is_default?"@everyone":role.name;
+        item.append(color,name);
+        if(role.managed){const managed=document.createElement("small");managed.textContent="ИНТЕГРАЦИЯ";item.append(managed);}
+        item.addEventListener("click",()=>refreshRoles(role.id));
+        roleList.append(item);
+      });
+      add.disabled=!rolesData.can_create;
+      add.title=rolesData.can_create?"Создать новую роль":"Нужны Manage Roles у тебя и у бота";
+      if(current)renderRoleEditor(current,rolesData,refreshRoles);
+      else editor.textContent="На сервере пока нет ролей.";
+      if(!rolesData.actor_can_manage)hint.textContent="У твоего Discord-аккаунта нет права «Управлять ролями».";
+      else if(!rolesData.bot_can_manage)hint.textContent="Боту требуется разрешение Manage Roles и роль выше ролей, которыми нужно управлять.";
+      else hint.textContent="Иерархия Discord соблюдается: менять можно только роли ниже высшей роли администратора и бота.";
+    };
+    add.addEventListener("click",async()=>{
+      add.disabled=true;add.textContent="Создаём…";
+      try{
+        const result=await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles",{name:"Новая роль",color:"#99AAB5",hoist:false,mentionable:false,permissions:{}});
+        await refreshRoles(result.role?.id);
+        if(typeof showToast==="function")showToast("Роль создана.");
+      }catch(error){if(typeof showToast==="function")showToast(error.message);else alert(error.message);}
+      finally{add.disabled=false;add.textContent="＋ Создать роль";}
+    });
+    const renderRoleEditor=(role,rolesData,refresh)=>{
+      editor.replaceChildren();
+      const isEditable=role.editable===true;
+      let draft={name:role.name,color:role.color||"#000000",position:Number(role.position)||1,hoist:!!role.hoist,mentionable:!!role.mentionable,permissions:{...(role.permissions||{})}};
+      const top=document.createElement("div");top.className="dc-role-editor-top";
+      const rolePreview=document.createElement("div");rolePreview.className="dc-role-editor-preview";
+      const previewDot=document.createElement("i");previewDot.className="dc-role-color-dot";previewDot.style.background=draft.color;
+      const previewName=document.createElement("strong");previewName.textContent=role.is_default?"@everyone":draft.name;
+      rolePreview.append(previewDot,previewName);
+      const tag=document.createElement("span");tag.className="dc-role-position-tag";tag.textContent="Позиция #"+draft.position;
+      top.append(rolePreview,tag);editor.append(top);
+      const roleTabs=document.createElement("div");roleTabs.className="dc-role-tabs";
+      const panel=document.createElement("div");panel.className="dc-role-tab-content";
+      const tabNames=[["display","Отображение"],["permissions","Права доступа"],["members","Управление участниками"]];
+      let activeTab="display";
+      const tabButtons=new Map();
+      const saveStatus=document.createElement("p");saveStatus.className="dc-settings-status";
+      const footer=document.createElement("div");footer.className="dc-role-editor-footer";
+      const deleteButton=document.createElement("button");deleteButton.type="button";deleteButton.className="dc-role-delete-button";deleteButton.textContent="Удалить роль";deleteButton.disabled=!isEditable||role.is_default;
+      deleteButton.addEventListener("click",async()=>{
+        if(!confirm("Удалить роль «"+role.name+"»? Это действие нельзя отменить."))return;
+        deleteButton.disabled=true;
+        try{await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"DELETE",credentials:"same-origin"}).then(async response=>{const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось удалить роль.");return result;});await refresh(null);if(typeof showToast==="function")showToast("Роль удалена.");}
+        catch(error){saveStatus.textContent=error.message;deleteButton.disabled=false;}
+      });
+      const saveButton=document.createElement("button");saveButton.type="button";saveButton.className="dc-settings-save";saveButton.textContent="Сохранить изменения";saveButton.disabled=!isEditable;
+      saveButton.addEventListener("click",async()=>{
+        saveButton.disabled=true;saveButton.textContent="Сохраняем…";saveStatus.textContent="";
+        try{
+          const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(draft)});
+          const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось сохранить роль.");
+          await refresh(result.role?.id);if(typeof showToast==="function")showToast("Настройки роли сохранены.");
+        }catch(error){saveStatus.textContent=error.message;saveButton.disabled=false;saveButton.textContent="Повторить сохранение";}
+      });
+      footer.append(deleteButton,saveButton);
+      tabNames.forEach(([key,label])=>{
+        const button=document.createElement("button");button.type="button";button.className="dc-role-tab";button.textContent=label;
+        button.addEventListener("click",()=>{activeTab=key;renderRoleTab();});tabButtons.set(key,button);roleTabs.append(button);
+      });
+      const renderRoleTab=()=>{
+        panel.replaceChildren();tabButtons.forEach((button,key)=>button.classList.toggle("active",key===activeTab));
+        if(activeTab==="display"){
+          const fields=document.createElement("div");fields.className="dc-role-display-fields";
+          const nameLabel=document.createElement("label");nameLabel.className="dc-settings-field";const nameCaption=document.createElement("span");nameCaption.textContent="Название роли";
+          const nameInput=document.createElement("input");nameInput.value=draft.name;nameInput.maxLength=100;nameInput.disabled=!isEditable;nameInput.addEventListener("input",()=>{draft.name=nameInput.value;previewName.textContent=draft.name;});nameLabel.append(nameCaption,nameInput);
+          const colorLabel=document.createElement("label");colorLabel.className="dc-settings-field";const colorCaption=document.createElement("span");colorCaption.textContent="Цвет роли";
+          const colorRow=document.createElement("div");colorRow.className="dc-role-color-input-row";
+          const colorInput=document.createElement("input");colorInput.type="color";colorInput.value=/^#[0-9a-f]{6}$/i.test(draft.color)?draft.color:"#000000";colorInput.disabled=!isEditable;
+          const colorText=document.createElement("input");colorText.type="text";colorText.value=draft.color;colorText.maxLength=7;colorText.disabled=!isEditable;
+          const setColor=value=>{if(/^#[0-9a-f]{6}$/i.test(value)){draft.color=value;colorInput.value=value;colorText.value=value;previewDot.style.background=value;}};
+          colorInput.addEventListener("input",()=>setColor(colorInput.value));colorText.addEventListener("change",()=>setColor(colorText.value));colorRow.append(colorInput,colorText);colorLabel.append(colorCaption,colorRow);
+          const positionLabel=document.createElement("label");positionLabel.className="dc-settings-field";const positionCaption=document.createElement("span");positionCaption.textContent="Позиция в иерархии";
+          const positionInput=document.createElement("input");positionInput.type="number";positionInput.min="1";positionInput.max=String(Math.max(1,Number(role.position)||1));positionInput.value=String(draft.position);positionInput.disabled=!isEditable;positionInput.addEventListener("input",()=>{draft.position=Number(positionInput.value)||1;tag.textContent="Позиция #"+draft.position;});positionLabel.append(positionCaption,positionInput);
+          const hoistLabel=document.createElement("label");hoistLabel.className="dc-role-switch";const hoist=document.createElement("input");hoist.type="checkbox";hoist.checked=draft.hoist;hoist.disabled=!isEditable;hoist.addEventListener("change",()=>draft.hoist=hoist.checked);const hoistCopy=document.createElement("span");const hoistTitle=document.createElement("strong");hoistTitle.textContent="Отображать отдельно";const hoistDesc=document.createElement("small");hoistDesc.textContent="Создаёт отдельную группу этой роли в списке участников сервера.";hoistCopy.append(hoistTitle,hoistDesc);hoistLabel.append(hoist,hoistCopy);
+          const mentionLabel=document.createElement("label");mentionLabel.className="dc-role-switch";const mention=document.createElement("input");mention.type="checkbox";mention.checked=draft.mentionable;mention.disabled=!isEditable;mention.addEventListener("change",()=>draft.mentionable=mention.checked);const mentionCopy=document.createElement("span");const mentionTitle=document.createElement("strong");mentionTitle.textContent="Разрешить упоминание роли";const mentionDesc=document.createElement("small");mentionDesc.textContent="Участники смогут упоминать эту роль через @название.";mentionCopy.append(mentionTitle,mentionDesc);mentionLabel.append(mention,mentionCopy);
+          fields.append(nameLabel,colorLabel,positionLabel,hoistLabel,mentionLabel);
+          if(role.managed){const note=document.createElement("div");note.className="dc-settings-permission";note.textContent="Эта роль создана интеграцией. Её параметры управляются внешним сервисом Discord.";fields.append(note);}
+          panel.append(fields);
+        }else if(activeTab==="permissions"){
+          const intro=document.createElement("p");intro.className="dc-role-permissions-intro";intro.textContent="Разрешения роли действуют на сервере. Ограничения конкретных каналов задаются отдельно в переопределениях прав.";panel.append(intro);
+          const flags=Object.keys(draft.permissions||{});
+          const used=new Set();
+          const canSet=new Set(rolesData.manageable_permission_keys||[]);
+          const renderPermissionGroup=group=>{
+            const keys=group.keys.filter(key=>Object.prototype.hasOwnProperty.call(draft.permissions,key));
+            keys.forEach(key=>used.add(key));if(!keys.length)return;
+            const box=document.createElement("section");box.className="dc-permission-group";const heading=document.createElement("h4");heading.textContent=group.title;box.append(heading);
+            keys.forEach(key=>{
+              const current=!!draft.permissions[key];const allowed=canSet.has(key);
+              const row=document.createElement("label");row.className="dc-permission-row"+(!allowed&&!current?" disabled":"");
+              const textWrap=document.createElement("span");textWrap.className="dc-permission-copy";const label=document.createElement("strong");label.textContent=permissionLabels[key]||key.replaceAll("_"," ").replace(/w/g,letter=>letter.toUpperCase());const description=document.createElement("small");description.textContent=key==="administrator"?"Даёт все разрешения и обходит ограничения каналов. Используй с осторожностью.":key==="manage_roles"?"Позволяет создавать, редактировать и назначать роли ниже своей высшей роли.":"";textWrap.append(label);if(description.textContent)textWrap.append(description);
+              const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=current;checkbox.disabled=!isEditable||(!allowed&&!current);checkbox.addEventListener("change",()=>draft.permissions[key]=checkbox.checked);row.append(textWrap,checkbox);box.append(row);
+            });
+            panel.append(box);
+          };
+          permissionGroups.forEach(renderPermissionGroup);
+          const rest=flags.filter(key=>!used.has(key));
+          if(rest.length)renderPermissionGroup({title:"ДОПОЛНИТЕЛЬНЫЕ ПРАВА",keys:rest});
+          const note=document.createElement("div");note.className="dc-settings-permission";note.textContent="Права, которых нет у твоей роли или у бота, нельзя включить. Уже существующие ограничения сохраняются; недоступные права можно снять.";panel.append(note);
+        }else{
+          const search=document.createElement("input");search.type="search";search.className="dc-role-member-search";search.placeholder="Поиск участника по имени или ID";
+          const membersRoot=document.createElement("div");membersRoot.className="dc-role-member-list";membersRoot.textContent="Загружаем участников…";panel.append(search,membersRoot);
+          let members=[];
+          const renderMembers=()=>{
+            const query=search.value.trim().toLocaleLowerCase("ru");
+            const filtered=members.filter(member=>((member.global_name||"")+" "+(member.username||"")+" "+member.id).toLocaleLowerCase("ru").includes(query));
+            membersRoot.replaceChildren();
+            if(!filtered.length){membersRoot.textContent="Участники не найдены.";return;}
+            filtered.slice(0,500).forEach(member=>{
+              const row=document.createElement("label");row.className="dc-role-member-row";
+              const avatar=document.createElement("span");avatar.className="dc-role-member-avatar";avatar.innerHTML=dcAvatar(member,"");
+              const name=document.createElement("span");name.className="dc-role-member-name";name.textContent=member.global_name||member.username;
+              const id=document.createElement("small");id.textContent="@"+member.username;name.append(id);
+              const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=(member.role_ids||[]).map(String).includes(String(role.id));checkbox.disabled=!isEditable;
+              checkbox.addEventListener("change",async()=>{
+                checkbox.disabled=true;
+                try{
+                  await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id)+"/roles",{role_id:String(role.id),action:checkbox.checked?"add":"remove"});
+                  const ids=new Set((member.role_ids||[]).map(String));if(checkbox.checked)ids.add(String(role.id));else ids.delete(String(role.id));member.role_ids=[...ids];
+                }catch(error){checkbox.checked=!checkbox.checked;saveStatus.textContent=error.message;}
+                finally{checkbox.disabled=!isEditable;}
+              });
+              row.append(avatar,name,checkbox);membersRoot.append(row);
+            });
+          };
+          search.addEventListener("input",renderMembers);
+          apiGet("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members").then(result=>{members=result.members||[];renderMembers();}).catch(error=>{membersRoot.textContent="Не удалось загрузить участников: "+error.message;});
+        }
+      };
+      editor.append(roleTabs,panel,saveStatus,footer);
+      renderRoleTab();
+    };
+    main.append(hint);
+    try{await refreshRoles(null);}catch(error){roleList.textContent="Не удалось загрузить роли: "+error.message;}
+  };
+
+  const switchTab=tab=>{
+    navButtons.forEach((button,key)=>button.classList.toggle("active",key===tab));
+    if(tab==="overview")renderOverview();
+    else if(tab==="roles")renderRoles();
+  };
+  navButtons.get("overview").addEventListener("click",()=>switchTab("overview"));
+  navButtons.get("roles").addEventListener("click",()=>switchTab("roles"));
+  card.append(head,layout);modal.append(card);
+  modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});
   document.body.append(modal);
+  switchTab("overview");
   document.addEventListener("keydown",function esc(event){if(event.key==="Escape"){modal.remove();document.removeEventListener("keydown",esc);}});
 }
 function dcRenderGuildChannels(data,list,title,guild){
@@ -1355,6 +1599,13 @@ function loadBotDiscord(){
   refreshChat?.addEventListener("click",()=>{if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel);else if(dcActiveUser)dcOpenConversation(dcActiveUser);});
   document.getElementById("dcHomeButton")?.addEventListener("click",()=>{dcActiveGuild=null;dcActiveChannel=null;dcActiveUser=null;dcSetMode("dm");dcLoadConversationList();});
   form?.addEventListener("submit",dcSendMessage);
+  const messageInput=document.getElementById("dcMessageInput");
+  messageInput?.addEventListener("keydown",event=>{
+    if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){
+      event.preventDefault();
+      if(!messageInput.disabled)form?.requestSubmit();
+    }
+  });
   const attachButton=document.getElementById("dcAttachButton"),fileInput=document.getElementById("dcFileInput"),filePreview=document.getElementById("dcFilePreview");
   attachButton?.addEventListener("click",()=>fileInput?.click());
   fileInput?.addEventListener("change",()=>{if(!filePreview)return;filePreview.replaceChildren();const files=Array.from(fileInput.files||[]);filePreview.hidden=!files.length;files.forEach(file=>{const chip=document.createElement("span");chip.textContent="📎 "+file.name+" · "+(file.size/1024/1024).toFixed(2)+" МБ";filePreview.append(chip);});});
