@@ -3192,8 +3192,8 @@ def panel_role_management_context(guild, actor_member, bot_member, role=None):
     if not bot_can_manage:
         raise PermissionError("У бота нет права «Управлять ролями».")
     if role is not None:
-        if role.is_default() or role.managed:
-            raise PermissionError("Роль @everyone и роли интеграций нельзя редактировать вручную.")
+        if role.managed:
+            raise PermissionError("Роли интеграций нельзя редактировать вручную.")
         if actor_member.id != guild.owner_id and role >= actor_member.top_role:
             raise PermissionError("Нельзя изменять роли на уровне твоей высшей роли или выше.")
         if role >= bot_member.top_role:
@@ -3231,8 +3231,7 @@ def panel_role_payload(guild, role, actor_member, bot_member):
     actor_allowed = actor_member.id == guild.owner_id or actor_perms.administrator or actor_perms.manage_roles
     bot_allowed = bot_perms.administrator or bot_perms.manage_roles
     hierarchy_allowed = (
-        not role.is_default()
-        and not role.managed
+        not role.managed
         and (actor_member.id == guild.owner_id or role < actor_member.top_role)
         and role < bot_member.top_role
     )
@@ -3349,9 +3348,9 @@ async def panel_guild_role_update(guild_id, actor_id, role_id, payload):
     if bot_member is None:
         raise RuntimeError("Не удалось определить участника-бота.")
     actor_perms, bot_perms = panel_role_management_context(guild, actor_member, bot_member, role)
-    allowed = {"name", "color", "hoist", "mentionable", "permissions", "position"}
+    allowed = {"permissions"} if role.is_default() else {"name", "color", "hoist", "mentionable", "permissions", "position"}
     if set(payload) - allowed:
-        raise ValueError("Переданы неизвестные параметры роли.")
+        raise ValueError("Роль @everyone позволяет изменять только серверные разрешения." if role.is_default() else "Переданы неизвестные параметры роли.")
     changes = {}
     if "name" in payload:
         name = str(payload["name"] or "").strip()
