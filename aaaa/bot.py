@@ -3201,7 +3201,7 @@ def panel_role_management_context(guild, actor_member, bot_member, role=None):
     return actor_perms, bot_perms
 
 
-def panel_build_role_permissions(raw, actor_perms, bot_perms):
+def panel_build_role_permissions(raw, actor_perms, bot_perms, existing_permissions=None):
     if not isinstance(raw, dict):
         raise ValueError("Права роли должны быть объектом.")
     valid = set(discord.Permissions.VALID_FLAGS)
@@ -3213,10 +3213,15 @@ def panel_build_role_permissions(raw, actor_perms, bot_perms):
         if not isinstance(enabled, bool):
             raise ValueError("Значения разрешений должны быть true/false.")
         setattr(permissions, key, enabled)
-    if not actor_perms.administrator and not actor_perms.is_superset(permissions):
-        raise PermissionError("Нельзя выдать права, которых нет у твоей Discord-роли.")
-    if not bot_perms.administrator and not bot_perms.is_superset(permissions):
-        raise PermissionError("Бот не обладает частью запрошенных прав и не может назначить их этой роли.")
+    existing_value = int(existing_permissions.value) if existing_permissions is not None else 0
+    if not actor_perms.administrator:
+        unsupported = permissions.value & ~actor_perms.value & ~existing_value
+        if unsupported:
+            raise PermissionError("Нельзя выдать права, которых нет у твоей Discord-роли.")
+    if not bot_perms.administrator:
+        unsupported = permissions.value & ~bot_perms.value & ~existing_value
+        if unsupported:
+            raise PermissionError("Бот не обладает частью новых запрошенных прав и не может назначить их этой роли.")
     return permissions
 
 
@@ -3360,7 +3365,7 @@ async def panel_guild_role_update(guild_id, actor_id, role_id, payload):
                 raise ValueError(f"Параметр {key} должен быть true/false.")
             changes[key] = payload[key]
     if "permissions" in payload:
-        changes["permissions"] = panel_build_role_permissions(payload["permissions"], actor_perms, bot_perms)
+        changes["permissions"] = panel_build_role_permissions(payload["permissions"], actor_perms, bot_perms, role.permissions)
     if "position" in payload:
         try:
             position = int(payload["position"])
