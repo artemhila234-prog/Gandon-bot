@@ -1749,3 +1749,17 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .dc-live-app.dc-high-contrast .dc-member-group-title,.dc-live-app.dc-high-contrast .dc-member-copy strong,.dc-live-app.dc-high-contrast .dc-channel-item{color:#fff}
 .dc-live-app.dc-high-contrast .dc-channel-item,.dc-live-app.dc-high-contrast .dc-dm-item,.dc-live-app.dc-high-contrast .dc-member-button{outline:1px solid #8f96a7;outline-offset:-1px}
 .dc-live-app.dc-reduced-motion *,#dcServerSettingsModal.dc-reduced-motion *{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+
+/* Enhanced Discord role styling and animated media accessibility. */
+.dc-member-role-color{display:inline-block;vertical-align:middle}
+.dc-message-stickers{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin-top:7px}
+.dc-message-sticker{display:block;max-width:180px;max-height:180px;object-fit:contain}
+.dc-animated-media-trigger,.dc-sticker-trigger{display:inline-flex;align-items:center;gap:7px;min-height:33px;padding:7px 10px;border:1px solid #454a57;border-radius:6px;background:#292d36;color:#cbd1dc;font-size:10px;cursor:pointer}
+.dc-animated-media-trigger:hover,.dc-sticker-trigger:hover{background:#373c48;color:#fff}
+.dc-sticker-static-label{display:inline-flex;align-items:center;min-height:25px;padding:5px 8px;border-radius:5px;background:#292d36;color:#9fa7b5;font-size:10px}
+.dc-role-editor-preview .dc-role-color-dot{width:14px;height:14px;flex:0 0 14px}
+.dc-role-list-item .dc-role-color-dot{width:11px;height:11px;flex:0 0 11px}
+.dc-profile-role-color.dc-role-color-holographic{background-size:220% 220%!important}
+.dc-live-app.dc-high-contrast .dc-member-role-color{outline:1px solid #fff;outline-offset:2px}
+.dc-live-app.dc-high-contrast .dc-message-content a,.dc-live-app.dc-high-contrast .dc-attachment-link{color:#78d7ff;text-decoration:underline}
+.dc-live-app.dc-reduced-motion .dc-role-color-holographic,.dc-live-app.dc-reduced-motion .dc-holographic-text{animation:none!important}
