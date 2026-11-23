@@ -1179,7 +1179,7 @@ function dcSaveAccessibilityPreferences(){
 }
 function dcApplyAccessibilityPreferences(){
   const app=document.querySelector(".dc-live-app");if(!app)return;
-  app.style.setProperty("--dc-saturation",Math.max(0,150,Number(dcAccessibilityPrefs.saturation)||100)+"%");
+  app.style.setProperty("--dc-saturation",Math.max(0,Math.min(150,Number(dcAccessibilityPrefs.saturation)||100))+"%");
   app.style.filter="saturate("+Math.max(0,Math.min(150,Number(dcAccessibilityPrefs.saturation)||100))+"%)";
   app.classList.toggle("dc-high-contrast",!!dcAccessibilityPrefs.highContrast);
   app.classList.toggle("dc-reduced-motion",!!dcAccessibilityPrefs.reducedMotion);
@@ -1195,15 +1195,15 @@ function dcRoleStyleBackground(role){
 function dcApplyRoleColor(element,role,asText=false){
   if(!element||!role)return;
   const mode=dcAccessibilityPrefs.roleColorMode||"name";
-  if(mode==="none"){element.style.color="";element.style.background="";element.style.backgroundImage="none";return;}
+  if(mode==="none"||(asText&&mode==="dot")){element.style.color="";element.style.background="";element.style.backgroundImage="none";element.style.backgroundClip="";element.style.webkitBackgroundClip="";element.style.webkitTextFillColor="";element.classList.remove("dc-holographic-text");return;}
   const background=dcRoleStyleBackground(role);
   if(asText&&mode==="name"&&role.style!=="solid"){
-    element.style.color="transparent";element.style.backgroundImage=background;element.style.backgroundClip="text";element.style.webkitBackgroundClip="text";element.style.webkitTextFillColor="transparent";
-    if(role.style==="holographic"&&!dcAccessibilityPrefs.reducedMotion)element.classList.add("dc-holographic-text");
+    element.style.color="transparent";element.style.background="";element.style.backgroundImage=background;element.style.backgroundClip="text";element.style.webkitBackgroundClip="text";element.style.webkitTextFillColor="transparent";
+    if(role.style==="holographic"&&!dcAccessibilityPrefs.reducedMotion)element.classList.add("dc-holographic-text");else element.classList.remove("dc-holographic-text");
     return;
   }
-  if(asText&&mode==="name"){element.style.color=role.color_hex||role.color||"";return;}
-  element.style.background=background;
+  if(asText&&mode==="name"){element.style.background="";element.style.backgroundImage="none";element.style.backgroundClip="";element.style.webkitBackgroundClip="";element.style.webkitTextFillColor="";element.style.color=role.color_hex||role.color||"";element.classList.remove("dc-holographic-text");return;}
+  element.style.backgroundImage=background;element.style.background=background;
 }
 function dcOpenAccessibilitySettings(){
   document.getElementById("dcAccessibilityModal")?.remove();
