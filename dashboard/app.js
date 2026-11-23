@@ -1187,7 +1187,9 @@ function dcOpenProfile(member){
       catch(error){checkbox.checked=!checkbox.checked;alert(error.message);}
       finally{checkbox.disabled=!manageable;}
     });
-    const color=document.createElement("i");color.className="dc-profile-role-color"+(role.style==="holographic"?" dc-role-color-holographic":"");dcApplyRoleColor(color,role,false);const roleName=document.createElement("span");roleName.textContent=role.name;label.append(checkbox,color,roleName);roleList.append(label);
+    const color=document.createElement("i");color.className="dc-profile-role-color"+(role.style==="holographic"?" dc-role-color-holographic":"");dcApplyRoleColor(color,role,false);
+    const roleIcon=role.icon_url?document.createElement("img"):document.createElement("span");roleIcon.className="dc-profile-role-icon";if(role.icon_url){roleIcon.src=role.icon_url;roleIcon.alt="";}else roleIcon.textContent=role.unicode_emoji||"";
+    const roleName=document.createElement("span");roleName.textContent=role.name;label.append(checkbox,color);if(role.icon_url||role.unicode_emoji)label.append(roleIcon);label.append(roleName);roleList.append(label);
   });
   if(!roleList.children.length){const note=document.createElement("p");note.textContent="На этом сервере не найдено пользовательских ролей.";roleList.append(note);}
   else if(!sortedProfileRoles.some(role=>role.manageable===true)){const note=document.createElement("p");note.className="dc-profile-role-hint";note.textContent="Все роли показаны, но бот не может менять их. Нужны Manage Roles и высшая роль бота выше ролей, которыми нужно управлять.";roleList.append(note);}
@@ -1507,6 +1509,8 @@ function dcRenderServerSettings(data){
         const item=document.createElement("button");item.type="button";item.className="dc-role-list-item"+(current&&String(current.id)===String(role.id)?" active":"");
         const color=document.createElement("i");color.className="dc-role-color-dot"+(role.style==="holographic"?" dc-role-color-holographic":"");dcApplyRoleColor(color,role,false);
         const name=document.createElement("span");name.textContent=role.is_default?"@everyone":role.name;
+        if(role.icon_url){const icon=document.createElement("img");icon.className="dc-role-list-icon";icon.src=role.icon_url;icon.alt="";item.append(icon);}
+        else if(role.unicode_emoji){const icon=document.createElement("span");icon.className="dc-role-list-emoji";icon.textContent=role.unicode_emoji;item.append(icon);}
         item.append(color,name);
         if(role.managed){const managed=document.createElement("small");managed.textContent="ИНТЕГРАЦИЯ";item.append(managed);}
         item.addEventListener("click",()=>refreshRoles(role.id));
@@ -1534,7 +1538,7 @@ function dcRenderServerSettings(data){
       editor.replaceChildren();
       const isEditable=role.editable===true;
       const roleDisplayEditable=isEditable&&!role.is_default;
-      let draft={name:role.name,color:role.color||"#000000",secondary_color:role.secondary_color||"#FFBBEC",style:role.style||"solid",position:Number(role.position)||1,hoist:!!role.hoist,mentionable:!!role.mentionable,permissions:{...(role.permissions||{})}};
+      let draft={name:role.name,color:role.color||"#000000",secondary_color:role.secondary_color||"#FFBBEC",style:role.style||"solid",icon_emoji:role.unicode_emoji||"",icon_data:null,remove_icon:false,position:Number(role.position)||1,hoist:!!role.hoist,mentionable:!!role.mentionable,permissions:{...(role.permissions||{})}};
       const top=document.createElement("div");top.className="dc-role-editor-top";
       const rolePreview=document.createElement("div");rolePreview.className="dc-role-editor-preview";
       const previewDot=document.createElement("i");previewDot.className="dc-role-color-dot";dcApplyRoleColor(previewDot,draft,false);
@@ -1617,6 +1621,25 @@ function dcRenderServerSettings(data){
           styleLabel.append(styleCaption,styleSelect,styleHint);
           fields.append(nameLabel,colorLabel,styleLabel,secondaryLabel,holoNote);
           updateRoleStyleFields();
+          const iconSection=document.createElement("div");iconSection.className="dc-role-icon-editor";
+          const iconTitle=document.createElement("strong");iconTitle.textContent="Значок роли";
+          const iconDescription=document.createElement("small");iconDescription.textContent=rolesData.role_icons_enabled?"PNG/JPEG до 256 КБ или Unicode-эмодзи. Значок отображается рядом с названием роли.":"Значки ролей требуют функции Role Icons на сервере.";
+          const iconControls=document.createElement("div");iconControls.className="dc-role-icon-controls";
+          const iconFile=document.createElement("input");iconFile.type="file";iconFile.accept="image/png,image/jpeg";iconFile.disabled=!roleDisplayEditable||!rolesData.role_icons_enabled;
+          const iconEmoji=document.createElement("input");iconEmoji.type="text";iconEmoji.maxLength=32;iconEmoji.placeholder="Или Unicode-эмодзи";iconEmoji.value=draft.icon_emoji;iconEmoji.disabled=!roleDisplayEditable||!rolesData.role_icons_enabled;
+          const iconStatus=document.createElement("span");iconStatus.className="dc-role-icon-status";iconStatus.textContent=role.icon_url?"Текущий значок загружен":(draft.icon_emoji||"Без значка");
+          iconFile.addEventListener("change",()=>{
+            const file=iconFile.files?.[0];if(!file)return;
+            if(!["image/png","image/jpeg"].includes(file.type)||file.size>256*1024){iconStatus.textContent="Нужен PNG/JPEG до 256 КБ.";iconFile.value="";return;}
+            const reader=new FileReader();reader.onload=()=>{draft.icon_data=String(reader.result||"");draft.icon_emoji="";draft.remove_icon=false;iconEmoji.value="";iconStatus.textContent="Новое изображение выбрано: "+file.name;};
+            reader.onerror=()=>{iconStatus.textContent="Не удалось прочитать изображение."};reader.readAsDataURL(file);
+          });
+          iconEmoji.addEventListener("input",()=>{draft.icon_emoji=iconEmoji.value.trim();draft.icon_data=null;draft.remove_icon=false;iconFile.value="";iconStatus.textContent=draft.icon_emoji||"Без значка";});
+          const clearIcon=document.createElement("button");clearIcon.type="button";clearIcon.className="dc-role-icon-clear";clearIcon.textContent="Убрать значок";clearIcon.disabled=!roleDisplayEditable||!rolesData.role_icons_enabled||(!role.icon_url&&!role.unicode_emoji);
+          clearIcon.addEventListener("click",()=>{draft.icon_data=null;draft.icon_emoji="";draft.remove_icon=true;iconFile.value="";iconEmoji.value="";iconStatus.textContent="Значок будет удалён после сохранения.";});
+          iconControls.append(iconFile,iconEmoji,clearIcon);iconSection.append(iconTitle,iconDescription,iconControls,iconStatus);
+          if(!rolesData.role_icons_enabled){iconSection.classList.add("is-unavailable");}
+          fields.append(iconSection);
           const positionLabel=document.createElement("label");positionLabel.className="dc-settings-field";const positionCaption=document.createElement("span");positionCaption.textContent="Позиция в иерархии";
           const positionInput=document.createElement("input");positionInput.type="number";positionInput.min="1";positionInput.max=String(Math.max(1,Number(role.max_position)||Number(role.position)||1));positionInput.value=String(draft.position);positionInput.disabled=!roleDisplayEditable;positionInput.addEventListener("input",()=>{draft.position=Number(positionInput.value)||1;tag.textContent="Позиция #"+draft.position;});positionLabel.append(positionCaption,positionInput);
           const hoistLabel=document.createElement("label");hoistLabel.className="dc-role-switch";const hoist=document.createElement("input");hoist.type="checkbox";hoist.checked=draft.hoist;hoist.disabled=!roleDisplayEditable;hoist.addEventListener("change",()=>draft.hoist=hoist.checked);const hoistCopy=document.createElement("span");const hoistTitle=document.createElement("strong");hoistTitle.textContent="Отображать отдельно";const hoistDesc=document.createElement("small");hoistDesc.textContent="Создаёт отдельную группу этой роли в списке участников сервера.";hoistCopy.append(hoistTitle,hoistDesc);hoistLabel.append(hoist,hoistCopy);
