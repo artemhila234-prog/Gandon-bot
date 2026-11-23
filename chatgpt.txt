@@ -2091,3 +2091,5 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - CSS добавляет стили preview; dashboard/index.html cache-bust обновлён до 20261123-clipboard-paste1.
 - Важно: браузер может прикрепить только те файлы, которые ОС/приложение действительно передало в ClipboardEvent как File. Для скриншотов/скопированных изображений это обычный сценарий; некоторые файловые менеджеры могут передавать только путь/ссылку, которые браузер не вправе читать как локальный файл.
 - После коммитов требуется синхронизация GitHub на Bot-Hosting, перезапуск сервиса панели и Ctrl+F5. Реальная вставка из Windows clipboard и Discord API отправка не были проверены в браузере/на хостинге.
+
+- Коммиты реализации: dashboard/app.js — 6b2fac07d03e805a8a4ebdfd114cf863c3c976d9 (paste handler и preview), ac098af9e7d03f5121d56e0f704248703ba39a79 (исправлена ссылка на composer hint); dashboard/style.css — 900b87c0ed6909ebb77cb73a1e6aa06d56458085; dashboard/index.html — 4e14dc3e232ba60fd3b5133e14029429cbe21a32; chatgpt.txt — 2c84261b53d57d9697e2156a6ec3c2cf8dceb0e5. JavaScript после исправления успешно проверен на синтаксис через V8 new Function.
