@@ -1023,7 +1023,10 @@ function dcRenderMessages(messages){
     const body=document.createElement("div");body.className="dc-message-body";
     const head=document.createElement("div");head.className="dc-message-head";
     const author=document.createElement("strong");author.textContent=message.author?.global_name||message.author?.username||"Discord user";
-    const time=document.createElement("time");const created=new Date(message.created_at);time.dateTime=created.toISOString();time.textContent=created.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});time.title=created.toLocaleString("ru-RU");head.append(author,time);
+    const messageHighestRole=(message.author_roles||[]).filter(role=>role.color_hex||role.secondary_color_hex).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0))[0];
+    if(messageHighestRole&&dcAccessibilityPrefs.roleColorMode==="name")dcApplyRoleColor(author,messageHighestRole,true);
+    const time=document.createElement("time");const created=new Date(message.created_at);time.dateTime=created.toISOString();time.textContent=created.toLocaleTimeString("ru-RU",{hour:"2-digit",minute:"2-digit"});time.title=created.toLocaleString("ru-RU");
+    if(messageHighestRole&&dcAccessibilityPrefs.roleColorMode==="dot"){const roleDot=document.createElement("i");roleDot.className="dc-member-role-color";dcApplyRoleColor(roleDot,messageHighestRole,false);head.append(author,roleDot,time);}else head.append(author,time);
     if(message.edited_at){const edited=document.createElement("small");edited.className="dc-edited-label";edited.textContent="(изменено)";head.append(edited);}
     body.append(head);
     if(message.content){const text=document.createElement("p");text.className="dc-message-content";dcRenderMessageContent(text,message);body.append(text);}
@@ -1039,8 +1042,12 @@ function dcRenderMessages(messages){
     if((message.stickers||[]).length){
       const stickerWrap=document.createElement("div");stickerWrap.className="dc-message-stickers";
       (message.stickers||[]).forEach(sticker=>{
-        const animated=["apng","gif","2","4"].includes(String(sticker.format||"").toLowerCase());
+        const format=String(sticker.format||"").toLowerCase();
+        const animated=["apng","gif","2","4"].includes(format);
         const mode=dcAccessibilityPrefs.reducedMotion?"never":dcAccessibilityPrefs.stickerAnimation;
+        if(format==="lottie"||format==="3"){
+          const link=document.createElement("a");link.className="dc-sticker-static-label";link.href=sticker.url||"#";link.target="_blank";link.rel="noopener noreferrer";link.textContent="Lottie-стикер · "+(sticker.name||"Discord");stickerWrap.append(link);return;
+        }
         const showNow=!animated||mode==="always";
         if(!sticker.url){const label=document.createElement("span");label.textContent="Стикер: "+(sticker.name||"Discord");stickerWrap.append(label);return;}
         if(showNow){const image=document.createElement("img");image.className="dc-message-sticker";image.src=sticker.url;image.alt=sticker.name||"Стикер Discord";image.loading="lazy";stickerWrap.append(image);}
