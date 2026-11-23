@@ -1159,7 +1159,7 @@ function dcOpenProfile(member){
       catch(error){checkbox.checked=!checkbox.checked;alert(error.message);}
       finally{checkbox.disabled=!manageable;}
     });
-    const color=document.createElement("i");color.className="dc-profile-role-color";color.style.background=role.color_hex||"#5865f2";const roleName=document.createElement("span");roleName.textContent=role.name;label.append(checkbox,color,roleName);roleList.append(label);
+    const color=document.createElement("i");color.className="dc-profile-role-color"+(role.style==="holographic"?" dc-role-color-holographic":"");dcApplyRoleColor(color,role,false);const roleName=document.createElement("span");roleName.textContent=role.name;label.append(checkbox,color,roleName);roleList.append(label);
   });
   if(!roleList.children.length){const note=document.createElement("p");note.textContent="На этом сервере не найдено пользовательских ролей.";roleList.append(note);}
   else if(!sortedProfileRoles.some(role=>role.manageable===true)){const note=document.createElement("p");note.className="dc-profile-role-hint";note.textContent="Все роли показаны, но бот не может менять их. Нужны Manage Roles и высшая роль бота выше ролей, которыми нужно управлять.";roleList.append(note);}
@@ -1497,8 +1497,8 @@ function dcRenderServerSettings(data){
       let draft={name:role.name,color:role.color||"#000000",secondary_color:role.secondary_color||"#FFBBEC",style:role.style||"solid",position:Number(role.position)||1,hoist:!!role.hoist,mentionable:!!role.mentionable,permissions:{...(role.permissions||{})}};
       const top=document.createElement("div");top.className="dc-role-editor-top";
       const rolePreview=document.createElement("div");rolePreview.className="dc-role-editor-preview";
-      const previewDot=document.createElement("i");previewDot.className="dc-role-color-dot";previewDot.style.background=draft.color;
-      const previewName=document.createElement("strong");previewName.textContent=role.is_default?"@everyone":draft.name;
+      const previewDot=document.createElement("i");previewDot.className="dc-role-color-dot";dcApplyRoleColor(previewDot,draft,false);
+      const previewName=document.createElement("strong");previewName.textContent=role.is_default?"@everyone":draft.name;dcApplyRoleColor(previewName,draft,true);
       rolePreview.append(previewDot,previewName);
       const tag=document.createElement("span");tag.className="dc-role-position-tag";tag.textContent="Позиция #"+draft.position;
       top.append(rolePreview,tag);editor.append(top);
@@ -1543,13 +1543,45 @@ function dcRenderServerSettings(data){
           const colorRow=document.createElement("div");colorRow.className="dc-role-color-input-row";
           const colorInput=document.createElement("input");colorInput.type="color";colorInput.value=/^#[0-9a-f]{6}$/i.test(draft.color)?draft.color:"#000000";colorInput.disabled=!roleDisplayEditable;
           const colorText=document.createElement("input");colorText.type="text";colorText.value=draft.color;colorText.maxLength=7;colorText.disabled=!roleDisplayEditable;
-          const setColor=value=>{if(/^#[0-9a-f]{6}$/i.test(value)){draft.color=value;colorInput.value=value;colorText.value=value;previewDot.style.background=value;}};
+          const setColor=value=>{if(/^#[0-9a-f]{6}$/i.test(value)){draft.color=value;colorInput.value=value;colorText.value=value;dcApplyRoleColor(previewDot,draft,false);dcApplyRoleColor(previewName,draft,true);}};
           colorInput.addEventListener("input",()=>setColor(colorInput.value));colorText.addEventListener("change",()=>setColor(colorText.value));colorRow.append(colorInput,colorText);colorLabel.append(colorCaption,colorRow);
+          const styleLabel=document.createElement("label");styleLabel.className="dc-settings-field dc-role-style-field";const styleCaption=document.createElement("span");styleCaption.textContent="Стиль роли";
+          const styleSelect=document.createElement("select");styleSelect.name="role_style";
+          [["solid","Сплошной"],["gradient","Градиент"],["holographic","Голографический"]].forEach(([value,label])=>{const option=document.createElement("option");option.value=value;option.textContent=label;styleSelect.append(option);});
+          styleSelect.value=draft.style||"solid";styleSelect.disabled=!roleDisplayEditable||(!rolesData.enhanced_role_styles_enabled&&draft.style==="solid");
+          const styleHint=document.createElement("small");styleHint.className="dc-role-style-hint";
+          const secondaryLabel=document.createElement("label");secondaryLabel.className="dc-settings-field";const secondaryCaption=document.createElement("span");secondaryCaption.textContent="Второй цвет градиента";
+          const secondaryRow=document.createElement("div");secondaryRow.className="dc-role-color-input-row";
+          const secondaryInput=document.createElement("input");secondaryInput.type="color";secondaryInput.value=draft.secondary_color||"#FFBBEC";
+          const secondaryText=document.createElement("input");secondaryText.type="text";secondaryText.maxLength=7;secondaryText.value=draft.secondary_color||"#FFBBEC";
+          const syncSecondary=value=>{if(/^#[0-9a-f]{6}$/i.test(value)){draft.secondary_color=value;secondaryInput.value=value;secondaryText.value=value;dcApplyRoleColor(previewDot,draft,false);dcApplyRoleColor(previewName,draft,true);}};
+          secondaryInput.addEventListener("input",()=>syncSecondary(secondaryInput.value));secondaryText.addEventListener("change",()=>syncSecondary(secondaryText.value));secondaryRow.append(secondaryInput,secondaryText);secondaryLabel.append(secondaryCaption,secondaryRow);
+          const holoNote=document.createElement("div");holoNote.className="dc-role-holo-note";holoNote.textContent="Голографический стиль использует фиксированную палитру Discord из трёх цветов.";
+          const updateRoleStyleFields=()=>{
+            const enabled=rolesData.enhanced_role_styles_enabled===true;
+            const current=draft.style||"solid";
+            secondaryLabel.hidden=current==="solid";
+            secondaryInput.disabled=!roleDisplayEditable||current!=="gradient"||!enabled;
+            secondaryText.disabled=!roleDisplayEditable||current!=="gradient"||!enabled;
+            holoNote.hidden=current!=="holographic";
+            styleHint.textContent=enabled?"Enhanced Role Styles активен на этом сервере.":"Для градиента и голографического стиля серверу требуется включить Enhanced Role Styles за 3 буста.";
+            styleHint.classList.toggle("warning",!enabled);
+            styleSelect.disabled=!roleDisplayEditable||!enabled;
+            dcApplyRoleColor(previewDot,draft,false);dcApplyRoleColor(previewName,draft,true);
+          };
+          styleSelect.addEventListener("change",()=>{
+            draft.style=styleSelect.value;
+            if(draft.style==="holographic"){draft.color="#A9C9FF";draft.secondary_color="#FFBBEC";colorInput.value=draft.color;colorText.value=draft.color;secondaryInput.value=draft.secondary_color;secondaryText.value=draft.secondary_color;}
+            updateRoleStyleFields();
+          });
+          styleLabel.append(styleCaption,styleSelect,styleHint);
+          fields.append(nameLabel,colorLabel,styleLabel,secondaryLabel,holoNote);
+          updateRoleStyleFields();
           const positionLabel=document.createElement("label");positionLabel.className="dc-settings-field";const positionCaption=document.createElement("span");positionCaption.textContent="Позиция в иерархии";
           const positionInput=document.createElement("input");positionInput.type="number";positionInput.min="1";positionInput.max=String(Math.max(1,Number(role.max_position)||Number(role.position)||1));positionInput.value=String(draft.position);positionInput.disabled=!roleDisplayEditable;positionInput.addEventListener("input",()=>{draft.position=Number(positionInput.value)||1;tag.textContent="Позиция #"+draft.position;});positionLabel.append(positionCaption,positionInput);
           const hoistLabel=document.createElement("label");hoistLabel.className="dc-role-switch";const hoist=document.createElement("input");hoist.type="checkbox";hoist.checked=draft.hoist;hoist.disabled=!roleDisplayEditable;hoist.addEventListener("change",()=>draft.hoist=hoist.checked);const hoistCopy=document.createElement("span");const hoistTitle=document.createElement("strong");hoistTitle.textContent="Отображать отдельно";const hoistDesc=document.createElement("small");hoistDesc.textContent="Создаёт отдельную группу этой роли в списке участников сервера.";hoistCopy.append(hoistTitle,hoistDesc);hoistLabel.append(hoist,hoistCopy);
           const mentionLabel=document.createElement("label");mentionLabel.className="dc-role-switch";const mention=document.createElement("input");mention.type="checkbox";mention.checked=draft.mentionable;mention.disabled=!roleDisplayEditable;mention.addEventListener("change",()=>draft.mentionable=mention.checked);const mentionCopy=document.createElement("span");const mentionTitle=document.createElement("strong");mentionTitle.textContent="Разрешить упоминание роли";const mentionDesc=document.createElement("small");mentionDesc.textContent="Участники смогут упоминать эту роль через @название.";mentionCopy.append(mentionTitle,mentionDesc);mentionLabel.append(mention,mentionCopy);
-          fields.append(nameLabel,colorLabel,positionLabel,hoistLabel,mentionLabel);
+          fields.append(positionLabel,hoistLabel,mentionLabel);
           if(role.is_default){const note=document.createElement("div");note.className="dc-settings-permission";note.textContent="Это базовая роль @everyone. Здесь можно настраивать только разрешения, которые наследуют все участники сервера.";fields.append(note);}
           else if(role.managed){const note=document.createElement("div");note.className="dc-settings-permission";note.textContent="Эта роль создана интеграцией. Её параметры управляются внешним сервисом Discord.";fields.append(note);}
           panel.append(fields);
@@ -1588,7 +1620,7 @@ function dcRenderServerSettings(data){
               const avatar=document.createElement("span");avatar.className="dc-role-member-avatar";avatar.innerHTML=dcAvatar(member,"");
               const name=document.createElement("span");name.className="dc-role-member-name";name.textContent=member.global_name||member.username;
               const id=document.createElement("small");id.textContent="@"+member.username;name.append(id);
-              const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=(member.role_ids||[]).map(String).includes(String(role.id));checkbox.disabled=!isEditable;
+              const checkbox=document.createElement("input");checkbox.type="checkbox";checkbox.checked=(member.role_ids||[]).map(String).includes(String(role.id));checkbox.disabled=!isEditable||role.is_default;
               checkbox.addEventListener("change",async()=>{
                 checkbox.disabled=true;
                 try{
@@ -1598,7 +1630,7 @@ function dcRenderServerSettings(data){
                   if(cachedMember)cachedMember.role_ids=[...ids];
                   if(dcActiveGuild?.id){dcMemberCacheByGuild.set(dcActiveGuild.id,dcMemberCache);dcRenderGuildMembers();}
                 }catch(error){checkbox.checked=!checkbox.checked;saveStatus.textContent=error.message;}
-                finally{checkbox.disabled=!isEditable;}
+                finally{checkbox.disabled=!isEditable||role.is_default;}
               });
               row.append(avatar,name,checkbox);membersRoot.append(row);
             });
