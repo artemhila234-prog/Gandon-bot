@@ -1788,3 +1788,33 @@ button,a,input,select,textarea{-webkit-tap-highlight-color:transparent}
 .dc-file-preview-name{min-width:0;max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0!important;background:transparent!important}
 .dc-file-preview-remove{width:23px;height:23px;flex:0 0 23px;padding:0;border:0;border-radius:5px;background:transparent;color:#aeb4c0;font-size:18px;line-height:1;cursor:pointer}
 .dc-file-preview-remove:hover{background:#454951;color:#fff}
+
+/* Discord-like bot account chip and profile editor. */
+.dc-account-trigger{width:100%;border:0;text-align:left;color:inherit;font:inherit;cursor:pointer;border-radius:6px;transition:background .15s ease}
+.dc-account-trigger:hover{background:#303137}
+.dc-account-trigger:focus-visible{outline:2px solid #7b83ee;outline-offset:-2px}
+.dc-account-avatar img{width:32px;height:32px;display:block;object-fit:cover;border-radius:50%}
+.dc-account-avatar .dc-account-status-dot{width:11px;height:11px;right:-1px;bottom:-1px;border:2px solid #232428;border-radius:50%;background:#23a559}
+.dc-account-status-dot.dc-status-idle{background:#f0b232}
+.dc-account-status-dot.dc-status-dnd{background:#ed4245}
+.dc-account-status-dot.dc-status-invisible{background:#747f8d}
+.dc-account-name small{display:block;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#aeb4bf;line-height:1.35}
+.dc-account-open{margin-left:auto;color:#8f96a3;font-size:16px;flex:0 0 auto}
+.dc-bot-profile-card{width:min(660px,100%)}
+.dc-bot-profile-body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;padding:18px 22px 22px;overflow:auto}
+.dc-bot-profile-body>.dc-bot-profile-avatar-row,.dc-bot-profile-body>.dc-settings-field.wide,.dc-bot-profile-note,.dc-bot-profile-body>.dc-settings-status,.dc-bot-profile-body>.dc-settings-footer{grid-column:1/-1}
+.dc-bot-profile-avatar-row{display:flex;align-items:center;gap:13px;flex-wrap:wrap;padding:2px 0 7px}
+.dc-bot-profile-avatar-row img{width:68px;height:68px;border-radius:50%;object-fit:cover;background:#30333b;border:2px solid #454a55}
+.dc-bot-profile-avatar-row img[hidden]{display:none}
+.dc-bot-profile-upload{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border-radius:6px;background:#394052;color:#eef0f5;font-size:11px;font-weight:700;cursor:pointer}
+.dc-bot-profile-upload:hover{background:#46506a}
+.dc-bot-profile-upload input{display:none}
+.dc-bot-profile-avatar-row small{width:100%;margin-left:81px;margin-top:-10px;color:#929aa8;font-size:9px}
+.dc-bot-profile-body .dc-settings-field{display:grid;gap:7px;color:#c5c9d1;font-size:11px;font-weight:700;min-width:0}
+.dc-bot-profile-body .dc-settings-field input,.dc-bot-profile-body .dc-settings-field textarea,.dc-bot-profile-body .dc-settings-field select{box-sizing:border-box;width:100%;min-height:39px;border:1px solid #3d414c;border-radius:6px;background:#17191f;color:#f1f2f4;padding:9px 11px;font:12px inherit;outline:none}
+.dc-bot-profile-body .dc-settings-field textarea{min-height:90px;resize:vertical;line-height:1.5}
+.dc-bot-profile-body .dc-settings-field input:focus,.dc-bot-profile-body .dc-settings-field textarea:focus,.dc-bot-profile-body .dc-settings-field select:focus{border-color:#7b83ee;box-shadow:0 0 0 2px #5865f233}
+.dc-bot-profile-body .dc-settings-field input:disabled{opacity:.55;cursor:not-allowed}
+.dc-bot-profile-body .dc-settings-field small{font-size:9px;color:#949baa;font-weight:400;line-height:1.4}
+.dc-bot-profile-note{margin:0;padding:10px 11px;border:1px solid #45414f;border-radius:6px;background:#292630;color:#bbb4c9;font-size:10px;line-height:1.5}
+@media(max-width:600px){.dc-bot-profile-body{grid-template-columns:1fr;padding:14px}.dc-bot-profile-body>.dc-settings-field.wide{grid-column:auto}.dc-bot-profile-body>.dc-bot-profile-avatar-row,.dc-bot-profile-note,.dc-bot-profile-body>.dc-settings-status,.dc-bot-profile-body>.dc-settings-footer{grid-column:1}.dc-bot-profile-card{max-height:96vh}}
