@@ -1180,7 +1180,7 @@ async function dcOpenBotProfileSettings(){
         <option value="none">Не показывать активность</option><option value="playing">Играет</option><option value="listening">Слушает</option><option value="watching">Смотрит</option><option value="competing">Соревнуется</option>
       </select></label>
       <label class="dc-settings-field">Текст активности<input id="dcBotProfileActivityText" maxlength="128" placeholder="Например: GastWorld"></label>
-      <label class="dc-settings-field wide">О себе / описание профиля<textarea id="dcBotProfileAbout" rows="4" maxlength="4000" placeholder="Расскажи о боте…"></textarea><small>Это описание приложения Discord, которое отображается в профиле бота.</small></label>
+      <label class="dc-settings-field wide">О себе / описание профиля<textarea id="dcBotProfileAbout" rows="4" maxlength="400" placeholder="Расскажи о боте…"></textarea><small>Это описание приложения Discord, которое отображается в профиле бота.</small></label>
       <p class="dc-bot-profile-note">Discord не разрешает ботам устанавливать пользовательский статус с эмодзи и произвольной фразой, как у обычного аккаунта. Вместо этого здесь настраивается активность.</p>
       <div class="dc-settings-status" id="dcBotProfileStatusMessage" role="status"></div>
       <div class="dc-settings-footer"><button type="button" class="dc-settings-cancel" data-close>Отмена</button><button type="button" class="dc-settings-save" id="dcBotProfileSave">Сохранить изменения</button></div>
