@@ -1194,7 +1194,11 @@ function dcRenderGuildMembers(){
     items.forEach(member=>{
       const button=document.createElement("button");button.type="button";button.className="dc-member dc-member-button";button.title=(member.global_name||member.username)+" · @"+member.username;
       const avatar=document.createElement("span");avatar.className="dc-member-avatar-wrap";avatar.innerHTML=dcAvatar(member,"dc-member-avatar");const status=document.createElement("i");status.className="dc-status-dot "+dcStatusClass(member.status);avatar.append(status);button.append(avatar);
-      const info=document.createElement("span");info.className="dc-member-copy";const name=document.createElement("strong");name.textContent=member.global_name||member.username;const handle=document.createElement("small");handle.textContent="@"+member.username;info.append(name,handle);button.append(info);
+      const info=document.createElement("span");info.className="dc-member-copy";const name=document.createElement("strong");name.textContent=member.global_name||member.username;
+      const assignedRoleIds=new Set((member.role_ids||[]).map(id=>String(id)));
+      const highestColoredRole=[...(dcMemberRoleCache||[])].filter(role=>assignedRoleIds.has(String(role.id))&&role.color_hex).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0))[0];
+      if(highestColoredRole?.color_hex)name.style.color=highestColoredRole.color_hex;
+      const handle=document.createElement("small");handle.textContent="@"+member.username;info.append(name,handle);button.append(info);
       button.addEventListener("click",()=>dcOpenProfile(member));root.append(button);
     });
   };
