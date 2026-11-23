@@ -187,6 +187,13 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS tiktok_videos (
 cursor.execute("DELETE FROM pending_requests WHERE request_type = 'points'")
 cursor.execute("""CREATE TABLE IF NOT EXISTS support_tickets (channel_id TEXT PRIMARY KEY,guild_id TEXT NOT NULL,user_id TEXT NOT NULL,username TEXT NOT NULL,subject TEXT NOT NULL,description TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'open',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,closed_by TEXT)""")
 cursor.execute("""CREATE TABLE IF NOT EXISTS support_ticket_config (guild_id TEXT PRIMARY KEY,category_id TEXT,panel_channel_id TEXT,panel_message_id TEXT,accepting INTEGER NOT NULL DEFAULT 1)""")
+cursor.execute("""CREATE TABLE IF NOT EXISTS bot_profile_settings (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    status TEXT NOT NULL DEFAULT 'online',
+    activity_type TEXT NOT NULL DEFAULT 'playing',
+    activity_text TEXT NOT NULL DEFAULT '/shop | модерация'
+)""")
+cursor.execute("INSERT OR IGNORE INTO bot_profile_settings (id, status, activity_type, activity_text) VALUES (1, 'online', 'playing', '/shop | модерация')")
 try:
     cursor.execute("ALTER TABLE support_ticket_config ADD COLUMN accepting INTEGER NOT NULL DEFAULT 1")
 except sqlite3.OperationalError:
@@ -2329,6 +2336,46 @@ def audit_primary_guild_configuration(guild: discord.Guild) -> None:
         print(f"⚠️ [ПРОВЕРКА ПЕРЕНОСА] Не найдены ID каналов/категорий: {missing_channels}", flush=True)
 
 
+
+def get_bot_profile_settings():
+    row = conn.execute(
+        "SELECT status, activity_type, activity_text FROM bot_profile_settings WHERE id = 1"
+    ).fetchone()
+    if not row:
+        return {"status": "online", "activity_type": "playing", "activity_text": "/shop | модерация"}
+    return {"status": row[0], "activity_type": row[1], "activity_text": row[2]}
+
+
+def build_bot_activity(activity_type, activity_text):
+    text = str(activity_text or "").strip()
+    if activity_type == "none" or not text:
+        return None
+    if activity_type == "playing":
+        return discord.Game(name=text)
+    activity_types = {
+        "listening": discord.ActivityType.listening,
+        "watching": discord.ActivityType.watching,
+        "competing": discord.ActivityType.competing,
+    }
+    kind = activity_types.get(activity_type)
+    if kind is None:
+        raise ValueError("Неизвестный тип активности.")
+    return discord.Activity(type=kind, name=text)
+
+
+async def apply_bot_profile_presence():
+    settings = get_bot_profile_settings()
+    statuses = {
+        "online": discord.Status.online,
+        "idle": discord.Status.idle,
+        "dnd": discord.Status.dnd,
+        "invisible": discord.Status.invisible,
+    }
+    status = statuses.get(settings["status"], discord.Status.online)
+    activity = build_bot_activity(settings["activity_type"], settings["activity_text"])
+    await bot.change_presence(status=status, activity=activity)
+
+
 # ================== ЗАПУСК ==================
 @bot.event
 async def on_ready():
@@ -2421,7 +2468,7 @@ async def on_ready():
     except Exception as e:
         print(f'❌ Ошибка удаления глобальных команд: {e}')
 
-    await bot.change_presence(activity=discord.Game(name='/shop | модерация'))
+    await apply_bot_profile_presence()
 
 
 
@@ -3181,6 +3228,97 @@ async def panel_dm_send(user_id, content, files=None):
     message=await channel.send(content or None, files=discord_files, allowed_mentions=discord.AllowedMentions.none())
     return {'ok':True,'message':{'id':str(message.id),'content':message.content,'created_at':message.created_at.isoformat(),'author':await panel_dm_user_payload(message.author),'attachments':[{'filename':item.filename,'url':item.url,'content_type':item.content_type or ''} for item in message.attachments],'embeds':[]}}
 
+
+async def panel_bot_profile(user_override=None):
+    if not bot.is_ready() or bot.user is None:
+        raise RuntimeError("Discord-бот ещё подключается.")
+    application = await bot.application_info()
+    settings = get_bot_profile_settings()
+    user = user_override or bot.user
+    return {
+        "bot": await panel_dm_user_payload(user),
+        "status": settings["status"],
+        "activity_type": settings["activity_type"],
+        "activity_text": settings["activity_text"],
+        "about": str(application.description or ""),
+    }
+
+
+async def panel_bot_profile_update(payload):
+    if not bot.is_ready() or bot.user is None:
+        raise RuntimeError("Discord-бот ещё подключается.")
+    if not isinstance(payload, dict):
+        raise ValueError("Некорректные настройки профиля.")
+
+    username = str(payload.get("username") or "").strip()
+    if not 2 <= len(username) <= 32:
+        raise ValueError("Имя бота должно содержать от 2 до 32 символов.")
+    lowered = username.casefold()
+    if any(char in username for char in ("@", "#", ":")) or "discord" in lowered or lowered in {"everyone", "here"}:
+        raise ValueError("Это имя нельзя использовать в Discord.")
+
+    status = str(payload.get("status") or "online").strip().lower()
+    if status not in {"online", "idle", "dnd", "invisible"}:
+        raise ValueError("Недопустимый статус бота.")
+    activity_type = str(payload.get("activity_type") or "none").strip().lower()
+    if activity_type not in {"none", "playing", "listening", "watching", "competing"}:
+        raise ValueError("Недопустимый тип активности.")
+    activity_text = str(payload.get("activity_text") or "").strip()
+    if len(activity_text) > 128:
+        raise ValueError("Текст активности не должен превышать 128 символов.")
+    if activity_type != "none" and not activity_text:
+        raise ValueError("Укажи текст для выбранной активности.")
+
+    about = str(payload.get("about") or "").strip()
+    if len(about) > 4000:
+        raise ValueError("Описание профиля не должно превышать 4000 символов.")
+
+    user_kwargs = {}
+    if username != str(bot.user.name):
+        user_kwargs["username"] = username
+
+    avatar_data = payload.get("avatar_data")
+    if avatar_data:
+        import base64
+        if not isinstance(avatar_data, str) or len(avatar_data) > 12 * 1024 * 1024:
+            raise ValueError("Файл аватара слишком большой.")
+        try:
+            header, encoded = avatar_data.split(",", 1)
+            mime = header.partition(":")[2].partition(";")[0].lower()
+            if mime not in {"image/png", "image/jpeg", "image/gif"} or not header.lower().endswith(";base64"):
+                raise ValueError("Аватар должен быть изображением PNG, JPG или GIF.")
+            image_bytes = base64.b64decode(encoded, validate=True)
+        except (ValueError, TypeError):
+            raise ValueError("Не удалось прочитать изображение аватара.")
+        if not image_bytes or len(image_bytes) > 8 * 1024 * 1024:
+            raise ValueError("Размер аватара должен быть не больше 8 МБ.")
+        user_kwargs["avatar"] = image_bytes
+
+    updated_user = bot.user
+    if user_kwargs:
+        updated_user = await bot.user.edit(**user_kwargs)
+
+    application = await bot.application_info()
+    if str(application.description or "") != about:
+        await application.edit(description=about or None)
+
+    statuses = {
+        "online": discord.Status.online,
+        "idle": discord.Status.idle,
+        "dnd": discord.Status.dnd,
+        "invisible": discord.Status.invisible,
+    }
+    activity = build_bot_activity(activity_type, activity_text)
+    await bot.change_presence(status=statuses[status], activity=activity)
+
+    conn.execute(
+        "UPDATE bot_profile_settings SET status = ?, activity_type = ?, activity_text = ? WHERE id = 1",
+        (status, activity_type, activity_text),
+    )
+    conn.commit()
+    return await panel_bot_profile(updated_user)
+
+
 async def panel_guild_list():
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
@@ -3863,6 +4001,8 @@ async def run_services():
         "dm_search": panel_dm_search,
         "dm_history": panel_dm_history,
         "dm_send": panel_dm_send,
+        "bot_profile": panel_bot_profile,
+        "bot_profile_update": panel_bot_profile_update,
         "discord_guilds": panel_guild_list,
         "discord_settings": panel_guild_settings,
         "discord_settings_update": panel_guild_settings_update,
