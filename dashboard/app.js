@@ -1218,6 +1218,7 @@ function dcApplyRoleColor(element,role,asText=false){
   const mode=dcAccessibilityPrefs.roleColorMode||"name";
   if(mode==="none"||(asText&&mode==="dot")){element.style.color="";element.style.background="";element.style.backgroundImage="none";element.style.backgroundClip="";element.style.webkitBackgroundClip="";element.style.webkitTextFillColor="";element.classList.remove("dc-holographic-text");return;}
   const background=dcRoleStyleBackground(role);
+  element.classList.toggle("dc-role-color-holographic",!asText&&role.style==="holographic"&&!dcAccessibilityPrefs.reducedMotion);
   if(asText&&mode==="name"&&role.style!=="solid"){
     element.style.color="transparent";element.style.background="";element.style.backgroundImage=background;element.style.backgroundClip="text";element.style.webkitBackgroundClip="text";element.style.webkitTextFillColor="transparent";
     if(role.style==="holographic"&&!dcAccessibilityPrefs.reducedMotion)element.classList.add("dc-holographic-text");else element.classList.remove("dc-holographic-text");
