@@ -3172,6 +3172,231 @@ async def panel_guild_list():
     return {"guilds": guilds, "bot": await panel_dm_user_payload(bot.user) if bot.user else None}
 
 
+async def panel_fetch_guild_member(guild, user_id):
+    member = guild.get_member(int(user_id))
+    if member is None:
+        try:
+            member = await guild.fetch_member(int(user_id))
+        except discord.NotFound:
+            raise PermissionError("Пользователь больше не состоит на этом сервере.")
+    return member
+
+
+def panel_role_management_context(guild, actor_member, bot_member, role=None):
+    actor_perms = actor_member.guild_permissions
+    bot_perms = bot_member.guild_permissions
+    actor_can_manage = actor_member.id == guild.owner_id or actor_perms.administrator or actor_perms.manage_roles
+    bot_can_manage = bot_perms.administrator or bot_perms.manage_roles
+    if not actor_can_manage:
+        raise PermissionError("Нужно право «Управлять ролями» у твоей Discord-роли.")
+    if not bot_can_manage:
+        raise PermissionError("У бота нет права «Управлять ролями».")
+    if role is not None:
+        if role.is_default() or role.managed:
+            raise PermissionError("Роль @everyone и роли интеграций нельзя редактировать вручную.")
+        if actor_member.id != guild.owner_id and role >= actor_member.top_role:
+            raise PermissionError("Нельзя изменять роли на уровне твоей высшей роли или выше.")
+        if role >= bot_member.top_role:
+            raise PermissionError("Роль бота должна быть выше роли, которую нужно изменить.")
+    return actor_perms, bot_perms
+
+
+def panel_build_role_permissions(raw, actor_perms, bot_perms):
+    if not isinstance(raw, dict):
+        raise ValueError("Права роли должны быть объектом.")
+    valid = set(discord.Permissions.VALID_FLAGS)
+    unknown = set(raw) - valid
+    if unknown:
+        raise ValueError("Неизвестное право Discord: " + ", ".join(sorted(unknown)[:5]))
+    permissions = discord.Permissions.none()
+    for key, enabled in raw.items():
+        if not isinstance(enabled, bool):
+            raise ValueError("Значения разрешений должны быть true/false.")
+        setattr(permissions, key, enabled)
+    if not actor_perms.administrator and not actor_perms.is_superset(permissions):
+        raise PermissionError("Нельзя выдать права, которых нет у твоей Discord-роли.")
+    if not bot_perms.administrator and not bot_perms.is_superset(permissions):
+        raise PermissionError("Бот не обладает частью запрошенных прав и не может назначить их этой роли.")
+    return permissions
+
+
+def panel_role_payload(guild, role, actor_member, bot_member):
+    actor_perms = actor_member.guild_permissions
+    bot_perms = bot_member.guild_permissions
+    actor_allowed = actor_member.id == guild.owner_id or actor_perms.administrator or actor_perms.manage_roles
+    bot_allowed = bot_perms.administrator or bot_perms.manage_roles
+    hierarchy_allowed = (
+        not role.is_default()
+        and not role.managed
+        and (actor_member.id == guild.owner_id or role < actor_member.top_role)
+        and role < bot_member.top_role
+    )
+    return {
+        "id": str(role.id),
+        "name": role.name,
+        "color": f"#{role.color.value:06x}",
+        "color_value": int(role.color.value),
+        "position": int(role.position),
+        "hoist": bool(role.hoist),
+        "mentionable": bool(role.mentionable),
+        "managed": bool(role.managed),
+        "is_default": bool(role.is_default()),
+        "icon_url": str(role.icon.url) if getattr(role, "icon", None) else "",
+        "unicode_emoji": getattr(role, "unicode_emoji", None),
+        "permissions": {key: bool(getattr(role.permissions, key)) for key in discord.Permissions.VALID_FLAGS},
+        "editable": bool(actor_allowed and bot_allowed and hierarchy_allowed),
+        "managed_by_integration": bool(role.managed),
+    }
+
+
+async def panel_guild_roles(guild_id, actor_id):
+    if not bot.is_ready() or not str(guild_id).isdigit() or not str(actor_id).isdigit():
+        raise ValueError("Некорректный ID сервера или пользователя.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден среди серверов, где состоит бот.")
+    actor_member = await panel_fetch_guild_member(guild, actor_id)
+    bot_member = guild.me or guild.get_member(bot.user.id)
+    if bot_member is None:
+        raise RuntimeError("Не удалось определить участника-бота на сервере.")
+    actor_perms = actor_member.guild_permissions
+    bot_perms = bot_member.guild_permissions
+    can_manage = actor_member.id == guild.owner_id or actor_perms.administrator or actor_perms.manage_roles
+    bot_can_manage = bot_perms.administrator or bot_perms.manage_roles
+    manageable_permission_keys = []
+    if can_manage and bot_can_manage:
+        for key in discord.Permissions.VALID_FLAGS:
+            probe = discord.Permissions.none()
+            setattr(probe, key, True)
+            actor_ok = actor_perms.administrator or actor_perms.is_superset(probe)
+            bot_ok = bot_perms.administrator or bot_perms.is_superset(probe)
+            if actor_ok and bot_ok:
+                manageable_permission_keys.append(key)
+    roles = [
+        panel_role_payload(guild, role, actor_member, bot_member)
+        for role in sorted(guild.roles, key=lambda item: item.position, reverse=True)
+    ]
+    return {
+        "guild": {"id": str(guild.id), "name": guild.name},
+        "roles": roles,
+        "can_create": bool(can_manage and bot_can_manage),
+        "actor_can_manage": bool(can_manage),
+        "bot_can_manage": bool(bot_can_manage),
+        "manageable_permission_keys": manageable_permission_keys,
+    }
+
+
+async def panel_guild_role_create(guild_id, actor_id, payload):
+    if not bot.is_ready() or not str(guild_id).isdigit() or not str(actor_id).isdigit():
+        raise ValueError("Некорректный ID сервера или пользователя.")
+    if not isinstance(payload, dict):
+        raise ValueError("Некорректные данные новой роли.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден.")
+    actor_member = await panel_fetch_guild_member(guild, actor_id)
+    bot_member = guild.me or guild.get_member(bot.user.id)
+    if bot_member is None:
+        raise RuntimeError("Не удалось определить участника-бота.")
+    actor_perms, bot_perms = panel_role_management_context(guild, actor_member, bot_member)
+    allowed = {"name", "color", "hoist", "mentionable", "permissions"}
+    if set(payload) - allowed:
+        raise ValueError("Переданы неизвестные параметры роли.")
+    name = str(payload.get("name") or "Новая роль").strip()
+    if not name or len(name) > 100:
+        raise ValueError("Название роли должно содержать от 1 до 100 символов.")
+    raw_color = str(payload.get("color") or "#000000").strip().lstrip("#")
+    if not re.fullmatch(r"[0-9a-fA-F]{6}", raw_color):
+        raise ValueError("Цвет роли должен быть в формате #RRGGBB.")
+    hoist = payload.get("hoist", False)
+    mentionable = payload.get("mentionable", False)
+    if not isinstance(hoist, bool) or not isinstance(mentionable, bool):
+        raise ValueError("Параметры показа и упоминания роли должны быть true/false.")
+    permissions = panel_build_role_permissions(payload.get("permissions", {}), actor_perms, bot_perms)
+    role = await guild.create_role(
+        name=name,
+        colour=discord.Colour(int(raw_color, 16)),
+        hoist=hoist,
+        mentionable=mentionable,
+        permissions=permissions,
+        reason="GastWorld Control Panel",
+    )
+    return {"ok": True, "role": panel_role_payload(guild, role, actor_member, bot_member)}
+
+
+async def panel_guild_role_update(guild_id, actor_id, role_id, payload):
+    if not bot.is_ready() or not all(str(value).isdigit() for value in (guild_id, actor_id, role_id)):
+        raise ValueError("Некорректный ID сервера, пользователя или роли.")
+    if not isinstance(payload, dict):
+        raise ValueError("Некорректные данные роли.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден.")
+    role = guild.get_role(int(role_id))
+    if role is None:
+        raise ValueError("Роль не найдена.")
+    actor_member = await panel_fetch_guild_member(guild, actor_id)
+    bot_member = guild.me or guild.get_member(bot.user.id)
+    if bot_member is None:
+        raise RuntimeError("Не удалось определить участника-бота.")
+    actor_perms, bot_perms = panel_role_management_context(guild, actor_member, bot_member, role)
+    allowed = {"name", "color", "hoist", "mentionable", "permissions", "position"}
+    if set(payload) - allowed:
+        raise ValueError("Переданы неизвестные параметры роли.")
+    changes = {}
+    if "name" in payload:
+        name = str(payload["name"] or "").strip()
+        if not name or len(name) > 100:
+            raise ValueError("Название роли должно содержать от 1 до 100 символов.")
+        changes["name"] = name
+    if "color" in payload:
+        raw_color = str(payload["color"] or "").strip().lstrip("#")
+        if not re.fullmatch(r"[0-9a-fA-F]{6}", raw_color):
+            raise ValueError("Цвет роли должен быть в формате #RRGGBB.")
+        changes["colour"] = discord.Colour(int(raw_color, 16))
+    for key in ("hoist", "mentionable"):
+        if key in payload:
+            if not isinstance(payload[key], bool):
+                raise ValueError(f"Параметр {key} должен быть true/false.")
+            changes[key] = payload[key]
+    if "permissions" in payload:
+        changes["permissions"] = panel_build_role_permissions(payload["permissions"], actor_perms, bot_perms)
+    if "position" in payload:
+        try:
+            position = int(payload["position"])
+        except (TypeError, ValueError):
+            raise ValueError("Позиция роли должна быть целым числом.")
+        maximum = min(actor_member.top_role.position - 1 if actor_member.id != guild.owner_id else bot_member.top_role.position - 1, bot_member.top_role.position - 1)
+        if position < 1 or position > maximum:
+            raise ValueError("Позиция должна быть ниже высшей роли администратора и бота.")
+        changes["position"] = position
+    if not changes:
+        raise ValueError("Нет изменений для сохранения.")
+    await role.edit(**changes, reason="GastWorld Control Panel")
+    refreshed_actor = guild.get_member(int(actor_id)) or actor_member
+    refreshed_bot = guild.me or bot_member
+    updated = guild.get_role(role.id) or role
+    return {"ok": True, "role": panel_role_payload(guild, updated, refreshed_actor, refreshed_bot)}
+
+
+async def panel_guild_role_delete(guild_id, actor_id, role_id):
+    if not bot.is_ready() or not all(str(value).isdigit() for value in (guild_id, actor_id, role_id)):
+        raise ValueError("Некорректный ID сервера, пользователя или роли.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден.")
+    role = guild.get_role(int(role_id))
+    if role is None:
+        raise ValueError("Роль не найдена.")
+    actor_member = await panel_fetch_guild_member(guild, actor_id)
+    bot_member = guild.me or guild.get_member(bot.user.id)
+    if bot_member is None:
+        raise RuntimeError("Не удалось определить участника-бота.")
+    panel_role_management_context(guild, actor_member, bot_member, role)
+    await role.delete(reason="GastWorld Control Panel")
+    return {"ok": True, "deleted_role_id": str(role_id)}
+
+
 async def panel_guild_settings_payload(guild, actor_member=None):
     me = guild.me or guild.get_member(bot.user.id)
     text_channels = [
@@ -3322,7 +3547,7 @@ async def panel_guild_settings_update(guild_id, actor_id, payload):
     return await panel_guild_settings_payload(guild, refreshed_actor)
 
 
-async def panel_guild_members(guild_id):
+async def panel_guild_members(guild_id, actor_id=None):
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
     if not str(guild_id).isdigit():
@@ -3331,13 +3556,23 @@ async def panel_guild_members(guild_id):
     if guild is None:
         raise ValueError("Сервер не найден среди серверов, где состоит бот.")
     me = guild.me or guild.get_member(bot.user.id)
+    actor_member = None
+    if actor_id is not None:
+        actor_member = await panel_fetch_guild_member(guild, actor_id)
+    actor_can_manage = bool(actor_member and (actor_member.id == guild.owner_id or actor_member.guild_permissions.administrator or actor_member.guild_permissions.manage_roles))
     roles = [{
         "id": str(role.id),
         "name": role.name,
         "position": int(role.position),
         "hoist": bool(role.hoist),
         "managed": bool(role.managed),
-        "manageable": bool(me and me.guild_permissions.manage_roles and not role.managed and role < me.top_role),
+        "manageable": bool(
+            me and (me.guild_permissions.administrator or me.guild_permissions.manage_roles)
+            and actor_can_manage
+            and not role.managed and role.id != guild.default_role.id
+            and role < me.top_role
+            and (actor_member.id == guild.owner_id or role < actor_member.top_role)
+        ),
         "color_hex": f"#{role.color.value:06x}" if role.color.value else "",
     } for role in sorted(guild.roles, key=lambda item: item.position, reverse=True) if role.id != guild.default_role.id]
     members = []
@@ -3381,7 +3616,7 @@ async def panel_guild_presence(guild_id):
     return {"members": members, "online_count": sum(1 for item in members if item["status"] != "offline")}
 
 
-async def panel_member_role(guild_id, member_id, role_id, action):
+async def panel_member_role(guild_id, member_id, role_id, action, actor_id=None):
     if not bot.is_ready() or not all(str(value).isdigit() for value in (guild_id, member_id, role_id)):
         raise ValueError("Некорректный ID сервера, участника или роли.")
     guild = bot.get_guild(int(guild_id))
@@ -3390,12 +3625,19 @@ async def panel_member_role(guild_id, member_id, role_id, action):
     target = guild.get_member(int(member_id)) or await guild.fetch_member(int(member_id))
     role = guild.get_role(int(role_id))
     me = guild.me or guild.get_member(bot.user.id)
+    actor_member = await panel_fetch_guild_member(guild, actor_id) if actor_id is not None else None
     if role is None or role.is_default() or role.managed:
         raise ValueError("Эту роль нельзя выдать или снять вручную.")
     if me is None or not me.guild_permissions.manage_roles:
         raise PermissionError("У бота нет разрешения «Управлять ролями».")
     if role >= me.top_role:
         raise PermissionError("Роль находится выше или на одном уровне с высшей ролью бота.")
+    if actor_member is not None:
+        actor_perms = actor_member.guild_permissions
+        if actor_member.id != guild.owner_id and not (actor_perms.administrator or actor_perms.manage_roles):
+            raise PermissionError("У тебя нет права «Управлять ролями».")
+        if actor_member.id != guild.owner_id and role >= actor_member.top_role:
+            raise PermissionError("Нельзя управлять ролью на уровне твоей высшей роли или выше.")
     if target.top_role >= me.top_role and target.id != me.id:
         raise PermissionError("Нельзя менять роли участника с равной или более высокой ролью.")
     if action == "add":
@@ -3519,6 +3761,10 @@ async def run_services():
         "discord_guilds": panel_guild_list,
         "discord_settings": panel_guild_settings,
         "discord_settings_update": panel_guild_settings_update,
+        "discord_roles": panel_guild_roles,
+        "discord_role_create": panel_guild_role_create,
+        "discord_role_update": panel_guild_role_update,
+        "discord_role_delete": panel_guild_role_delete,
         "discord_members": panel_guild_members,
         "discord_presence": panel_guild_presence,
         "discord_member_role": panel_member_role,
