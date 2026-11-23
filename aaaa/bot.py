@@ -3240,6 +3240,9 @@ def panel_role_payload(guild, role, actor_member, bot_member):
         "name": role.name,
         "color": f"#{role.color.value:06x}",
         "color_value": int(role.color.value),
+        "secondary_color": f"#{role.secondary_color.value:06x}" if getattr(role, "secondary_color", None) else None,
+        "tertiary_color": f"#{role.tertiary_color.value:06x}" if getattr(role, "tertiary_color", None) else None,
+        "style": "holographic" if getattr(role, "tertiary_color", None) else ("gradient" if getattr(role, "secondary_color", None) else "solid"),
         "position": int(role.position),
         "max_position": max(1, min(
             bot_member.top_role.position - 1,
@@ -3285,7 +3288,8 @@ async def panel_guild_roles(guild_id, actor_id):
         for role in sorted(guild.roles, key=lambda item: item.position, reverse=True)
     ]
     return {
-        "guild": {"id": str(guild.id), "name": guild.name},
+        "guild": {"id": str(guild.id), "name": guild.name, "enhanced_role_styles_enabled": "ENHANCED_ROLE_COLORS" in guild.features, "features": list(guild.features or [])},
+        "enhanced_role_styles_enabled": "ENHANCED_ROLE_COLORS" in guild.features,
         "roles": roles,
         "can_create": bool(can_manage and bot_can_manage),
         "actor_can_manage": bool(can_manage),
@@ -3307,7 +3311,7 @@ async def panel_guild_role_create(guild_id, actor_id, payload):
     if bot_member is None:
         raise RuntimeError("Не удалось определить участника-бота.")
     actor_perms, bot_perms = panel_role_management_context(guild, actor_member, bot_member)
-    allowed = {"name", "color", "hoist", "mentionable", "permissions"}
+    allowed = {"name", "color", "style", "secondary_color", "hoist", "mentionable", "permissions"}
     if set(payload) - allowed:
         raise ValueError("Переданы неизвестные параметры роли.")
     name = str(payload.get("name") or "Новая роль").strip()
@@ -3320,15 +3324,36 @@ async def panel_guild_role_create(guild_id, actor_id, payload):
     mentionable = payload.get("mentionable", False)
     if not isinstance(hoist, bool) or not isinstance(mentionable, bool):
         raise ValueError("Параметры показа и упоминания роли должны быть true/false.")
+    role_style = str(payload.get("style") or "solid").lower()
+    if role_style not in {"solid", "gradient", "holographic"}:
+        raise ValueError("Неизвестный стиль роли.")
+    if role_style != "solid" and "ENHANCED_ROLE_COLORS" not in guild.features:
+        raise PermissionError("Градиентные и голографические роли требуют включённой функции Enhanced Role Styles (3 буста сервера).")
+    secondary_color = None
+    tertiary_color = None
+    if role_style == "gradient":
+        raw_secondary = str(payload.get("secondary_color") or "").strip().lstrip("#")
+        if not re.fullmatch(r"[0-9a-fA-F]{6}", raw_secondary):
+            raise ValueError("Для градиента укажи второй цвет в формате #RRGGBB.")
+        secondary_color = discord.Colour(int(raw_secondary, 16))
+    elif role_style == "holographic":
+        raw_color = "A9C9FF"
+        secondary_color = discord.Colour(0xFFBBEC)
+        tertiary_color = discord.Colour(0xFFC3A0)
     permissions = panel_build_role_permissions(payload.get("permissions", {}), actor_perms, bot_perms)
-    role = await guild.create_role(
-        name=name,
-        colour=discord.Colour(int(raw_color, 16)),
-        hoist=hoist,
-        mentionable=mentionable,
-        permissions=permissions,
-        reason="GastWorld Control Panel",
-    )
+    role_kwargs = {
+        "name": name,
+        "colour": discord.Colour(int(raw_color, 16)),
+        "hoist": hoist,
+        "mentionable": mentionable,
+        "permissions": permissions,
+        "reason": "GastWorld Control Panel",
+    }
+    if role_style in {"gradient", "holographic"}:
+        role_kwargs["secondary_colour"] = secondary_color
+    if role_style == "holographic":
+        role_kwargs["tertiary_colour"] = tertiary_color
+    role = await guild.create_role(**role_kwargs)
     return {"ok": True, "role": panel_role_payload(guild, role, actor_member, bot_member)}
 
 
@@ -3348,7 +3373,7 @@ async def panel_guild_role_update(guild_id, actor_id, role_id, payload):
     if bot_member is None:
         raise RuntimeError("Не удалось определить участника-бота.")
     actor_perms, bot_perms = panel_role_management_context(guild, actor_member, bot_member, role)
-    allowed = {"permissions"} if role.is_default() else {"name", "color", "hoist", "mentionable", "permissions", "position"}
+    allowed = {"permissions"} if role.is_default() else {"name", "color", "style", "secondary_color", "hoist", "mentionable", "permissions", "position"}
     if set(payload) - allowed:
         raise ValueError("Роль @everyone позволяет изменять только серверные разрешения." if role.is_default() else "Переданы неизвестные параметры роли.")
     changes = {}
@@ -3362,6 +3387,25 @@ async def panel_guild_role_update(guild_id, actor_id, role_id, payload):
         if not re.fullmatch(r"[0-9a-fA-F]{6}", raw_color):
             raise ValueError("Цвет роли должен быть в формате #RRGGBB.")
         changes["colour"] = discord.Colour(int(raw_color, 16))
+    if "style" in payload or "secondary_color" in payload:
+        role_style = str(payload.get("style") or ("holographic" if role.tertiary_color else ("gradient" if role.secondary_color else "solid"))).lower()
+        if role_style not in {"solid", "gradient", "holographic"}:
+            raise ValueError("Неизвестный стиль роли.")
+        if role_style != "solid" and "ENHANCED_ROLE_COLORS" not in guild.features:
+            raise PermissionError("Градиентные и голографические роли требуют включённой функции Enhanced Role Styles (3 буста сервера).")
+        if role_style == "solid":
+            changes["secondary_colour"] = None
+            changes["tertiary_colour"] = None
+        elif role_style == "gradient":
+            raw_secondary = str(payload.get("secondary_color") or "").strip().lstrip("#")
+            if not re.fullmatch(r"[0-9a-fA-F]{6}", raw_secondary):
+                raise ValueError("Для градиента укажи второй цвет в формате #RRGGBB.")
+            changes["secondary_colour"] = discord.Colour(int(raw_secondary, 16))
+            changes["tertiary_colour"] = None
+        else:
+            changes["colour"] = discord.Colour(0xA9C9FF)
+            changes["secondary_colour"] = discord.Colour(0xFFBBEC)
+            changes["tertiary_colour"] = discord.Colour(0xFFC3A0)
     for key in ("hoist", "mentionable"):
         if key in payload:
             if not isinstance(payload[key], bool):
@@ -3582,6 +3626,9 @@ async def panel_guild_members(guild_id, actor_id=None):
             and (actor_member.id == guild.owner_id or role < actor_member.top_role)
         ),
         "color_hex": f"#{role.color.value:06x}" if role.color.value else "",
+        "secondary_color_hex": f"#{role.secondary_color.value:06x}" if getattr(role, "secondary_color", None) else "",
+        "tertiary_color_hex": f"#{role.tertiary_color.value:06x}" if getattr(role, "tertiary_color", None) else "",
+        "style": "holographic" if getattr(role, "tertiary_color", None) else ("gradient" if getattr(role, "secondary_color", None) else "solid"),
     } for role in sorted(guild.roles, key=lambda item: item.position, reverse=True) if role.id != guild.default_role.id]
     members = []
     try:
