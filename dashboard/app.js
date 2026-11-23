@@ -1781,7 +1781,61 @@ function loadBotDiscord(){
   });
   const attachButton=document.getElementById("dcAttachButton"),fileInput=document.getElementById("dcFileInput"),filePreview=document.getElementById("dcFilePreview");
   attachButton?.addEventListener("click",()=>fileInput?.click());
-  fileInput?.addEventListener("change",()=>{if(!filePreview)return;filePreview.replaceChildren();const files=Array.from(fileInput.files||[]);filePreview.hidden=!files.length;files.forEach(file=>{const chip=document.createElement("span");chip.textContent="📎 "+file.name+" · "+(file.size/1024/1024).toFixed(2)+" МБ";filePreview.append(chip);});});
+  let dcPreviewObjectUrls=[];
+  const renderComposerFiles=()=>{
+    if(!filePreview||!fileInput)return;
+    dcPreviewObjectUrls.forEach(url=>URL.revokeObjectURL(url));dcPreviewObjectUrls=[];
+    filePreview.replaceChildren();
+    const files=Array.from(fileInput.files||[]);
+    filePreview.hidden=!files.length;
+    files.forEach((file,index)=>{
+      const item=document.createElement("div");item.className="dc-file-preview-item";
+      if(file.type.startsWith("image/")){
+        const thumb=document.createElement("img");thumb.alt="";thumb.src=URL.createObjectURL(file);dcPreviewObjectUrls.push(thumb.src);item.append(thumb);
+      }else{
+        const glyph=document.createElement("span");glyph.className="dc-file-preview-glyph";glyph.textContent="📎";item.append(glyph);
+      }
+      const label=document.createElement("span");label.className="dc-file-preview-name";label.textContent=file.name+" · "+(file.size/1024/1024).toFixed(2)+" МБ";item.append(label);
+      const remove=document.createElement("button");remove.type="button";remove.className="dc-file-preview-remove";remove.title="Убрать вложение";remove.setAttribute("aria-label","Убрать "+file.name);remove.textContent="×";
+      remove.addEventListener("click",()=>{
+        const transfer=new DataTransfer();Array.from(fileInput.files||[]).forEach((entry,i)=>{if(i!==index)transfer.items.add(entry);});
+        fileInput.files=transfer.files;renderComposerFiles();
+      });
+      item.append(remove);filePreview.append(item);
+    });
+  };
+  const addComposerFiles=incoming=>{
+    if(!fileInput||!incoming.length)return;
+    const existing=Array.from(fileInput.files||[]),combined=[...existing,...incoming],unique=[],seen=new Set();
+    combined.forEach(file=>{
+      const signature=[file.name,file.size,file.type,file.lastModified].join("|");
+      if(!seen.has(signature)){seen.add(signature);unique.push(file);}
+    });
+    if(unique.length>10){if(hint)hint.textContent="Можно прикрепить не больше 10 файлов.";return;}
+    if(unique.some(file=>file.size>8*1024*1024)){if(hint)hint.textContent="Каждый файл должен быть не больше 8 МБ.";return;}
+    if(unique.reduce((sum,file)=>sum+file.size,0)>25*1024*1024){if(hint)hint.textContent="Общий размер файлов не должен превышать 25 МБ.";return;}
+    const transfer=new DataTransfer();unique.forEach(file=>transfer.items.add(file));fileInput.files=transfer.files;renderComposerFiles();
+    if(hint)hint.textContent="Добавлено вложений: "+unique.length+". Нажми ➤ для отправки.";
+  };
+  fileInput?.addEventListener("change",renderComposerFiles);
+  messageInput?.addEventListener("paste",event=>{
+    const clipboard=event.clipboardData;
+    if(!clipboard||messageInput.disabled||!fileInput)return;
+    const pasted=[];
+    Array.from(clipboard.items||[]).forEach(item=>{
+      if(item.kind!=="file")return;
+      const file=item.getAsFile();if(file)pasted.push(file);
+    });
+    Array.from(clipboard.files||[]).forEach(file=>pasted.push(file));
+    if(!pasted.length)return;
+    event.preventDefault();
+    const named=pasted.map((file,index)=>{
+      if(file.name)return file;
+      const extension=(file.type.split("/")[1]||"bin").replace(/[^a-z0-9.+-]/gi,"");
+      return new File([file],"clipboard-"+(Date.now())+"-"+index+"."+extension,{type:file.type||"application/octet-stream",lastModified:file.lastModified||Date.now()});
+    });
+    addComposerFiles(named);
+  });
   dcSetMode("dm");dcLoadConversationList();dcLoadGuilds();
   dcPollTimer=setInterval(()=>{if(!document.getElementById("dcDmList")){clearInterval(dcPollTimer);dcPollTimer=null;return;}if(dcActiveGuild){const guildId=dcActiveGuild.id;apiGet("/api/discord/guilds/"+encodeURIComponent(guildId)+"/presence").then(data=>{if(dcActiveGuild?.id!==guildId)return;const states=new Map((data.members||[]).map(item=>[String(item.id),item]));dcMemberCache=dcMemberCache.map(member=>({...member,...(states.get(String(member.id))||{})}));dcMemberCacheByGuild.set(guildId,dcMemberCache);dcRenderGuildMembers();}).catch(()=>{});}if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel,true);else if(dcActiveUser)dcOpenConversation(dcActiveUser,true);else if(!dcActiveGuild)dcLoadConversationList();},15000);
 }
