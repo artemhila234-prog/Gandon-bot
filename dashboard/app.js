@@ -1220,9 +1220,9 @@ function dcApplyAccessibilityPreferences(){
   app.classList.toggle("dc-reduced-motion",!!dcAccessibilityPrefs.reducedMotion);
 }
 function dcRoleStyleBackground(role){
-  const primary=role?.color_hex||role?.color||"#99AAB5";
-  const secondary=role?.secondary_color_hex||role?.secondary_color;
-  const tertiary=role?.tertiary_color_hex||role?.tertiary_color;
+  const primary=role?.color_hex||role?.color||(role?.style==="holographic"?"#A9C9FF":"#99AAB5");
+  const secondary=role?.secondary_color_hex||role?.secondary_color||(role?.style==="holographic"?"#FFBBEC":null);
+  const tertiary=role?.tertiary_color_hex||role?.tertiary_color||(role?.style==="holographic"?"#FFC3A0":null);
   if(role?.style==="holographic"&&secondary&&tertiary)return "linear-gradient(115deg,"+primary+" 0%,"+secondary+" 48%,"+tertiary+" 100%)";
   if(role?.style==="gradient"&&secondary)return "linear-gradient(110deg,"+primary+" 0%,"+secondary+" 100%)";
   return primary;
@@ -1230,9 +1230,11 @@ function dcRoleStyleBackground(role){
 function dcApplyRoleColor(element,role,asText=false){
   if(!element||!role)return;
   const mode=dcAccessibilityPrefs.roleColorMode||"name";
-  if(mode==="none"||(asText&&mode==="dot")){element.style.color="";element.style.background="";element.style.backgroundImage="none";element.style.backgroundClip="";element.style.webkitBackgroundClip="";element.style.webkitTextFillColor="";element.classList.remove("dc-holographic-text");return;}
   const background=dcRoleStyleBackground(role);
-  element.classList.toggle("dc-role-color-holographic",!asText&&role.style==="holographic"&&!dcAccessibilityPrefs.reducedMotion);
+  if(asText&&(mode==="none"||mode==="dot")){
+    element.style.color="";element.style.background="";element.style.backgroundImage="none";element.style.backgroundClip="";element.style.webkitBackgroundClip="";element.style.webkitTextFillColor="";element.classList.remove("dc-holographic-text");return;
+  }
+  if(!asText)element.classList.toggle("dc-role-color-holographic",role.style==="holographic"&&!dcAccessibilityPrefs.reducedMotion);
   if(asText&&mode==="name"&&role.style!=="solid"){
     element.style.color="transparent";element.style.background="";element.style.backgroundImage=background;element.style.backgroundClip="text";element.style.webkitBackgroundClip="text";element.style.webkitTextFillColor="transparent";
     if(role.style==="holographic"&&!dcAccessibilityPrefs.reducedMotion)element.classList.add("dc-holographic-text");else element.classList.remove("dc-holographic-text");
@@ -1287,11 +1289,11 @@ function dcRenderGuildMembers(){
     if(primary){if(!groups.has(String(primary.id)))groups.set(String(primary.id),[]);groups.get(String(primary.id)).push(member);}
     else ungrouped.push(member);
   }
-  const appendGroup=(label,items,color)=>{
+  const appendGroup=(label,items,roleStyle=null)=>{
     if(!items.length)return;
     const online=items.filter(member=>dcStatusClass(member.status)!=="offline").length;
     const heading=document.createElement("div");heading.className="dc-member-group-title";heading.textContent=label+" — "+items.length+(online?" · "+online+" в сети":"");
-    if(color)heading.style.color=color;root.append(heading);
+    if(roleStyle)dcApplyRoleColor(heading,roleStyle,true);root.append(heading);
     items.sort((a,b)=>(a.global_name||a.username||"").localeCompare(b.global_name||b.username||"","ru"));
     items.forEach(member=>{
       const button=document.createElement("button");button.type="button";button.className="dc-member dc-member-button";button.title=(member.global_name||member.username)+" · @"+member.username;
@@ -1305,7 +1307,7 @@ function dcRenderGuildMembers(){
       button.addEventListener("click",()=>dcOpenProfile(member));root.append(button);
     });
   };
-  displayRoles.forEach(role=>appendGroup(role.name,groups.get(String(role.id))||[],role.color_hex||""));
+  displayRoles.forEach(role=>appendGroup(role.name,groups.get(String(role.id))||[],role));
   appendGroup("В СЕТИ",ungrouped.filter(member=>!member.bot),"");
   appendGroup("БОТЫ",ungrouped.filter(member=>member.bot),"");
   // Discord-style offline section is deliberately rendered last, regardless of role/hoist assignments.
