@@ -3270,8 +3270,8 @@ async def panel_bot_profile_update(payload):
         raise ValueError("Укажи текст для выбранной активности.")
 
     about = str(payload.get("about") or "").strip()
-    if len(about) > 4000:
-        raise ValueError("Описание профиля не должно превышать 4000 символов.")
+    if len(about) > 400:
+        raise ValueError("Описание приложения Discord не должно превышать 400 символов.")
 
     user_kwargs = {}
     if username != str(bot.user.name):
