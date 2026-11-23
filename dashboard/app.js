@@ -1779,7 +1779,7 @@ function loadBotDiscord(){
       if(!messageInput.disabled)form?.requestSubmit();
     }
   });
-  const attachButton=document.getElementById("dcAttachButton"),fileInput=document.getElementById("dcFileInput"),filePreview=document.getElementById("dcFilePreview");
+  const attachButton=document.getElementById("dcAttachButton"),fileInput=document.getElementById("dcFileInput"),filePreview=document.getElementById("dcFilePreview"),composerHint=document.getElementById("dcComposerHint");
   attachButton?.addEventListener("click",()=>fileInput?.click());
   let dcPreviewObjectUrls=[];
   const renderComposerFiles=()=>{
@@ -1811,11 +1811,11 @@ function loadBotDiscord(){
       const signature=[file.name,file.size,file.type,file.lastModified].join("|");
       if(!seen.has(signature)){seen.add(signature);unique.push(file);}
     });
-    if(unique.length>10){if(hint)hint.textContent="Можно прикрепить не больше 10 файлов.";return;}
-    if(unique.some(file=>file.size>8*1024*1024)){if(hint)hint.textContent="Каждый файл должен быть не больше 8 МБ.";return;}
-    if(unique.reduce((sum,file)=>sum+file.size,0)>25*1024*1024){if(hint)hint.textContent="Общий размер файлов не должен превышать 25 МБ.";return;}
+    if(unique.length>10){if(composerHint)composerHint.textContent="Можно прикрепить не больше 10 файлов.";return;}
+    if(unique.some(file=>file.size>8*1024*1024)){if(composerHint)composerHint.textContent="Каждый файл должен быть не больше 8 МБ.";return;}
+    if(unique.reduce((sum,file)=>sum+file.size,0)>25*1024*1024){if(composerHint)composerHint.textContent="Общий размер файлов не должен превышать 25 МБ.";return;}
     const transfer=new DataTransfer();unique.forEach(file=>transfer.items.add(file));fileInput.files=transfer.files;renderComposerFiles();
-    if(hint)hint.textContent="Добавлено вложений: "+unique.length+". Нажми ➤ для отправки.";
+    if(composerHint)composerHint.textContent="Добавлено вложений: "+unique.length+". Нажми ➤ для отправки.";
   };
   fileInput?.addEventListener("change",renderComposerFiles);
   messageInput?.addEventListener("paste",event=>{
