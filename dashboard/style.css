@@ -1910,7 +1910,7 @@ body.discord-mode #pageContent.discord-fullscreen .dc-release-ribbon{display:non
 @media(max-width:900px){
   body.discord-mode #pageContent.discord-fullscreen .dc-app{grid-template-columns:58px 218px minmax(0,1fr)}
   body.discord-mode #pageContent.discord-fullscreen .dc-channel-layout,
-  body.discord-mode #pageContent.discord-fullscreen .dc-live-layout{grid-template-columns:minmax(0,1fr)}
+  body.discord-mode #pageContent.discord-fullscreen .dc-live-layout{grid-template-columns:minmax(0,1fr)!important}
   body.discord-mode #pageContent.discord-fullscreen .dc-live-members{display:none!important}
   body.discord-mode #pageContent.discord-fullscreen #dcToggleMembers{display:none}
 }
