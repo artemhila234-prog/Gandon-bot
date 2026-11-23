@@ -3517,6 +3517,8 @@ async def run_services():
         "dm_history": panel_dm_history,
         "dm_send": panel_dm_send,
         "discord_guilds": panel_guild_list,
+        "discord_settings": panel_guild_settings,
+        "discord_settings_update": panel_guild_settings_update,
         "discord_members": panel_guild_members,
         "discord_presence": panel_guild_presence,
         "discord_member_role": panel_member_role,
