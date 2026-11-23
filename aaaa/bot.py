@@ -3121,6 +3121,12 @@ async def panel_message_mentions(message):
         "mention_everyone": bool(message.mention_everyone),
         "edited_at": message.edited_at.isoformat() if message.edited_at else None,
         "pinned": bool(message.pinned),
+        "stickers": [{
+            "id": str(sticker.id),
+            "name": sticker.name,
+            "format": getattr(getattr(sticker, "format", None), "name", str(getattr(sticker, "format", ""))).lower(),
+            "url": str(sticker.url),
+        } for sticker in list(getattr(message, "stickers", []) or [])[:10]],
     }
 
 
