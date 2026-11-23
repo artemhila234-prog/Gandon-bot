@@ -1104,6 +1104,32 @@ async def api_send_message(request: Request):
 
 
 # ================== DISCORD SERVER / CHANNEL CLIENT ==================
+@app.get("/api/discord/bot-profile")
+async def api_discord_bot_profile(request: Request):
+    await require_access(request, "adm")
+    try:
+        return await get_dm_controller("bot_profile")()
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить профиль бота: {str(error)[:300]}")
+
+
+@app.patch("/api/discord/bot-profile")
+async def api_discord_bot_profile_update(request: Request):
+    await require_access(request, "adm")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректные данные профиля.")
+    try:
+        return await get_dm_controller("bot_profile_update")(payload)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось изменить профиль бота: {str(error)[:350]}")
+
+
 @app.get("/api/discord/guilds")
 async def api_discord_guilds(request: Request):
     await require_access(request, "adm")
