@@ -1825,7 +1825,7 @@ body.discord-mode{overflow:hidden;background:#313338}
 body.discord-mode .app-shell{display:block;width:100%;height:100vh;min-height:0;overflow:hidden}
 body.discord-mode .app-shell>.sidebar,
 body.discord-mode .app-shell>.main-area>.topbar{display:none!important}
-body.discord-mode .main-area{display:flex;width:100%;height:100vh;min-width:0;min-height:0;margin:0;overflow:hidden}
+body.discord-mode .main-area{display:flex;width:100%;height:100vh;min-width:0;min-height:0;margin:0!important;padding:0!important;overflow:hidden}
 body.discord-mode #pageContent.discord-fullscreen{display:flex;width:100%;height:100vh;min-height:0;max-width:none;flex:1 1 auto;margin:0;padding:0;overflow:hidden}
 body.discord-mode #pageContent.discord-fullscreen>#comingPage.bot-discord-preview{width:100%;height:100%;min-height:0;max-width:none;flex:1 1 auto;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;overflow:hidden!important;background:#313338!important}
 body.discord-mode #pageContent.discord-fullscreen .dc-app{width:100%;height:100%;min-height:0;max-height:none;grid-template-columns:72px 252px minmax(0,1fr);overflow:hidden;background:#313338}
