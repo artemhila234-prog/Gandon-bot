@@ -3430,7 +3430,7 @@ async def panel_guild_role_update(guild_id, actor_id, role_id, payload):
             changes["colour"] = discord.Colour(0xA9C9FF)
             changes["secondary_colour"] = discord.Colour(0xFFBBEC)
             changes["tertiary_colour"] = discord.Colour(0xFFC3A0)
-    if any(key in payload for key in ("icon_data", "icon_emoji", "remove_icon")):
+    if payload.get("remove_icon") is True or payload.get("icon_data") or payload.get("icon_emoji"):
         if "ROLE_ICONS" not in guild.features:
             raise PermissionError("Значки ролей доступны только если на сервере включена функция Role Icons.")
         if payload.get("remove_icon") is True:
