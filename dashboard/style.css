@@ -1941,3 +1941,54 @@ body.discord-mode #pageContent.discord-fullscreen .dc-mobile-sidebar-toggle{disp
   body.discord-mode #pageContent.discord-fullscreen .dc-dm-sidebar{display:none!important}
   body.discord-mode #pageContent.discord-fullscreen .dc-live-app.dc-mobile-sidebar-open .dc-dm-sidebar{display:flex!important;position:absolute;z-index:50;left:48px;top:0;bottom:0;width:min(252px,calc(100vw - 48px));height:100%;box-shadow:10px 0 28px #0008}
 }
+
+
+/* Discord LIVE reference palette — values independently mapped from the supplied visual capture. */
+body.discord-mode #pageContent.discord-fullscreen .dc-app{
+  --gw-dc-frame:hsl(228 6.329% 15.49%);
+  --gw-dc-rail:hsl(230 6.383% 18.431%);
+  --gw-dc-sidebar:hsl(231.429 6.542% 20.98%);
+  --gw-dc-sidebar-elevated:hsl(232.5 6.557% 23.922%);
+  --gw-dc-chat:hsl(222.857 6.667% 20.588%);
+  --gw-dc-composer:hsl(225 6.667% 23.529%);
+  --gw-dc-interactive:hsl(233.333 6.667% 26.471%);
+  --gw-dc-brand:hsl(234.935 85.556% 64.706%);
+  --gw-dc-text-strong:#fff;
+  --gw-dc-text-default:hsl(240 4.348% 95.49%);
+  --gw-dc-text-muted:hsl(231.429 4.348% 68.431%);
+  --gw-dc-text-subtle:hsl(228 4.505% 78.235%);
+  --gw-dc-border:rgba(255,255,255,.12);
+  background:var(--gw-dc-chat);
+  color:var(--gw-dc-text-default);
+}
+body.discord-mode #pageContent.discord-fullscreen .dc-guildbar{background:var(--gw-dc-frame);border-color:var(--gw-dc-border)}
+body.discord-mode #pageContent.discord-fullscreen .dc-dm-sidebar{background:var(--gw-dc-sidebar);border-color:var(--gw-dc-border)}
+body.discord-mode #pageContent.discord-fullscreen .dc-main,
+body.discord-mode #pageContent.discord-fullscreen .dc-topbar,
+body.discord-mode #pageContent.discord-fullscreen .dc-chat,
+body.discord-mode #pageContent.discord-fullscreen .dc-chat-scroll{background:var(--gw-dc-chat)}
+body.discord-mode #pageContent.discord-fullscreen .dc-live-members{background:var(--gw-dc-sidebar);border-color:var(--gw-dc-border)}
+body.discord-mode #pageContent.discord-fullscreen .dc-live-composer{background:var(--gw-dc-composer)}
+body.discord-mode #pageContent.discord-fullscreen .dc-dm-search input,
+body.discord-mode #pageContent.discord-fullscreen .dc-member-search{background:var(--gw-dc-frame);color:var(--gw-dc-text-default)}
+body.discord-mode #pageContent.discord-fullscreen .dc-dm-section,
+body.discord-mode #pageContent.discord-fullscreen .dc-members-head,
+body.discord-mode #pageContent.discord-fullscreen .dc-member-group-title,
+body.discord-mode #pageContent.discord-fullscreen .dc-channel-category{color:var(--gw-dc-text-muted)}
+body.discord-mode #pageContent.discord-fullscreen .dc-channel-item,
+body.discord-mode #pageContent.discord-fullscreen .dc-live-dm-copy strong,
+body.discord-mode #pageContent.discord-fullscreen .dc-member-copy strong,
+body.discord-mode #pageContent.discord-fullscreen .dc-message-content{color:var(--gw-dc-text-default)}
+body.discord-mode #pageContent.discord-fullscreen .dc-live-dm-item:hover,
+body.discord-mode #pageContent.discord-fullscreen .dc-member-button:hover,
+body.discord-mode #pageContent.discord-fullscreen .dc-channel-item:hover,
+body.discord-mode #pageContent.discord-fullscreen .dc-topbar-actions button:hover{background:rgba(255,255,255,.08)}
+body.discord-mode #pageContent.discord-fullscreen .dc-live-dm-item.active,
+body.discord-mode #pageContent.discord-fullscreen .dc-channel-item.active{background:rgba(255,255,255,.12)}
+body.discord-mode #pageContent.discord-fullscreen .dc-guildbar .dc-guild-icon:hover,
+body.discord-mode #pageContent.discord-fullscreen .dc-live-guilds .dc-guild-icon:hover,
+body.discord-mode #pageContent.discord-fullscreen .dc-live-guilds .dc-guild-icon.selected,
+body.discord-mode #pageContent.discord-fullscreen .dc-live-composer button[type=submit]{background:var(--gw-dc-brand)}
+body.discord-mode #pageContent.discord-fullscreen .dc-topbar,
+body.discord-mode #pageContent.discord-fullscreen .dc-members-head,
+body.discord-mode #pageContent.discord-fullscreen .dc-dm-search{border-color:var(--gw-dc-border)}
