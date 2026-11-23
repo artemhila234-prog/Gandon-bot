@@ -1,7 +1,7 @@
 GASTWORLD — ПАМЯТКА ПРОЕКТА
 Файл: chatgpt.txt
 Назначение: перенос контекста между чатами ChatGPT.
-Последнее обновление: 2026-11-22
+Последнее обновление: 2026-11-23
 
 ВАЖНО
 - Этот файл — основная памятка для переноса контекста между чатами; правильное имя: chatgpt.txt. Старый файл chatgpd.txt оставлен как историческая копия.
@@ -2182,3 +2182,15 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Дополнительная визуальная интеграция из reference mirror (без копирования bundled assets): из theme-dark token mappings extracted значения dark palette: app frame neutral-78 (#25262a), background-base-lowest neutral-73 (#2c2d32), base-lower neutral-69 (#323339), base-low neutral-66 (#36373e), surface-high neutral-64 (#393a41), chat primary-600 (#313338), composer primary-560 (#383a40), channel/default neutral-28 (#999aa1), muted text neutral-23 (#abacb2), brand-500 (#5865f2). Они записаны как собственные CSS custom properties в dashboard/style.css и применены к rail/sidebar/chat/members/composer/hover/active states.
 - CSS palette commit: c01baba25a2d38def02c4bc0507d3d219746cfb2. Cache-bust commit dashboard/index.html: 1adee94d3841b70a873d0141456a553107420554. Latest blob SHAs: style.css eb5bf132b2f6346793f16381a3b3e7a20e22fb9d; index.html 4dd76c117ae2342e534758e35a9d1921dd848b8b; app.js remains b746f6ea237ad2b1b3cc3ed69bb937367d982326. Cache version style/app: 20261123-discord-layout5.
 - Post-change checks: JS still parses via V8 new Function; CSS braces balanced; expected theme token values and selectors present; index cache-bust values aligned. Browser render and production deploy still not tested.
+
+
+37. ИСПРАВЛЕНА ЗАГРУЗКА УЧАСТНИКОВ В LIVE DISCORD (2026-11-23)
+- Пользователь сообщил, что список участников справа в LIVE-разделе не загрузился.
+- Проверены актуальные dashboard/app.js, dashboard/backend/main.py, aaaa/bot.py и chatgpt.txt. Frontend вызывает GET /api/discord/guilds/{guild_id}/members; backend передаёт запрос в controller discord_members.
+- Найдено слабое место в aaaa/bot.py: controller panel_guild_members делал await guild.chunk(cache=True), а затем обходил guild.members. То есть полагался на Gateway member cache/chunking.
+- Исправлено: полный список теперь запрашивается постранично через async for fetched_member in guild.fetch_members(limit=None) (Discord HTTP API). Для статуса/activity по возможности используется уже имеющийся Gateway-кэш, роли и сведения об участнике — из актуального REST-ответа.
+- Обработки ошибок улучшены: если discord.py сообщает, что Members Intent отключён, или Discord возвращает Forbidden/HTTP error, backend отдаёт понятное сообщение для интерфейса с указанием проверить Server Members Intent в Discord Developer Portal → Bot → Privileged Gateway Intents.
+- В aaaa/bot.py уже установлено intents.members = True. Это не включает privileged intent в Developer Portal автоматически: если он там выключен, Discord всё равно не разрешит полный список; теперь панель должна явно показать соответствующую причину.
+- Изменён файл: aaaa/bot.py. Commit: 112c2687dffbcd74c292837c87a6c83bb7195e20. Новый blob SHA: 6907e67637957d34dfaa3f5fc19ef4f1b65a2221.
+- Python-синтаксис вставленного блока проверен отдельно; проверка production/API в браузере не выполнялась. dashboard/app.js, dashboard/backend/main.py и CSS не менялись.
+- Следующий шаг: синхронизировать main на Bot-Hosting и перезапустить именно процесс, запускающий aaaa/bot.py. Открыть LIVE, выбрать сервер и посмотреть список участников. Если он всё ещё не грузится, прислать точный текст ошибки, который теперь появится в колонке участников; отдельно проверить Server Members Intent в Developer Portal.
