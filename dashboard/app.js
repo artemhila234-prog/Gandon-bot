@@ -1424,6 +1424,7 @@ function dcRenderServerSettings(data){
       try{
         const result=await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles",{name:"Новая роль",color:"#99AAB5",hoist:false,mentionable:false,permissions:{}});
         await refreshRoles(result.role?.id);
+        await dcLoadGuildMembers(dcActiveGuild,true);
         if(typeof showToast==="function")showToast("Роль создана.");
       }catch(error){if(typeof showToast==="function")showToast(error.message);else alert(error.message);}
       finally{add.disabled=false;add.textContent="＋ Создать роль";}
@@ -1451,7 +1452,7 @@ function dcRenderServerSettings(data){
       deleteButton.addEventListener("click",async()=>{
         if(!confirm("Удалить роль «"+role.name+"»? Это действие нельзя отменить."))return;
         deleteButton.disabled=true;
-        try{await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"DELETE",credentials:"same-origin"}).then(async response=>{const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось удалить роль.");return result;});await refresh(null);if(typeof showToast==="function")showToast("Роль удалена.");}
+        try{await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"DELETE",credentials:"same-origin"}).then(async response=>{const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось удалить роль.");return result;});await refresh(null);await dcLoadGuildMembers(dcActiveGuild,true);if(typeof showToast==="function")showToast("Роль удалена.");}
         catch(error){saveStatus.textContent=error.message;deleteButton.disabled=false;}
       });
       const saveButton=document.createElement("button");saveButton.type="button";saveButton.className="dc-settings-save";saveButton.textContent="Сохранить изменения";saveButton.disabled=!isEditable;
@@ -1461,7 +1462,9 @@ function dcRenderServerSettings(data){
           const payload=role.is_default?{permissions:draft.permissions}:draft;
           const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
           const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось сохранить роль.");
-          await refresh(result.role?.id);if(typeof showToast==="function")showToast("Настройки роли сохранены.");
+          await refresh(result.role?.id);
+          await dcLoadGuildMembers(dcActiveGuild,true);
+          if(typeof showToast==="function")showToast("Настройки роли сохранены.");
         }catch(error){saveStatus.textContent=error.message;saveButton.disabled=false;saveButton.textContent="Повторить сохранение";}
       });
       footer.append(deleteButton,saveButton);
@@ -1530,6 +1533,9 @@ function dcRenderServerSettings(data){
                 try{
                   await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id)+"/roles",{role_id:String(role.id),action:checkbox.checked?"add":"remove"});
                   const ids=new Set((member.role_ids||[]).map(String));if(checkbox.checked)ids.add(String(role.id));else ids.delete(String(role.id));member.role_ids=[...ids];
+                  const cachedMember=dcMemberCache.find(item=>String(item.id)===String(member.id));
+                  if(cachedMember)cachedMember.role_ids=[...ids];
+                  if(dcActiveGuild?.id){dcMemberCacheByGuild.set(dcActiveGuild.id,dcMemberCache);dcRenderGuildMembers();}
                 }catch(error){checkbox.checked=!checkbox.checked;saveStatus.textContent=error.message;}
                 finally{checkbox.disabled=!isEditable;}
               });
