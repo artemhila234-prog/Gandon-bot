@@ -2081,3 +2081,13 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Actual Discord writes (create/edit/delete role, gradient/holographic role with perk enabled, icon upload, color display in a live guild channel), permission-denial cases, and browser end-to-end tests have not been executed. Production deployment is unconfirmed.
 - Enhanced Role Styles will not animate/show gradient for the server unless the guild has ENHANCED_ROLE_COLORS. UI cannot activate the boost perk itself; the owner/admin must allocate 3 boosts to the Enhanced Role Styles additional perk in Discord Server Boosts. Role icons likewise require ROLE_ICONS feature. These are real Discord server entitlements, not panel-only toggles.
 - Lottie sticker player, role icon removal preview, upload progress, server-level permission overwrites, and other earlier checklist sections still need further work. Do not claim a complete Discord clone; continue the master checklist independently.
+
+29. DISCORD — ВСТАВКА ФОТО И ФАЙЛОВ ИЗ БУФЕРА ОБМЕНА (2026-11-23)
+- Пользователь попросил: если фото или файл скопированы в буфер обмена, Ctrl+V в поле сообщения панели GastWorld должен добавлять их как вложение, а не вставлять только текст/ничего.
+- В dashboard/app.js добавлен paste handler поля #dcMessageInput: читает файловые clipboard items и clipboardData.files, предотвращает обычную вставку только когда присутствуют файлы, добавляет файлы в существующий #dcFileInput через DataTransfer, сохраняет текущие вложения и удаляет дубликаты.
+- Существующие лимиты UI: максимум 10 файлов, 8 МБ на файл, 25 МБ суммарно. В случае вставки превышающего лимиты вложения не добавляются.
+- Предпросмотр вложений обновлён: изображения показываются миниатюрами; файлы — значком/именем; у каждого вложения есть кнопка удаления до отправки.
+- Для ручной загрузки через кнопку + сохранена прежняя отправка через multipart FormData. Backend и bot send handlers уже принимают вложения как в DM, так и в серверные текстовые каналы, поэтому их менять не потребовалось.
+- CSS добавляет стили preview; dashboard/index.html cache-bust обновлён до 20261123-clipboard-paste1.
+- Важно: браузер может прикрепить только те файлы, которые ОС/приложение действительно передало в ClipboardEvent как File. Для скриншотов/скопированных изображений это обычный сценарий; некоторые файловые менеджеры могут передавать только путь/ссылку, которые браузер не вправе читать как локальный файл.
+- После коммитов требуется синхронизация GitHub на Bot-Hosting, перезапуск сервиса панели и Ctrl+F5. Реальная вставка из Windows clipboard и Discord API отправка не были проверены в браузере/на хостинге.
