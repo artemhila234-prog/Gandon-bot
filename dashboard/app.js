@@ -54,7 +54,7 @@ function showPage(page){
       loadMessages(section);
     } else if(page==="discord"){
       section.classList.add("bot-discord-preview");
-      section.innerHTML='<div class="dc-app dc-live-app"><aside class="dc-guildbar"><div class="dc-guild-icon dc-home">GW</div><div class="dc-guild-divider"></div><div class="dc-live-guilds" id="dcGuildList"><button type="button" class="dc-guild-icon selected" id="dcHomeButton" title="Личные сообщения">＠</button></div><div class="dc-guild-spacer"></div><div class="dc-guild-icon dc-avatar">W</div></aside><aside class="dc-dm-sidebar"><div class="dc-dm-search" id="dcDmSearch"><input id="dcUserSearch" type="search" placeholder="Найти пользователя или ID"><button id="dcSearchButton" type="button">⌕</button></div><div id="dcSearchResults" class="dc-search-results" hidden></div><div class="dc-dm-section"><span id="dcSidebarTitle">ЛИЧНЫЕ СООБЩЕНИЯ</span><button id="dcRefreshDms" type="button" title="Обновить">↻</button></div><div id="dcDmList" class="dc-live-dm-list"><div class="dc-live-loading">Загружаем диалоги…</div></div><div id="dcChannelList" class="dc-live-dm-list" hidden><div class="dc-live-loading">Выбери сервер слева</div></div><div class="dc-account"><div class="dc-account-avatar">WG<span></span></div><div class="dc-account-name"><strong id="dcBotName">WhiteGrief</strong><small>Бот · подключение</small></div></div></aside><main class="dc-main"><header class="dc-topbar"><div class="dc-topbar-title"><span class="dc-hash">＠</span><strong id="dcChatTitle">Личные сообщения</strong><span class="dc-topic" id="dcChatSubtitle">Выбери диалог или найди пользователя</span></div><div class="dc-topbar-actions"><button id="dcServerSettingsButton" type="button" title="Настройки сервера" hidden>⚙</button><button id="dcRefreshChat" type="button" title="Обновить переписку">↻</button></div></header><div class="dc-channel-layout dc-live-layout"><section class="dc-chat"><div id="dcChatMessages" class="dc-chat-scroll"><div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени бота GastWorld.</p></div></div><div class="dc-composer-wrap"><form id="dcComposerForm" class="dc-composer dc-live-composer"><button class="dc-composer-add" id="dcAttachButton" type="button" title="Прикрепить файл" aria-label="Прикрепить файл">＋</button><input id="dcFileInput" type="file" multiple hidden><textarea id="dcMessageInput" rows="1" maxlength="2000" placeholder="Написать сообщение…" disabled></textarea><button id="dcSendButton" type="submit" disabled>➤</button></form><div id="dcFilePreview" class="dc-file-preview" hidden></div><div id="dcComposerHint" class="dc-composer-hint">Сначала выбери пользователя. Discord может ограничивать отправку DM.</div></div></section><aside class="dc-members dc-live-members" id="dcMembersPanel"><div id="dcDmProfilePanel" class="dc-dm-profile-panel" hidden></div><div class="dc-members-head"><strong>УЧАСТНИКИ</strong><span id="dcMemberCount">—</span></div><input id="dcMemberSearch" class="dc-member-search" type="search" placeholder="Поиск участника"><div id="dcMemberList" class="dc-member-list"><div class="dc-live-empty">Выбери сервер слева</div></div></aside></div><div class="dc-release-ribbon"><span>●</span> ОФИЦИАЛЬНОЕ BOT-ПОДКЛЮЧЕНИЕ <i>•</i> Не личный аккаунт</div></main></div>';
+      section.innerHTML='<div class="dc-app dc-live-app"><aside class="dc-guildbar"><div class="dc-guild-icon dc-home">GW</div><div class="dc-guild-divider"></div><div class="dc-live-guilds" id="dcGuildList"><button type="button" class="dc-guild-icon selected" id="dcHomeButton" title="Личные сообщения">＠</button></div><div class="dc-guild-spacer"></div><div class="dc-guild-icon dc-avatar">W</div></aside><aside class="dc-dm-sidebar"><div class="dc-dm-search" id="dcDmSearch"><input id="dcUserSearch" type="search" placeholder="Найти пользователя или ID"><button id="dcSearchButton" type="button">⌕</button></div><div id="dcSearchResults" class="dc-search-results" hidden></div><div class="dc-dm-section"><span id="dcSidebarTitle">ЛИЧНЫЕ СООБЩЕНИЯ</span><button id="dcRefreshDms" type="button" title="Обновить">↻</button></div><div id="dcDmList" class="dc-live-dm-list"><div class="dc-live-loading">Загружаем диалоги…</div></div><div id="dcChannelList" class="dc-live-dm-list" hidden><div class="dc-live-loading">Выбери сервер слева</div></div><div class="dc-account"><div class="dc-account-avatar">WG<span></span></div><div class="dc-account-name"><strong id="dcBotName">WhiteGrief</strong><small>Бот · подключение</small></div></div></aside><main class="dc-main"><header class="dc-topbar"><div class="dc-topbar-title"><span class="dc-hash">＠</span><strong id="dcChatTitle">Личные сообщения</strong><span class="dc-topic" id="dcChatSubtitle">Выбери диалог или найди пользователя</span></div><div class="dc-topbar-actions"><button id="dcAccessibilityButton" type="button" title="Специальные возможности">◉</button><button id="dcServerSettingsButton" type="button" title="Настройки сервера" hidden>⚙</button><button id="dcRefreshChat" type="button" title="Обновить переписку">↻</button></div></header><div class="dc-channel-layout dc-live-layout"><section class="dc-chat"><div id="dcChatMessages" class="dc-chat-scroll"><div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени бота GastWorld.</p></div></div><div class="dc-composer-wrap"><form id="dcComposerForm" class="dc-composer dc-live-composer"><button class="dc-composer-add" id="dcAttachButton" type="button" title="Прикрепить файл" aria-label="Прикрепить файл">＋</button><input id="dcFileInput" type="file" multiple hidden><textarea id="dcMessageInput" rows="1" maxlength="2000" placeholder="Написать сообщение…" disabled></textarea><button id="dcSendButton" type="submit" disabled>➤</button></form><div id="dcFilePreview" class="dc-file-preview" hidden></div><div id="dcComposerHint" class="dc-composer-hint">Сначала выбери пользователя. Discord может ограничивать отправку DM.</div></div></section><aside class="dc-members dc-live-members" id="dcMembersPanel"><div id="dcDmProfilePanel" class="dc-dm-profile-panel" hidden></div><div class="dc-members-head"><strong>УЧАСТНИКИ</strong><span id="dcMemberCount">—</span></div><input id="dcMemberSearch" class="dc-member-search" type="search" placeholder="Поиск участника"><div id="dcMemberList" class="dc-member-list"><div class="dc-live-empty">Выбери сервер слева</div></div></aside></div><div class="dc-release-ribbon"><span>●</span> ОФИЦИАЛЬНОЕ BOT-ПОДКЛЮЧЕНИЕ <i>•</i> Не личный аккаунт</div></main></div>';
     } else if(page==="console"){
       section.innerHTML='<div class="panel-heading"><div><h2>Управление ботом</h2><p>Состояние Discord-подключения и безопасные действия управления.</p></div><button class="text-button" id="refreshConsole">↻ Обновить</button></div><div id="consoleWorkspace" class="console-workspace"><div class="empty-state">Подключаемся к боту…</div></div>';
       loadConsole(section);
@@ -1167,6 +1167,66 @@ function dcOpenProfile(member){
   const footer=document.createElement("div");footer.className="dc-profile-actions";const dm=document.createElement("button");dm.type="button";dm.textContent="Открыть ЛС";dm.addEventListener("click",()=>{modal.remove();dcActiveChannel=null;dcSetMode("dm");dcOpenConversation(member);});footer.append(dm);card.append(footer);
   modal.append(card);document.addEventListener("keydown",function esc(event){if(event.key==="Escape"){modal.remove();document.removeEventListener("keydown",esc);}});
 }
+const dcAccessibilityDefaults={roleColorMode:"name",saturation:100,highContrast:false,reducedMotion:false};
+function dcReadAccessibilityPreferences(){
+  try{return {...dcAccessibilityDefaults,...JSON.parse(localStorage.getItem("gastworld-discord-accessibility")||"{}")};}
+  catch{return {...dcAccessibilityDefaults};}
+}
+let dcAccessibilityPrefs=dcReadAccessibilityPreferences();
+function dcSaveAccessibilityPreferences(){
+  try{localStorage.setItem("gastworld-discord-accessibility",JSON.stringify(dcAccessibilityPrefs));}catch{}
+  dcApplyAccessibilityPreferences();
+}
+function dcApplyAccessibilityPreferences(){
+  const app=document.querySelector(".dc-live-app");if(!app)return;
+  app.style.setProperty("--dc-saturation",Math.max(0,150,Number(dcAccessibilityPrefs.saturation)||100)+"%");
+  app.style.filter="saturate("+Math.max(0,Math.min(150,Number(dcAccessibilityPrefs.saturation)||100))+"%)";
+  app.classList.toggle("dc-high-contrast",!!dcAccessibilityPrefs.highContrast);
+  app.classList.toggle("dc-reduced-motion",!!dcAccessibilityPrefs.reducedMotion);
+}
+function dcRoleStyleBackground(role){
+  const primary=role?.color_hex||role?.color||"#99AAB5";
+  const secondary=role?.secondary_color_hex||role?.secondary_color;
+  const tertiary=role?.tertiary_color_hex||role?.tertiary_color;
+  if(role?.style==="holographic"&&secondary&&tertiary)return "linear-gradient(115deg,"+primary+" 0%,"+secondary+" 48%,"+tertiary+" 100%)";
+  if(role?.style==="gradient"&&secondary)return "linear-gradient(110deg,"+primary+" 0%,"+secondary+" 100%)";
+  return primary;
+}
+function dcApplyRoleColor(element,role,asText=false){
+  if(!element||!role)return;
+  const mode=dcAccessibilityPrefs.roleColorMode||"name";
+  if(mode==="none"){element.style.color="";element.style.background="";element.style.backgroundImage="none";return;}
+  const background=dcRoleStyleBackground(role);
+  if(asText&&mode==="name"&&role.style!=="solid"){
+    element.style.color="transparent";element.style.backgroundImage=background;element.style.backgroundClip="text";element.style.webkitBackgroundClip="text";element.style.webkitTextFillColor="transparent";
+    if(role.style==="holographic"&&!dcAccessibilityPrefs.reducedMotion)element.classList.add("dc-holographic-text");
+    return;
+  }
+  if(asText&&mode==="name"){element.style.color=role.color_hex||role.color||"";return;}
+  element.style.background=background;
+}
+function dcOpenAccessibilitySettings(){
+  document.getElementById("dcAccessibilityModal")?.remove();
+  const modal=document.createElement("div");modal.id="dcAccessibilityModal";modal.className="dc-settings-backdrop";
+  const card=document.createElement("section");card.className="dc-accessibility-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
+  const head=document.createElement("header");head.className="dc-settings-header";const intro=document.createElement("div");intro.className="dc-settings-heading";
+  const eyebrow=document.createElement("span");eyebrow.textContent="GASTWORLD • DISPLAY";const title=document.createElement("h2");title.textContent="Специальные возможности";const sub=document.createElement("p");sub.textContent="Локальные настройки отображения этой панели.";
+  intro.append(eyebrow,title,sub);const close=document.createElement("button");close.type="button";close.className="dc-settings-close";close.textContent="×";close.addEventListener("click",()=>modal.remove());head.append(intro,close);
+  const body=document.createElement("div");body.className="dc-accessibility-body";
+  const roleMode=document.createElement("label");roleMode.className="dc-settings-field";const modeTitle=document.createElement("span");modeTitle.textContent="Отображение цветов ролей";
+  const select=document.createElement("select");[["name","Показывать цвет в имени"],["dot","Показывать цвет рядом с именем"],["none","Не показывать цвет роли"]].forEach(([value,label])=>{const option=document.createElement("option");option.value=value;option.textContent=label;select.append(option);});select.value=dcAccessibilityPrefs.roleColorMode;select.addEventListener("change",()=>{dcAccessibilityPrefs.roleColorMode=select.value;dcSaveAccessibilityPreferences();if(dcActiveGuild)dcRenderGuildMembers();});roleMode.append(modeTitle,select);body.append(roleMode);
+  const saturation=document.createElement("label");saturation.className="dc-settings-field dc-accessibility-slider";const saturationTitle=document.createElement("span");saturationTitle.textContent="Насыщенность цветов";
+  const slider=document.createElement("input");slider.type="range";slider.min="0";slider.max="150";slider.step="5";slider.value=String(dcAccessibilityPrefs.saturation);const saturationValue=document.createElement("strong");saturationValue.textContent=slider.value+"%";
+  slider.addEventListener("input",()=>{dcAccessibilityPrefs.saturation=Number(slider.value);saturationValue.textContent=slider.value+"%";dcSaveAccessibilityPreferences();});saturation.append(saturationTitle,slider,saturationValue);body.append(saturation);
+  const toggle=(labelText,key,description)=>{
+    const label=document.createElement("label");label.className="dc-accessibility-toggle";const copy=document.createElement("span");const strong=document.createElement("strong");strong.textContent=labelText;const small=document.createElement("small");small.textContent=description;copy.append(strong,small);const input=document.createElement("input");input.type="checkbox";input.checked=!!dcAccessibilityPrefs[key];input.addEventListener("change",()=>{dcAccessibilityPrefs[key]=input.checked;dcSaveAccessibilityPreferences();if(dcActiveGuild)dcRenderGuildMembers();});label.append(copy,input);body.append(label);
+  };
+  toggle("Высокая контрастность","highContrast","Усиливает контраст границ, текста и интерактивных элементов.");
+  toggle("Уменьшить движение","reducedMotion","Отключает декоративную анимацию и переливание в этой панели.");
+  const foot=document.createElement("p");foot.className="dc-accessibility-footnote";foot.textContent="Эти параметры меняют отображение GastWorld в этом браузере. Они не изменяют настройки Discord и не влияют на других участников.";
+  body.append(foot);card.append(head,body);modal.append(card);modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});document.body.append(modal);
+  dcApplyAccessibilityPreferences();
+}
 function dcRenderGuildMembers(){
   const root=document.getElementById("dcMemberList"),search=document.getElementById("dcMemberSearch"),count=document.getElementById("dcMemberCount");if(!root)return;
   const query=(search?.value||"").trim().toLocaleLowerCase("ru");
@@ -1196,8 +1256,9 @@ function dcRenderGuildMembers(){
       const avatar=document.createElement("span");avatar.className="dc-member-avatar-wrap";avatar.innerHTML=dcAvatar(member,"dc-member-avatar");const status=document.createElement("i");status.className="dc-status-dot "+dcStatusClass(member.status);avatar.append(status);button.append(avatar);
       const info=document.createElement("span");info.className="dc-member-copy";const name=document.createElement("strong");name.textContent=member.global_name||member.username;
       const assignedRoleIds=new Set((member.role_ids||[]).map(id=>String(id)));
-      const highestColoredRole=[...(dcMemberRoleCache||[])].filter(role=>assignedRoleIds.has(String(role.id))&&role.color_hex).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0))[0];
-      if(highestColoredRole?.color_hex)name.style.color=highestColoredRole.color_hex;
+      const highestColoredRole=[...(dcMemberRoleCache||[])].filter(role=>assignedRoleIds.has(String(role.id))&&(role.color_hex||role.secondary_color_hex)).sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0))[0];
+      if(highestColoredRole&&dcAccessibilityPrefs.roleColorMode==="name")dcApplyRoleColor(name,highestColoredRole,true);
+      else if(highestColoredRole&&dcAccessibilityPrefs.roleColorMode==="dot"){const roleDot=document.createElement("i");roleDot.className="dc-member-role-color";dcApplyRoleColor(roleDot,highestColoredRole,false);info.append(roleDot);}
       const handle=document.createElement("small");handle.textContent="@"+member.username;info.append(name,handle);button.append(info);
       button.addEventListener("click",()=>dcOpenProfile(member));root.append(button);
     });
@@ -1404,7 +1465,7 @@ function dcRenderServerSettings(data){
       const current=roles.find(role=>String(role.id)===String(selectId))||roles.find(role=>role.editable)||roles[0];
       roles.forEach(role=>{
         const item=document.createElement("button");item.type="button";item.className="dc-role-list-item"+(current&&String(current.id)===String(role.id)?" active":"");
-        const color=document.createElement("i");color.className="dc-role-color-dot";color.style.background=role.color||"#000000";
+        const color=document.createElement("i");color.className="dc-role-color-dot"+(role.style==="holographic"?" dc-role-color-holographic":"");dcApplyRoleColor(color,role,false);
         const name=document.createElement("span");name.textContent=role.is_default?"@everyone":role.name;
         item.append(color,name);
         if(role.managed){const managed=document.createElement("small");managed.textContent="ИНТЕГРАЦИЯ";item.append(managed);}
@@ -1422,7 +1483,7 @@ function dcRenderServerSettings(data){
     add.addEventListener("click",async()=>{
       add.disabled=true;add.textContent="Создаём…";
       try{
-        const result=await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles",{name:"Новая роль",color:"#99AAB5",hoist:false,mentionable:false,permissions:{}});
+        const result=await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles",{name:"Новая роль",color:"#99AAB5",style:"solid",secondary_color:"#FFBBEC",hoist:false,mentionable:false,permissions:{}});
         await refreshRoles(result.role?.id);
         await dcLoadGuildMembers(dcActiveGuild,true);
         if(typeof showToast==="function")showToast("Роль создана.");
@@ -1433,7 +1494,7 @@ function dcRenderServerSettings(data){
       editor.replaceChildren();
       const isEditable=role.editable===true;
       const roleDisplayEditable=isEditable&&!role.is_default;
-      let draft={name:role.name,color:role.color||"#000000",position:Number(role.position)||1,hoist:!!role.hoist,mentionable:!!role.mentionable,permissions:{...(role.permissions||{})}};
+      let draft={name:role.name,color:role.color||"#000000",secondary_color:role.secondary_color||"#FFBBEC",style:role.style||"solid",position:Number(role.position)||1,hoist:!!role.hoist,mentionable:!!role.mentionable,permissions:{...(role.permissions||{})}};
       const top=document.createElement("div");top.className="dc-role-editor-top";
       const rolePreview=document.createElement("div");rolePreview.className="dc-role-editor-preview";
       const previewDot=document.createElement("i");previewDot.className="dc-role-color-dot";previewDot.style.background=draft.color;
@@ -1606,12 +1667,14 @@ function loadBotDiscord(){
   if(dcPollTimer)clearInterval(dcPollTimer);dcActiveUser=null;dcActiveChannel=null;dcActiveGuild=null;
   const search=document.getElementById("dcUserSearch"),searchButton=document.getElementById("dcSearchButton"),refresh=document.getElementById("dcRefreshDms"),refreshChat=document.getElementById("dcRefreshChat"),form=document.getElementById("dcComposerForm");
   document.getElementById("dcServerSettingsButton")?.addEventListener("click",dcOpenServerSettings);
+  document.getElementById("dcAccessibilityButton")?.addEventListener("click",dcOpenAccessibilitySettings);
   searchButton?.addEventListener("click",dcSearchUsers);search?.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();dcSearchUsers();}});
   document.getElementById("dcMemberSearch")?.addEventListener("input",dcRenderGuildMembers);
   refresh?.addEventListener("click",()=>{if(dcActiveGuild)dcOpenGuild(dcActiveGuild);else dcLoadConversationList();});
   refreshChat?.addEventListener("click",()=>{if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel);else if(dcActiveUser)dcOpenConversation(dcActiveUser);});
   document.getElementById("dcHomeButton")?.addEventListener("click",()=>{dcActiveGuild=null;dcActiveChannel=null;dcActiveUser=null;dcSetMode("dm");dcLoadConversationList();});
   form?.addEventListener("submit",dcSendMessage);
+  dcApplyAccessibilityPreferences();
   const messageInput=document.getElementById("dcMessageInput");
   messageInput?.addEventListener("keydown",event=>{
     if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){
