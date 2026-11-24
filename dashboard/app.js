@@ -1406,7 +1406,7 @@ function dcCloseMentionPicker(){
 }
 function dcMentionCandidates(trigger,query){
   const needle=String(query||"").toLocaleLowerCase("ru");
-  const users=[],roles=[],channels=[];
+  const users=[],roles=[],channels=[],broadcasts=[];
   if(trigger==="@"||trigger==="@&"){
     if(trigger==="@" ){
       const members=dcActiveGuild?dcMemberCache:(dcActiveUser?[dcActiveUser]:[]);
@@ -1415,6 +1415,10 @@ function dcMentionCandidates(trigger,query){
         if((label+" "+(member.username||"")+" "+member.id).toLocaleLowerCase("ru").includes(needle))
           users.push({kind:"user",id:String(member.id),label,detail:"@"+(member.username||""),avatar:member.avatar_url||member.avatar||""});
       });
+      if(dcActiveChannel?.can_mention_everyone){
+        if("everyone".includes(needle))broadcasts.push({kind:"everyone",label:"everyone",detail:"Упоминание всех участников канала"});
+        if("here".includes(needle))broadcasts.push({kind:"here",label:"here",detail:"Упоминание участников онлайн"});
+      }
     }
     if(dcActiveGuild){
       (dcMemberRoleCache||[]).forEach(role=>{
@@ -1422,7 +1426,7 @@ function dcMentionCandidates(trigger,query){
           roles.push({kind:"role",id:String(role.id),label:role.name,detail:role.mentionable?"Упоминание включено":"Может потребоваться право MENTION_EVERYONE",color:role.color_hex||""});
       });
     }
-    return trigger==="@&"?roles.slice(0,30):[...users.slice(0,15),...roles.slice(0,15)];
+    return trigger==="@&"?roles.slice(0,30):[...broadcasts,...users.slice(0,13),...roles.slice(0,15)];
   }
   if(trigger==="#"){
     const available=dcActiveGuild?(dcChannelsCacheByGuild.get(dcActiveGuild.id)?.channels||[]):[];
@@ -1442,7 +1446,7 @@ function dcRenderMentionPicker(){
   dcMentionPickerItems.forEach((item,index)=>{
     const button=document.createElement("button");button.type="button";button.className="dc-mention-option"+(index===dcMentionPickerIndex?" is-active":"");button.setAttribute("role","option");button.setAttribute("aria-selected",String(index===dcMentionPickerIndex));
     if(item.kind==="user"&&item.avatar){const avatar=document.createElement("img");avatar.className="dc-mention-option-avatar";avatar.src=item.avatar;avatar.alt="";button.append(avatar);}
-    else{const glyph=document.createElement("span");glyph.className="dc-mention-option-glyph";glyph.textContent=item.kind==="channel"?"#":item.kind==="role"?"@":"●";if(item.color)glyph.style.color=item.color;button.append(glyph);}
+    else{const glyph=document.createElement("span");glyph.className="dc-mention-option-glyph";glyph.textContent=item.kind==="channel"?"#":item.kind==="role"||item.kind==="everyone"||item.kind==="here"?"@":"●";if(item.color)glyph.style.color=item.color;button.append(glyph);}
     const copy=document.createElement("span");copy.className="dc-mention-option-copy";const name=document.createElement("strong");name.textContent=(item.kind==="channel"?"#":"@")+item.label;const detail=document.createElement("small");detail.textContent=item.detail||"";copy.append(name,detail);button.append(copy);
     button.addEventListener("mousedown",event=>event.preventDefault());
     button.addEventListener("click",()=>dcInsertMention(item));
@@ -1466,7 +1470,7 @@ function dcUpdateMentionPicker(input){
 function dcInsertMention(item){
   const input=document.getElementById("dcMessageInput");if(!input||!dcMentionTrigger)return;
   const start=dcMentionTrigger.start,end=dcMentionTrigger.end;
-  const token=item.kind==="user"?"<@"+item.id+">":item.kind==="role"?"<@&"+item.id+">":"<#"+item.id+">";
+  const token=item.kind==="user"?"<@"+item.id+">":item.kind==="role"?"<@&"+item.id+">":item.kind==="everyone"?"@everyone":item.kind==="here"?"@here":"<#"+item.id+">";
   input.value=input.value.slice(0,start)+token+" "+input.value.slice(end);
   const caret=start+token.length+1;input.setSelectionRange(caret,caret);input.focus();dcCloseMentionPicker();dcUpdateMentionPicker(input);
 }
