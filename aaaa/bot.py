@@ -4264,12 +4264,12 @@ async def panel_settings_channel_permissions(guild_id, actor_id, channel_id):
     allowed_keys = [
         "create_instant_invite", "manage_channels", "manage_roles", "manage_webhooks",
         "create_events", "manage_events", "view_channel", "send_messages",
-        "send_messages_in_threads", "read_message_history", "add_reactions",
+        "send_messages_in_threads", "pin_messages", "read_message_history", "add_reactions",
         "embed_links", "attach_files", "mention_everyone", "manage_messages",
         "manage_threads", "send_tts_messages", "send_polls", "bypass_slowmode",
         "use_application_commands", "use_embedded_activities", "use_external_apps",
         "use_external_emojis", "use_external_stickers", "create_public_threads",
-        "create_private_threads", "connect", "speak", "stream", "use_vad",
+        "create_private_threads", "connect", "speak", "stream", "use_voice_activation",
         "priority_speaker", "request_to_speak", "mute_members", "deafen_members",
         "move_members", "use_soundboard", "use_external_sounds", "send_voice_messages",
     ]
@@ -4333,12 +4333,12 @@ async def panel_settings_channel_permission_update(guild_id, actor_id, channel_i
     allowed_keys = {
         "create_instant_invite", "manage_channels", "manage_roles", "manage_webhooks",
         "create_events", "manage_events", "view_channel", "send_messages",
-        "send_messages_in_threads", "read_message_history", "add_reactions",
+        "send_messages_in_threads", "pin_messages", "read_message_history", "add_reactions",
         "embed_links", "attach_files", "mention_everyone", "manage_messages",
         "manage_threads", "send_tts_messages", "send_polls", "bypass_slowmode",
         "use_application_commands", "use_embedded_activities", "use_external_apps",
         "use_external_emojis", "use_external_stickers", "create_public_threads",
-        "create_private_threads", "connect", "speak", "stream", "use_vad",
+        "create_private_threads", "connect", "speak", "stream", "use_voice_activation",
         "priority_speaker", "request_to_speak", "mute_members", "deafen_members",
         "move_members", "use_soundboard", "use_external_sounds", "send_voice_messages",
     }
