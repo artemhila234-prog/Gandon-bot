@@ -2618,6 +2618,28 @@ function dcRenderServerSettings(data){
           const startDate=item.scheduled_start_time?new Date(item.scheduled_start_time).toLocaleString("ru-RU"):"";
           const subtitle=[startDate,item.entity_type===3?(item.entity_metadata?.location||"Внешнее событие"):(item.channel_id?"Канал "+item.channel_id:""),"Участников: "+(item.user_count??0)].filter(Boolean).join(" · ");
           const acts=[];
+          if(item.status===1)acts.push(settingsButton("Изменить",async()=>{
+            const nextName=prompt("Название события:",item.name||"");if(nextName===null)return;
+            const nextDescription=prompt("Описание события:",item.description||"");if(nextDescription===null)return;
+            const body={name:nextName.trim(),description:nextDescription.trim()};
+            if(item.entity_type===3){
+              const nextLocation=prompt("Место проведения:",item.entity_metadata?.location||"");if(nextLocation===null)return;
+              if(!nextLocation.trim()){settingsError(list,new Error("Для внешнего события нужно место проведения."));return;}
+              body.entity_metadata={location:nextLocation.trim()};
+            }
+            const nextStart=prompt("Новое время начала (ISO 8601, например 2026-12-01T18:00:00Z):",item.scheduled_start_time||"");
+            if(nextStart===null)return;
+            if(Number.isNaN(Date.parse(nextStart))){settingsError(list,new Error("Время начала должно быть корректной ISO-датой."));return;}
+            body.scheduled_start_time=new Date(nextStart).toISOString();
+            if(item.entity_type===3){
+              const nextEnd=prompt("Новое время окончания (ISO 8601):",item.scheduled_end_time||"");
+              if(nextEnd===null)return;
+              if(Number.isNaN(Date.parse(nextEnd))||Date.parse(nextEnd)<=Date.parse(body.scheduled_start_time)){settingsError(list,new Error("Окончание должно быть позже начала."));return;}
+              body.scheduled_end_time=new Date(nextEnd).toISOString();
+            }
+            try{await serverSettingsRequest("events","PATCH",body,item.id);showToast?.("Событие обновлено.");await loadEvents();}
+            catch(error){settingsError(list,error);}
+          }));
           if(item.status===1)acts.push(settingsButton("Отменить",async()=>{if(!confirm("Отменить событие «"+item.name+"»?"))return;try{await serverSettingsRequest("events","PATCH",{status:4},item.id);await loadEvents();}catch(error){settingsError(list,error);}},"danger"));
           acts.push(settingsButton("Удалить",async()=>{if(!confirm("Удалить событие «"+item.name+"»?"))return;try{await serverSettingsRequest("events","DELETE",null,item.id);await loadEvents();}catch(error){settingsError(list,error);}},"danger"));
           settingsRow(list,item.name,subtitle,acts);
