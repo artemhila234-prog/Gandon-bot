@@ -1365,7 +1365,7 @@ async def api_discord_server_settings_section(guild_id: str, section: str, reque
             "verification_level": guild_data.get("verification_level", settings.get("settings", {}).get("verification_level", 0)),
         }
     if section == "invites":
-        await require_guild_setting_permission(guild_id, actor, "manage_guild")
+        await require_guild_setting_permission(guild_id, actor, "manage_guild|view_audit_log")
         return await discord_request("GET", f"/guilds/{guild_id}/invites")
     if section == "bans":
         await require_guild_setting_permission(guild_id, actor, "ban_members|view_audit_log")
@@ -1817,8 +1817,9 @@ async def api_discord_server_event_create(guild_id: str, request: Request):
     actor = await require_access(request, "adm")
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
-    await require_guild_setting_permission(guild_id, actor, "manage_events|create_events")
     payload = await request.json()
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Некорректные параметры события.")
     name = str(payload.get("name") or "").strip()
     if not 1 <= len(name) <= 100:
         raise HTTPException(status_code=400, detail="Название события должно содержать 1–100 символов.")
@@ -1842,13 +1843,21 @@ async def api_discord_server_event_create(guild_id: str, request: Request):
         body["channel_id"] = None
         body["entity_metadata"] = {"location": location[:100]}
         body["scheduled_end_time"] = payload["scheduled_end_time"]
+        await get_dm_controller("settings_event_permission")(
+            guild_id, str(actor.get("id", "")), None, entity_type
+        )
     else:
         channel_id = str(payload.get("channel_id") or "")
         if not channel_id.isdigit():
             raise HTTPException(status_code=400, detail="Выбери голосовой или Stage-канал.")
         channel = await discord_request("GET", f"/channels/{channel_id}")
-        if str(channel.get("guild_id") or "") != guild_id or int(channel.get("type") or 0) not in {2, 13}:
-            raise HTTPException(status_code=400, detail="Событие можно привязать только к голосовому или Stage-каналу этого сервера.")
+        expected_type = 13 if entity_type == 1 else 2
+        if str(channel.get("guild_id") or "") != guild_id or int(channel.get("type") or 0) != expected_type:
+            expected_label = "Stage" if entity_type == 1 else "голосовой"
+            raise HTTPException(status_code=400, detail=f"Для выбранного типа события требуется {expected_label}-канал этого сервера.")
+        await get_dm_controller("settings_event_permission")(
+            guild_id, str(actor.get("id", "")), channel_id, entity_type
+        )
         body["channel_id"] = channel_id
     if payload.get("scheduled_end_time") and entity_type != 3:
         body["scheduled_end_time"] = payload["scheduled_end_time"]
@@ -1860,7 +1869,7 @@ async def api_discord_server_event_update(guild_id: str, event_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not event_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID события.")
-    await require_guild_setting_permission(guild_id, actor, "manage_events|create_events")
+    await require_guild_setting_permission(guild_id, actor, "manage_events")
     payload = await request.json()
     allowed = {"name", "description", "scheduled_start_time", "scheduled_end_time", "status", "entity_metadata"}
     body = {key: payload[key] for key in allowed if key in payload}
@@ -1883,7 +1892,7 @@ async def api_discord_server_event_delete(guild_id: str, event_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not event_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID события.")
-    await require_guild_setting_permission(guild_id, actor, "manage_events|create_events")
+    await require_guild_setting_permission(guild_id, actor, "manage_events")
     return await discord_request("DELETE", f"/guilds/{guild_id}/scheduled-events/{event_id}")
 
 
