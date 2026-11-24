@@ -1582,6 +1582,30 @@ async def api_discord_server_automod_create(guild_id: str, request: Request):
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
     await require_guild_setting_permission(guild_id, actor, "manage_guild")
     payload = await request.json()
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Некорректное правило AutoMod.")
+    trigger_type = int(payload.get("trigger_type") or 0)
+    expected_event = 2 if trigger_type == 6 else 1
+    if trigger_type not in {1, 3, 4, 5, 6} or int(payload.get("event_type") or 0) != expected_event:
+        raise HTTPException(status_code=400, detail="Тип события AutoMod не соответствует выбранному триггеру.")
+    actions = payload.get("actions")
+    if not isinstance(actions, list) or not actions:
+        raise HTTPException(status_code=400, detail="Добавь хотя бы одно действие AutoMod.")
+    if any(not isinstance(item, dict) or int(item.get("type") or 0) not in {1, 2, 3, 4} for item in actions):
+        raise HTTPException(status_code=400, detail="Неизвестное действие AutoMod.")
+    if any(int(item.get("type") or 0) == 3 for item in actions):
+        if trigger_type not in {1, 5}:
+            raise HTTPException(status_code=400, detail="Discord разрешает тайм-аут только для ключевых слов и массовых упоминаний.")
+        await require_guild_setting_permission(guild_id, actor, "moderate_members")
+    metadata = payload.get("trigger_metadata") or {}
+    if trigger_type in {1, 6}:
+        keywords = metadata.get("keyword_filter") if isinstance(metadata, dict) else None
+        if not isinstance(keywords, list) or not keywords or any(not isinstance(word, str) or not word.strip() or len(word) > 60 for word in keywords) or len(keywords) > 1000:
+            raise HTTPException(status_code=400, detail="Для выбранного правила укажи от 1 до 1000 ключевых слов длиной до 60 символов.")
+    if trigger_type == 5:
+        limit = int(metadata.get("mention_total_limit") or 0) if isinstance(metadata, dict) else 0
+        if not 1 <= limit <= 50:
+            raise HTTPException(status_code=400, detail="Лимит уникальных упоминаний должен быть от 1 до 50.")
     return await discord_request("POST", f"/guilds/{guild_id}/auto-moderation/rules", payload=payload)
 
 
