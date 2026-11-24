@@ -1419,7 +1419,7 @@ function dcMentionCandidates(trigger,query){
     if(dcActiveGuild){
       (dcMemberRoleCache||[]).forEach(role=>{
         if((role.name||"").toLocaleLowerCase("ru").includes(needle))
-          roles.push({kind:"role",id:String(role.id),label:role.name,detail:"Роль сервера",color:role.color_hex||""});
+          roles.push({kind:"role",id:String(role.id),label:role.name,detail:role.mentionable?"Упоминание включено":"Может потребоваться право MENTION_EVERYONE",color:role.color_hex||""});
       });
     }
     return trigger==="@&"?roles.slice(0,30):[...users.slice(0,15),...roles.slice(0,15)];
