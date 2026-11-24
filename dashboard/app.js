@@ -55,7 +55,7 @@ function showPage(page){
       loadMessages(section);
     } else if(page==="discord"){
       section.classList.add("bot-discord-preview");
-      section.innerHTML='<div class="dc-app dc-live-app"><aside class="dc-guildbar"><div class="dc-guild-icon dc-home">GW</div><div class="dc-guild-divider"></div><div class="dc-live-guilds" id="dcGuildList"><button type="button" class="dc-guild-icon selected" id="dcHomeButton" title="Личные сообщения">＠</button></div><div class="dc-guild-spacer"></div><button type="button" class="dc-guild-icon dc-avatar dc-exit-live" id="dcExitLive" title="Вернуться в панель" aria-label="Вернуться в панель">↩</button></aside><aside class="dc-dm-sidebar"><div class="dc-dm-search" id="dcDmSearch"><input id="dcUserSearch" type="search" placeholder="Найти пользователя или ID"><button id="dcSearchButton" type="button">⌕</button></div><div id="dcSearchResults" class="dc-search-results" hidden></div><div class="dc-dm-section"><span id="dcSidebarTitle">ЛИЧНЫЕ СООБЩЕНИЯ</span><button id="dcRefreshDms" type="button" title="Обновить">↻</button></div><div id="dcDmList" class="dc-live-dm-list"><div class="dc-live-loading">Загружаем диалоги…</div></div><div id="dcChannelList" class="dc-live-dm-list" hidden><div class="dc-live-loading">Выбери сервер слева</div></div><button type="button" class="dc-account dc-account-trigger" id="dcBotAccountTrigger" title="Настройки профиля бота" aria-haspopup="dialog"><div class="dc-account-avatar" id="dcBotAccountAvatar">WG<span class="dc-account-status-dot dc-status-online"></span></div><span class="dc-account-name"><strong id="dcBotName">WhiteGrief</strong><small id="dcBotStatusText">Бот · подключение</small></span><span class="dc-account-open">⌄</span></button></aside><main class="dc-main"><header class="dc-topbar"><button id="dcToggleSidebar" class="dc-mobile-sidebar-toggle" type="button" title="Открыть навигацию" aria-label="Открыть навигацию" aria-expanded="false">☰</button><div class="dc-topbar-title"><span class="dc-hash">＠</span><strong id="dcChatTitle">Личные сообщения</strong><span class="dc-topic" id="dcChatSubtitle">Выбери диалог или найди пользователя</span></div><div class="dc-topbar-actions"><button id="dcAccessibilityButton" type="button" title="Специальные возможности">◉</button><button id="dcToggleMembers" type="button" title="Скрыть участников" aria-label="Показать или скрыть участников" aria-pressed="true">☷</button><button id="dcServerSettingsButton" type="button" title="Настройки сервера" hidden>⚙</button><button id="dcRefreshChat" type="button" title="Обновить переписку">↻</button></div></header><div class="dc-channel-layout dc-live-layout"><section class="dc-chat"><div id="dcChatMessages" class="dc-chat-scroll"><div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени бота GastWorld.</p></div></div><div class="dc-composer-wrap"><form id="dcComposerForm" class="dc-composer dc-live-composer"><button class="dc-composer-add" id="dcAttachButton" type="button" title="Прикрепить файл" aria-label="Прикрепить файл">＋</button><input id="dcFileInput" type="file" multiple hidden><textarea id="dcMessageInput" rows="1" maxlength="2000" placeholder="Написать сообщение…" disabled></textarea><button id="dcSendButton" type="submit" disabled>➤</button></form><div id="dcFilePreview" class="dc-file-preview" hidden></div><div id="dcComposerHint" class="dc-composer-hint">Сначала выбери пользователя. Discord может ограничивать отправку DM.</div></div></section><aside class="dc-members dc-live-members" id="dcMembersPanel"><div id="dcDmProfilePanel" class="dc-dm-profile-panel" hidden></div><div class="dc-members-head"><strong>УЧАСТНИКИ</strong><span id="dcMemberCount">—</span></div><input id="dcMemberSearch" class="dc-member-search" type="search" placeholder="Поиск участника"><div id="dcMemberList" class="dc-member-list"><div class="dc-live-empty">Выбери сервер слева</div></div></aside></div><div class="dc-release-ribbon"><span>●</span> ОФИЦИАЛЬНОЕ BOT-ПОДКЛЮЧЕНИЕ <i>•</i> Не личный аккаунт</div></main></div>';
+      section.innerHTML='<div class="dc-app dc-live-app"><aside class="dc-guildbar"><div class="dc-guild-icon dc-home">GW</div><div class="dc-guild-divider"></div><div class="dc-live-guilds" id="dcGuildList"><button type="button" class="dc-guild-icon selected" id="dcHomeButton" title="Личные сообщения">＠</button></div><div class="dc-guild-spacer"></div><button type="button" class="dc-guild-icon dc-avatar dc-exit-live" id="dcExitLive" title="Вернуться в панель" aria-label="Вернуться в панель">↩</button></aside><aside class="dc-dm-sidebar"><div class="dc-dm-search" id="dcDmSearch"><input id="dcUserSearch" type="search" placeholder="Найти пользователя или ID"><button id="dcSearchButton" type="button">⌕</button></div><div id="dcSearchResults" class="dc-search-results" hidden></div><div class="dc-dm-section"><span id="dcSidebarTitle">ЛИЧНЫЕ СООБЩЕНИЯ</span><button id="dcRefreshDms" type="button" title="Обновить">↻</button></div><div id="dcDmList" class="dc-live-dm-list"><div class="dc-live-loading">Загружаем диалоги…</div></div><div id="dcChannelList" class="dc-live-dm-list" hidden><div class="dc-live-loading">Выбери сервер слева</div></div><button type="button" class="dc-account dc-account-trigger" id="dcBotAccountTrigger" title="Настройки профиля бота" aria-haspopup="dialog"><div class="dc-account-avatar" id="dcBotAccountAvatar">WG<span class="dc-account-status-dot dc-status-online"></span></div><span class="dc-account-name"><strong id="dcBotName">WhiteGrief</strong><small id="dcBotStatusText">Бот · подключение</small></span><span class="dc-account-open">⌄</span></button></aside><main class="dc-main"><header class="dc-topbar"><button id="dcToggleSidebar" class="dc-mobile-sidebar-toggle" type="button" title="Открыть навигацию" aria-label="Открыть навигацию" aria-expanded="false">☰</button><div class="dc-topbar-title"><span class="dc-hash">＠</span><strong id="dcChatTitle">Личные сообщения</strong><span class="dc-topic" id="dcChatSubtitle">Выбери диалог или найди пользователя</span></div><div class="dc-topbar-actions"><button id="dcAccessibilityButton" type="button" title="Специальные возможности">◉</button><button id="dcToggleMembers" type="button" title="Скрыть участников" aria-label="Показать или скрыть участников" aria-pressed="true">☷</button><button id="dcServerSettingsButton" type="button" title="Настройки сервера" hidden>⚙</button><button id="dcRefreshChat" type="button" title="Обновить переписку">↻</button></div></header><div class="dc-channel-layout dc-live-layout"><section class="dc-chat"><div id="dcChatMessages" class="dc-chat-scroll"><div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени бота GastWorld.</p></div></div><div class="dc-composer-wrap"><div id="dcReplyPreview" class="dc-reply-preview" hidden></div><div id="dcMentionPicker" class="dc-mention-picker" role="listbox" aria-label="Подсказки упоминаний" hidden></div><div id="dcEmojiPicker" class="dc-emoji-picker" hidden></div><form id="dcComposerForm" class="dc-composer dc-live-composer"><button class="dc-composer-add" id="dcAttachButton" type="button" title="Прикрепить файл" aria-label="Прикрепить файл">＋</button><input id="dcFileInput" type="file" multiple hidden><textarea id="dcMessageInput" rows="1" maxlength="2000" placeholder="Написать сообщение…" disabled></textarea><button class="dc-emoji-button" id="dcEmojiButton" type="button" title="Выбрать эмодзи" aria-label="Выбрать эмодзи">☺</button><button id="dcSendButton" type="submit" disabled>➤</button></form><div id="dcFilePreview" class="dc-file-preview" hidden></div><div id="dcComposerHint" class="dc-composer-hint">Сначала выбери пользователя. Discord может ограничивать отправку DM.</div></div></section><aside class="dc-members dc-live-members" id="dcMembersPanel"><div id="dcDmProfilePanel" class="dc-dm-profile-panel" hidden></div><div class="dc-members-head"><strong>УЧАСТНИКИ</strong><span id="dcMemberCount">—</span></div><input id="dcMemberSearch" class="dc-member-search" type="search" placeholder="Поиск участника"><div id="dcMemberList" class="dc-member-list"><div class="dc-live-empty">Выбери сервер слева</div></div></aside></div><div class="dc-release-ribbon"><span>●</span> ОФИЦИАЛЬНОЕ BOT-ПОДКЛЮЧЕНИЕ <i>•</i> Не личный аккаунт</div></main></div>';
     } else if(page==="console"){
       section.innerHTML='<div class="panel-heading"><div><h2>Управление ботом</h2><p>Состояние Discord-подключения и безопасные действия управления.</p></div><button class="text-button" id="refreshConsole">↻ Обновить</button></div><div id="consoleWorkspace" class="console-workspace"><div class="empty-state">Подключаемся к боту…</div></div>';
       loadConsole(section);
@@ -980,21 +980,26 @@ function dcAppendInlineMarkdown(parent,value){
 }
 function dcRenderMessageContent(parent,message){
   const content=String(message.content||"");
-  const users=new Map((message.mentions||[]).map(item=>[String(item.id),item]));
-  const roles=new Map((message.role_mentions||[]).map(item=>[String(item.id),item]));
-  const channels=new Map((message.channel_mentions||[]).map(item=>[String(item.id),item]));
+  const fallbackUsers=[...(dcMemberCache||[]),...(dcActiveUser?[dcActiveUser]:[])];
+  const users=new Map([...fallbackUsers,...(message.mentions||[])].map(item=>[String(item.id),item]));
+  const roleItems=[...(dcMemberRoleCache||[]),...(message.role_mentions||[])];
+  const roles=new Map(roleItems.map(item=>[String(item.id),item]));
+  const cachedChannels=dcActiveGuild?(dcChannelsCacheByGuild.get(dcActiveGuild.id)?.channels||[]):[];
+  const channels=new Map([...cachedChannels,...(message.channel_mentions||[])].map(item=>[String(item.id),item]));
   const token=/<@!?([0-9]{5,})>|<@&([0-9]{5,})>|<#([0-9]{5,})>|<t:(-?[0-9]+)(?::([tTdDfFR]))?>|<(a?):([A-Za-z0-9_]+):([0-9]{5,})>|(https?:\/\/[^\s<]+)/g;
   let cursor=0,match;
   while((match=token.exec(content))){
     if(match.index>cursor)dcAppendInlineMarkdown(parent,content.slice(cursor,match.index));
     let node;
     if(match[1]){
-      const user=users.get(match[1]);node=document.createElement("span");node.className="dc-mention dc-user-mention";node.textContent="@"+(user?.global_name||user?.username||"пользователь");node.title=user?("@"+user.username+" · "+user.id):"Участник Discord";
-      if(user){node.tabIndex=0;node.addEventListener("click",()=>dcOpenConversation(user));}
+      const user=users.get(match[1]);node=document.createElement("span");node.className="dc-mention dc-user-mention";node.textContent="@"+(user?.global_name||user?.display_name||user?.username||"пользователь");node.title=user?("@"+user.username+" · "+user.id):"Участник Discord";
+      if(user){node.tabIndex=0;node.setAttribute("role","button");node.addEventListener("click",()=>dcOpenConversation(user));node.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();dcOpenConversation(user);}});}
     }else if(match[2]){
       const role=roles.get(match[2]);node=document.createElement("span");node.className="dc-mention dc-role-mention";node.textContent="@"+(role?.name||"роль");if(role?.color_hex)node.style.setProperty("--mention-color",role.color_hex);node.title=role?.name||"Роль Discord";
     }else if(match[3]){
       const channel=channels.get(match[3]);node=document.createElement("span");node.className="dc-mention dc-channel-mention";node.textContent="#"+(channel?.name||"канал");node.title=channel?.name||"Канал Discord";
+      const target=cachedChannels.find(item=>String(item.id)===match[3]);
+      if(target){node.tabIndex=0;node.setAttribute("role","button");node.addEventListener("click",()=>dcOpenGuildChannel(target));}
     }else if(match[4]){
       const stamp=Number(match[4]);node=document.createElement("time");node.className="dc-timestamp";node.dateTime=new Date(stamp*1000).toISOString();const date=new Date(stamp*1000);const style=(match[5]||"f").toLowerCase();node.textContent=style==="r"?new Intl.RelativeTimeFormat("ru",{numeric:"auto"}).format(Math.round((stamp*1000-Date.now())/60000),"minute"):date.toLocaleString("ru-RU",style==="t"||style==="T"?{hour:"2-digit",minute:"2-digit"}:style==="d"?{day:"2-digit",month:"2-digit",year:"numeric"}:style==="f"?{day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}:{weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"});node.title=date.toLocaleString("ru-RU");
     }else if(match[7]){
@@ -1006,13 +1011,99 @@ function dcRenderMessageContent(parent,message){
   }
   if(cursor<content.length)dcAppendInlineMarkdown(parent,content.slice(cursor));
 }
+function dcActiveMessageChannelId(){return dcActiveChannel?.id||dcActiveDmChannelId||"";}
+async function dcMessageRequest(method,channelId,messageId,payload){
+  const response=await fetch("/api/discord/channels/"+encodeURIComponent(channelId)+"/messages/"+encodeURIComponent(messageId)+(method==="POST"&&payload?.emoji?"/reactions":method==="POST"&&typeof payload?.pinned==="boolean"?"/pin":""),{
+    method,credentials:"same-origin",headers:payload?{"Content-Type":"application/json"}:undefined,body:payload?JSON.stringify(payload):undefined
+  });
+  const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ.");}
+  if(!response.ok)throw new Error(data.detail||"Действие с сообщением не выполнено.");
+  return data;
+}
+function dcRefreshCurrentHistory(){
+  if(dcActiveChannel)return dcOpenGuildChannel(dcActiveChannel,true);
+  if(dcActiveUser)return dcOpenConversation(dcActiveUser,true);
+}
+function dcSetReplyTarget(message){
+  dcReplyTarget=message;
+  const preview=document.getElementById("dcReplyPreview"),input=document.getElementById("dcMessageInput");
+  if(preview){
+    preview.replaceChildren();preview.hidden=false;
+    const text=document.createElement("span");text.textContent="Ответ "+(message.author?.global_name||message.author?.username||"участнику")+": "+String(message.content||"[вложение]").slice(0,120);
+    const close=document.createElement("button");close.type="button";close.textContent="×";close.title="Отменить ответ";close.addEventListener("click",dcClearReplyTarget);
+    preview.append(text,close);
+  }
+  if(input){input.focus();input.placeholder="Ответить на сообщение…";}
+}
+function dcClearReplyTarget(){
+  dcReplyTarget=null;
+  const preview=document.getElementById("dcReplyPreview"),input=document.getElementById("dcMessageInput");
+  if(preview){preview.replaceChildren();preview.hidden=true;}
+  if(input)input.placeholder="Написать сообщение…";
+}
+async function dcToggleReaction(message,emoji){
+  const channelId=dcActiveMessageChannelId();if(!channelId||!message?.id)return;
+  try{await dcMessageRequest("POST",channelId,message.id,{emoji});await dcRefreshCurrentHistory();}
+  catch(error){if(typeof showToast==="function")showToast(error.message);else alert(error.message);}
+}
+function dcShowReactionPicker(event,message){
+  document.querySelector(".dc-message-context")?.remove();
+  const menu=document.createElement("div");menu.className="dc-message-context dc-reaction-picker";
+  ["👍","❤️","😂","🎉","🔥","👀","✅","😮","😭","💀","🤝","⭐"].forEach(emoji=>{
+    const button=document.createElement("button");button.type="button";button.className="dc-reaction-choice";button.textContent=emoji;
+    button.addEventListener("click",()=>{menu.remove();dcToggleReaction(message,emoji);});menu.append(button);
+  });
+  document.body.append(menu);
+  const rect=event.currentTarget?.getBoundingClientRect?.();
+  const x=Math.min(event.clientX??rect?.left??20,window.innerWidth-220),y=Math.min(event.clientY??rect?.top??20,window.innerHeight-110);
+  menu.style.left=Math.max(8,x)+"px";menu.style.top=Math.max(8,y)+"px";
+  setTimeout(()=>document.addEventListener("click",()=>menu.remove(),{once:true}),0);
+}
 function dcShowMessageMenu(event,message){
   event.preventDefault();document.querySelector(".dc-message-context")?.remove();
   const menu=document.createElement("div");menu.className="dc-message-context";
-  const actions=[["Копировать текст",()=>navigator.clipboard.writeText(message.content||"")],["Копировать ID сообщения",()=>navigator.clipboard.writeText(String(message.id||""))]];
-  actions.forEach(([label,action])=>{const button=document.createElement("button");button.type="button";button.textContent=label;button.addEventListener("click",async()=>{try{await action();}catch(error){}menu.remove();});menu.append(button);});
-  document.body.append(menu);const x=Math.min(event.clientX,window.innerWidth-220),y=Math.min(event.clientY,window.innerHeight-100);menu.style.left=Math.max(8,x)+"px";menu.style.top=Math.max(8,y)+"px";
+  const ownMessage=String(message.author?.id||"")===String(dcBotProfileCache?.bot?.id||"");
+  const channelId=dcActiveMessageChannelId();
+  const actions=[
+    ["Ответить",()=>dcSetReplyTarget(message)],
+    ["Добавить реакцию",()=>dcShowReactionPicker(event,message)],
+    ["Копировать текст",()=>navigator.clipboard.writeText(message.content||"")],
+    ["Копировать ID сообщения",()=>navigator.clipboard.writeText(String(message.id||""))]
+  ];
+  if(ownMessage)actions.push(["Изменить сообщение",async()=>{
+    const edited=window.prompt("Изменить сообщение:",message.content||"");
+    if(edited===null)return;
+    await dcMessageRequest("PATCH",channelId,message.id,{content:edited});
+    await dcRefreshCurrentHistory();
+  }]);
+  if(ownMessage)actions.push(["Удалить сообщение",async()=>{
+    if(!window.confirm("Удалить это сообщение?"))return;
+    await dcMessageRequest("DELETE",channelId,message.id);
+    await dcRefreshCurrentHistory();
+  }]);
+  if(dcActiveChannel)actions.push([message.pinned?"Открепить сообщение":"Закрепить сообщение",async()=>{
+    await dcMessageRequest("POST",channelId,message.id,{pinned:!message.pinned});
+    await dcRefreshCurrentHistory();
+  }]);
+  actions.forEach(([label,action])=>{const button=document.createElement("button");button.type="button";button.textContent=label;button.addEventListener("click",async()=>{try{await action();}catch(error){if(typeof showToast==="function")showToast(error.message);else alert(error.message);}menu.remove();});menu.append(button);});
+  document.body.append(menu);const x=Math.min(event.clientX,window.innerWidth-240),y=Math.min(event.clientY,window.innerHeight-220);menu.style.left=Math.max(8,x)+"px";menu.style.top=Math.max(8,y)+"px";
   setTimeout(()=>document.addEventListener("click",()=>menu.remove(),{once:true}),0);
+}
+function dcRenderMessageReactions(body,message){
+  const reactions=Array.isArray(message.reactions)?message.reactions:[];
+  if(!reactions.length&&!dcActiveMessageChannelId())return;
+  const row=document.createElement("div");row.className="dc-message-reactions";
+  reactions.forEach(reaction=>{
+    const button=document.createElement("button");button.type="button";button.className="dc-reaction"+(reaction.me?" is-me":"");
+    if(reaction.url){const image=document.createElement("img");image.src=reaction.url;image.alt=reaction.name||"emoji";button.append(image);}
+    else button.append(document.createTextNode(reaction.name||reaction.emoji||"✦"));
+    const count=document.createElement("span");count.textContent=String(reaction.count||1);button.append(count);
+    button.title="Добавить или убрать реакцию";button.addEventListener("click",()=>dcToggleReaction(message,reaction.emoji));row.append(button);
+  });
+  if(dcActiveMessageChannelId()){
+    const add=document.createElement("button");add.type="button";add.className="dc-reaction dc-reaction-add";add.textContent="＋";add.title="Добавить реакцию";add.addEventListener("click",event=>dcShowReactionPicker(event,message));row.append(add);
+  }
+  body.append(row);
 }
 function dcRenderMessages(messages){
   const root=document.getElementById("dcChatMessages");if(!root)return;root.replaceChildren();
@@ -1030,6 +1121,12 @@ function dcRenderMessages(messages){
     if(messageHighestRole&&dcAccessibilityPrefs.roleColorMode==="dot"){const roleDot=document.createElement("i");roleDot.className="dc-member-role-color";dcApplyRoleColor(roleDot,messageHighestRole,false);head.append(author,roleDot,time);}else head.append(author,time);
     if(message.edited_at){const edited=document.createElement("small");edited.className="dc-edited-label";edited.textContent="(изменено)";head.append(edited);}
     body.append(head);
+    if(message.reply_preview){
+      const reply=document.createElement("button");reply.type="button";reply.className="dc-message-reply-preview";
+      reply.textContent="↪ "+(message.reply_preview.author?.global_name||message.reply_preview.author?.username||"Ответ на сообщение")+": "+(message.reply_preview.content||"[сообщение недоступно]").slice(0,120);
+      reply.addEventListener("click",()=>{const target=document.querySelector('[data-message-id="'+CSS.escape(String(message.reply_preview.message_id))+'"]');target?.scrollIntoView({behavior:"smooth",block:"center"});target?.classList.add("dc-message-target");setTimeout(()=>target?.classList.remove("dc-message-target"),1400);});
+      body.append(reply);
+    }
     if(message.content){const text=document.createElement("p");text.className="dc-message-content";dcRenderMessageContent(text,message);body.append(text);}
     (message.attachments||[]).forEach(file=>{
       const link=document.createElement("a");link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.filename;link.className="dc-attachment-link";body.append(link);
@@ -1059,6 +1156,8 @@ function dcRenderMessages(messages){
     }
     (message.embeds||[]).forEach(embed=>{const card=document.createElement("div");card.className="dc-embed-card";if(embed.title){const title=document.createElement(embed.url?"a":"strong");title.textContent=embed.title;if(embed.url){title.href=embed.url;title.target="_blank";title.rel="noopener noreferrer";}card.append(title);}if(embed.description){const description=document.createElement("p");dcAppendInlineMarkdown(description,embed.description);card.append(description);}if(embed.image_url){const image=document.createElement("img");image.src=embed.image_url;image.alt="";image.loading="lazy";card.append(image);}body.append(card);});
     if(!message.content&&!message.attachments?.length&&!message.embeds?.length&&!message.stickers?.length){const empty=document.createElement("p");empty.className="dc-message-content";empty.textContent="[Сообщение без текста]";body.append(empty);}
+    dcRenderMessageReactions(body,message);
+    if(message.pinned){const pin=document.createElement("small");pin.className="dc-message-pinned";pin.textContent="📌 Закреплено";body.append(pin);}
     row.append(avatar,body);root.append(row);
   });
   root.scrollTop=root.scrollHeight;
@@ -1083,7 +1182,7 @@ async function dcOpenConversation(user,silent=false){
     const action=document.createElement("button");action.type="button";action.className="dc-dm-profile-action";action.textContent="Открыть профиль";action.addEventListener("click",()=>{const member=dcMemberCache.find(item=>String(item.id)===String(user.id));if(member&&dcActiveGuild)dcOpenProfile(member);else{action.textContent="Профиль сервера доступен при выборе сервера";}});profilePanel.append(action);
   }
   const root=document.getElementById("dcChatMessages");if(root&&!silent)root.innerHTML='<div class="dc-live-loading">Открываем личную переписку…</div>';
-  try{const data=await apiGet("/api/discord/dms/"+encodeURIComponent(user.id)+"/messages");if(dcActiveUser?.id!==user.id)return;dcRenderMessages(data.messages||[]);await dcLoadConversationList();}
+  try{const data=await apiGet("/api/discord/dms/"+encodeURIComponent(user.id)+"/messages");if(dcActiveUser?.id!==user.id)return;dcActiveDmChannelId=String(data.channel_id||"");dcRenderMessages(data.messages||[]);await dcLoadConversationList();}
   catch(error){if(root){root.replaceChildren();const msg=document.createElement("div");msg.className="dc-live-error";msg.textContent=error.message;root.append(msg);}if(hint)hint.textContent="Не удалось открыть DM. Проверь ограничения приватности Discord.";}
 }
 async function dcSendMessage(event){
@@ -1096,12 +1195,12 @@ async function dcSendMessage(event){
   if(files.reduce((sum,file)=>sum+file.size,0)>25*1024*1024){hint.textContent="Общий размер файлов не должен превышать 25 МБ.";return;}
   send.disabled=true;hint.textContent="Отправляем сообщение и вложения…";
   try{
-    const form=new FormData();form.append("content",content);files.forEach(file=>form.append("files",file,file.name));
+    const form=new FormData();form.append("content",content);if(dcReplyTarget?.id)form.append("reply_to",String(dcReplyTarget.id));files.forEach(file=>form.append("files",file,file.name));
     const url=dcActiveChannel?"/api/discord/channels/"+encodeURIComponent(dcActiveChannel.id)+"/messages":"/api/discord/dms/"+encodeURIComponent(dcActiveUser.id)+"/messages";
     const response=await fetch(url,{method:"POST",credentials:"same-origin",body:form});
     const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ.");}
     if(!response.ok)throw new Error(result.detail||"Не удалось отправить сообщение.");
-    input.value="";if(filesInput)filesInput.value="";
+    input.value="";if(filesInput)filesInput.value="";dcClearReplyTarget();dcCloseMentionPicker();dcCloseEmojiPicker();
     const preview=document.getElementById("dcFilePreview");if(preview){preview.replaceChildren();preview.hidden=true;}
     if(dcActiveChannel)await dcOpenGuildChannel(dcActiveChannel,true);else await dcOpenConversation(dcActiveUser,true);
     hint.textContent="Сообщение отправлено от имени бота.";
@@ -1109,6 +1208,7 @@ async function dcSendMessage(event){
   finally{send.disabled=!!(dcActiveChannel&&!dcActiveChannel.can_send);input?.focus();}
 }
 let dcActiveGuild=null,dcActiveChannel=null,dcGuildCache=[];
+let dcActiveDmChannelId=null,dcReplyTarget=null;
 let dcMemberCache=[];
 let dcMemberCacheByGuild=new Map();
 let dcMemberRolesByGuild=new Map();
@@ -1287,6 +1387,92 @@ async function dcLoadGuildMembers(guild,force=false){
   }finally{dcMembersLoading.delete(guild.id);}
 }
 let dcMemberRoleCache=[];
+let dcMentionPickerItems=[],dcMentionPickerIndex=0,dcMentionTrigger=null;
+const dcEmojiChoices=["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😍","🥰","😘","😎","🤔","😴","😭","😡","🤯","🥳","😱","👍","👎","👏","🙌","🙏","🤝","💪","🔥","❤️","💙","💜","✨","⭐","✅","❌","🎉","🎮","💀","👀","🍀"];
+function dcCloseMentionPicker(){
+  const root=document.getElementById("dcMentionPicker");if(root){root.hidden=true;root.replaceChildren();}
+  dcMentionPickerItems=[];dcMentionPickerIndex=0;dcMentionTrigger=null;
+}
+function dcMentionCandidates(trigger,query){
+  const needle=String(query||"").toLocaleLowerCase("ru");
+  const result=[];
+  if(trigger==="@"||trigger==="@&"){
+    if(trigger==="@" ){
+      const members=dcActiveGuild?dcMemberCache:(dcActiveUser?[dcActiveUser]:[]);
+      members.forEach(member=>{
+        const label=member.global_name||member.display_name||member.username||"Участник";
+        if((label+" "+(member.username||"")+" "+member.id).toLocaleLowerCase("ru").includes(needle))
+          result.push({kind:"user",id:String(member.id),label,detail:"@"+(member.username||""),avatar:member.avatar_url||member.avatar||""});
+      });
+    }
+    if(dcActiveGuild){
+      (dcMemberRoleCache||[]).forEach(role=>{
+        if((role.name||"").toLocaleLowerCase("ru").includes(needle))
+          result.push({kind:"role",id:String(role.id),label:role.name,detail:"Роль сервера",color:role.color_hex||""});
+      });
+    }
+  }else if(trigger==="#"){
+    const channels=dcActiveGuild?(dcChannelsCacheByGuild.get(dcActiveGuild.id)?.channels||[]):[];
+    channels.forEach(channel=>{
+      if((channel.name||"").toLocaleLowerCase("ru").includes(needle))
+        result.push({kind:"channel",id:String(channel.id),label:channel.name,detail:channel.category_name||"Текстовый канал"});
+    });
+  }
+  return result.slice(0,30);
+}
+function dcRenderMentionPicker(){
+  const root=document.getElementById("dcMentionPicker");if(!root)return;
+  root.replaceChildren();
+  if(!dcMentionPickerItems.length){root.hidden=true;return;}
+  root.hidden=false;
+  const title=document.createElement("div");title.className="dc-mention-picker-title";title.textContent=dcMentionTrigger?.type==="#"?"КАНАЛЫ":dcMentionTrigger?.type==="@&"?"РОЛИ":"УЧАСТНИКИ И РОЛИ";root.append(title);
+  dcMentionPickerItems.forEach((item,index)=>{
+    const button=document.createElement("button");button.type="button";button.className="dc-mention-option"+(index===dcMentionPickerIndex?" is-active":"");button.setAttribute("role","option");button.setAttribute("aria-selected",String(index===dcMentionPickerIndex));
+    if(item.kind==="user"&&item.avatar){const avatar=document.createElement("img");avatar.className="dc-mention-option-avatar";avatar.src=item.avatar;avatar.alt="";button.append(avatar);}
+    else{const glyph=document.createElement("span");glyph.className="dc-mention-option-glyph";glyph.textContent=item.kind==="channel"?"#":item.kind==="role"?"@":"●";if(item.color)glyph.style.color=item.color;button.append(glyph);}
+    const copy=document.createElement("span");copy.className="dc-mention-option-copy";const name=document.createElement("strong");name.textContent=(item.kind==="channel"?"#":"@")+item.label;const detail=document.createElement("small");detail.textContent=item.detail||"";copy.append(name,detail);button.append(copy);
+    button.addEventListener("mousedown",event=>event.preventDefault());
+    button.addEventListener("click",()=>dcInsertMention(item));
+    root.append(button);
+  });
+}
+function dcUpdateMentionPicker(input){
+  const root=document.getElementById("dcMentionPicker");if(!root||!input||input.disabled)return dcCloseMentionPicker();
+  const caret=input.selectionStart??input.value.length;
+  const before=input.value.slice(0,caret);
+  const match=before.match(/(^|\s)([@#])(&?[^\s@#]*)$/u);
+  if(!match)return dcCloseMentionPicker();
+  const isRole=match[2]==="@"&&match[3].startsWith("&");
+  const type=match[2]==="#"?"#":isRole?"@&":"@";
+  const query=isRole?match[3].slice(1):match[3];
+  dcMentionTrigger={type,start:caret-(match[2].length+match[3].length),end:caret};
+  dcMentionPickerItems=dcMentionCandidates(type,query);
+  dcMentionPickerIndex=0;
+  dcRenderMentionPicker();
+}
+function dcInsertMention(item){
+  const input=document.getElementById("dcMessageInput");if(!input||!dcMentionTrigger)return;
+  const start=dcMentionTrigger.start,end=dcMentionTrigger.end;
+  const token=item.kind==="user"?"<@"+item.id+">":item.kind==="role"?"<@&"+item.id+">":"<#"+item.id+">";
+  input.value=input.value.slice(0,start)+token+" "+input.value.slice(end);
+  const caret=start+token.length+1;input.setSelectionRange(caret,caret);input.focus();dcCloseMentionPicker();dcUpdateMentionPicker(input);
+}
+function dcHandleMentionKeydown(event,input){
+  if(!dcMentionPickerItems.length)return false;
+  if(event.key==="ArrowDown"){event.preventDefault();dcMentionPickerIndex=(dcMentionPickerIndex+1)%dcMentionPickerItems.length;dcRenderMentionPicker();return true;}
+  if(event.key==="ArrowUp"){event.preventDefault();dcMentionPickerIndex=(dcMentionPickerIndex-1+dcMentionPickerItems.length)%dcMentionPickerItems.length;dcRenderMentionPicker();return true;}
+  if(event.key==="Enter"||event.key==="Tab"){event.preventDefault();dcInsertMention(dcMentionPickerItems[dcMentionPickerIndex]);return true;}
+  if(event.key==="Escape"){event.preventDefault();dcCloseMentionPicker();return true;}
+  return false;
+}
+function dcCloseEmojiPicker(){
+  const root=document.getElementById("dcEmojiPicker");if(root){root.hidden=true;root.replaceChildren();}
+}
+function dcToggleEmojiPicker(){
+  const root=document.getElementById("dcEmojiPicker"),input=document.getElementById("dcMessageInput");if(!root||!input)return;
+  if(!root.hidden){dcCloseEmojiPicker();return;}
+  root.replaceChildren();dcEmojiChoices.forEach(emoji=>{const button=document.createElement("button");button.type="button";button.textContent=emoji;button.addEventListener("click",()=>{const start=input.selectionStart??input.value.length,end=input.selectionEnd??start;input.value=input.value.slice(0,start)+emoji+input.value.slice(end);const caret=start+emoji.length;input.setSelectionRange(caret,caret);input.focus();dcCloseEmojiPicker();});root.append(button);});root.hidden=false;
+}
 const dcStatusLabels={online:"В сети",idle:"Не активен",dnd:"Не беспокоить",offline:"Не в сети"};
 function dcStatusClass(status){return ["online","idle","dnd"].includes(status)?status:"offline";}
 function dcOpenProfile(member){
@@ -1892,7 +2078,7 @@ function dcRenderGuildChannels(data,list,title,guild){
   });
 }
 async function dcOpenGuild(guild){
-  if(!guild?.id)return;dcActiveGuild=guild;dcActiveChannel=null;dcActiveUser=null;dcSetMode("guild");
+  if(!guild?.id)return;dcActiveGuild=guild;dcActiveChannel=null;dcActiveUser=null;dcActiveDmChannelId=null;dcClearReplyTarget();dcSetMode("guild");
   const list=document.getElementById("dcChannelList"),title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard");
   if(title)title.textContent=guild.name;if(subtitle)subtitle.textContent="Выбери текстовый канал";if(input){input.value="";input.disabled=true;}if(send)send.disabled=true;if(hint)hint.textContent="Сообщения будут отправляться от имени Discord-бота.";if(card)card.textContent="Выбран сервер: "+guild.name;
   dcLoadGuildMembers(guild);
@@ -1908,7 +2094,7 @@ async function dcOpenGuild(guild){
   }catch(error){if(dcActiveGuild?.id===guild.id&&list)list.textContent=error.message;}finally{dcChannelsLoading.delete(guild.id);}
 }
 async function dcOpenGuildChannel(channel,silent=false){
-  if(!channel?.id||!dcActiveGuild)return;dcActiveChannel=channel;dcActiveUser=null;document.querySelectorAll(".dc-channel-item").forEach(x=>x.classList.toggle("active",x.dataset.channelId===channel.id));
+  if(!channel?.id||!dcActiveGuild)return;dcActiveChannel=channel;dcActiveUser=null;dcActiveDmChannelId=null;document.querySelectorAll(".dc-channel-item").forEach(x=>x.classList.toggle("active",x.dataset.channelId===channel.id));
   const title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard"),root=document.getElementById("dcChatMessages");
   if(title)title.textContent="# "+channel.name;if(subtitle)subtitle.textContent=dcActiveGuild.name;if(input)input.disabled=!channel.can_send;if(send)send.disabled=!channel.can_send;if(hint)hint.textContent=channel.can_send?"Сообщение будет отправлено от имени бота.":"У бота нет права отправлять сообщения в этот канал.";if(card)card.textContent=dcActiveGuild.name+" · #"+channel.name;
   if(root&&!silent)root.innerHTML='<div class="dc-live-loading">Загружаем сообщения канала…</div>';
@@ -1916,7 +2102,7 @@ async function dcOpenGuildChannel(channel,silent=false){
   catch(error){if(root){root.replaceChildren();const msg=document.createElement("div");msg.className="dc-live-error";msg.textContent=error.message;root.append(msg);}if(hint)hint.textContent="Не удалось загрузить канал.";}
 }
 function loadBotDiscord(){
-  if(dcPollTimer)clearInterval(dcPollTimer);dcActiveUser=null;dcActiveChannel=null;dcActiveGuild=null;
+  if(dcPollTimer)clearInterval(dcPollTimer);dcActiveUser=null;dcActiveChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcReplyTarget=null;
   const search=document.getElementById("dcUserSearch"),searchButton=document.getElementById("dcSearchButton"),refresh=document.getElementById("dcRefreshDms"),refreshChat=document.getElementById("dcRefreshChat"),form=document.getElementById("dcComposerForm");
   document.getElementById("dcServerSettingsButton")?.addEventListener("click",dcOpenServerSettings);
   document.getElementById("dcAccessibilityButton")?.addEventListener("click",dcOpenAccessibilitySettings);
@@ -1939,15 +2125,22 @@ function loadBotDiscord(){
   document.getElementById("dcMemberSearch")?.addEventListener("input",dcRenderGuildMembers);
   refresh?.addEventListener("click",()=>{if(dcActiveGuild)dcOpenGuild(dcActiveGuild);else dcLoadConversationList();});
   refreshChat?.addEventListener("click",()=>{if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel);else if(dcActiveUser)dcOpenConversation(dcActiveUser);});
-  document.getElementById("dcHomeButton")?.addEventListener("click",()=>{dcActiveGuild=null;dcActiveChannel=null;dcActiveUser=null;dcSetMode("dm");dcLoadConversationList();});
+  document.getElementById("dcHomeButton")?.addEventListener("click",()=>{dcActiveGuild=null;dcActiveChannel=null;dcActiveUser=null;dcActiveDmChannelId=null;dcClearReplyTarget();dcSetMode("dm");dcLoadConversationList();});
   form?.addEventListener("submit",dcSendMessage);
   dcApplyAccessibilityPreferences();
   const messageInput=document.getElementById("dcMessageInput");
+  messageInput?.addEventListener("input",()=>{dcUpdateMentionPicker(messageInput);messageInput.style.height="auto";messageInput.style.height=Math.min(messageInput.scrollHeight,130)+"px";});
   messageInput?.addEventListener("keydown",event=>{
+    if(dcHandleMentionKeydown(event,messageInput))return;
     if(event.key==="Enter"&&!event.shiftKey&&!event.isComposing){
       event.preventDefault();
       if(!messageInput.disabled)form?.requestSubmit();
     }
+  });
+  document.getElementById("dcEmojiButton")?.addEventListener("click",dcToggleEmojiPicker);
+  document.addEventListener("click",event=>{
+    if(!event.target.closest("#dcEmojiPicker")&&!event.target.closest("#dcEmojiButton"))dcCloseEmojiPicker();
+    if(!event.target.closest("#dcMentionPicker")&&!event.target.closest("#dcMessageInput"))dcCloseMentionPicker();
   });
   const attachButton=document.getElementById("dcAttachButton"),fileInput=document.getElementById("dcFileInput"),filePreview=document.getElementById("dcFilePreview"),composerHint=document.getElementById("dcComposerHint");
   attachButton?.addEventListener("click",()=>fileInput?.click());
