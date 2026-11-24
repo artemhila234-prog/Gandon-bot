@@ -4064,6 +4064,29 @@ async def panel_guild_channels(guild_id):
     return {"guild": {"id": str(guild.id), "name": guild.name, "icon_url": str(guild.icon.url) if guild.icon else ""}, "categories": categories, "channels": channels}
 
 
+async def panel_guild_emojis(guild_id):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    if not str(guild_id).isdigit():
+        raise ValueError("Некорректный ID сервера.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден или бот на нём отсутствует.")
+    emojis = []
+    for emoji in guild.emojis:
+        if not emoji.available:
+            continue
+        emojis.append({
+            "id": str(emoji.id),
+            "name": emoji.name,
+            "animated": bool(emoji.animated),
+            "url": str(emoji.url),
+            "reaction": f"{emoji.name}:{emoji.id}",
+            "markup": f"<a:{emoji.name}:{emoji.id}>" if emoji.animated else f"<:{emoji.name}:{emoji.id}>",
+        })
+    return {"guild_id": str(guild.id), "emojis": emojis}
+
+
 async def panel_channel_history(channel_id, limit=100):
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
@@ -4176,17 +4199,27 @@ async def panel_message_delete(channel_id, message_id):
 
 async def panel_message_react(channel_id, message_id, emoji):
     emoji = str(emoji or "").strip()
-    if not emoji or len(emoji) > 80:
+    if not emoji or len(emoji) > 100:
         raise ValueError("Укажи корректный эмодзи для реакции.")
-    _, message = await panel_message_action_target(channel_id, message_id)
-    existing = next((reaction for reaction in message.reactions if str(reaction.emoji) == emoji), None)
+    channel, message = await panel_message_action_target(channel_id, message_id)
+    reaction_emoji = emoji
+    if emoji.startswith("custom:"):
+        emoji_id = emoji.split(":", 1)[1]
+        if not emoji_id.isdigit() or not isinstance(channel, (discord.TextChannel, discord.Thread)):
+            raise ValueError("Кастомные эмодзи доступны только в каналах сервера.")
+        reaction_emoji = discord.utils.get(channel.guild.emojis, id=int(emoji_id))
+        if reaction_emoji is None or not reaction_emoji.available:
+            raise ValueError("Эмодзи сервера недоступен или больше не существует.")
+    existing = next((reaction for reaction in message.reactions
+                     if (getattr(reaction.emoji, "id", None) == getattr(reaction_emoji, "id", None)
+                         if getattr(reaction_emoji, "id", None) else str(reaction.emoji) == str(reaction_emoji))), None)
     if existing and existing.me:
         await message.remove_reaction(existing.emoji, bot.user)
         action = "removed"
     else:
-        await message.add_reaction(emoji)
+        await message.add_reaction(reaction_emoji)
         action = "added"
-    return {"ok": True, "action": action, "message_id": str(message_id), "emoji": emoji}
+    return {"ok": True, "action": action, "message_id": str(message_id), "emoji": str(reaction_emoji)}
 
 
 async def panel_message_pin(channel_id, message_id, pinned):
@@ -4236,6 +4269,7 @@ async def run_services():
         "discord_presence": panel_guild_presence,
         "discord_member_role": panel_member_role,
         "discord_channels": panel_guild_channels,
+        "discord_emojis": panel_guild_emojis,
         "discord_channel_history": panel_channel_history,
         "discord_channel_send": panel_channel_send,
         "discord_message_edit": panel_message_edit,
