@@ -1164,8 +1164,8 @@ function dcRenderMessages(messages){
 }
 async function dcOpenConversation(user,silent=false){
   if(!user?.id)return;
-  if(dcActiveUser?.id!==user.id)dcClearReplyTarget();
-  dcActiveUser=user;dcActiveChannel=null;dcActiveDmChannelId=null;dcSetMode("dm");
+  if(dcActiveUser?.id!==user.id||dcActiveChannel)dcClearReplyTarget();
+  dcActiveUser=user;dcActiveChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcSetMode("dm");
   const title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard");
   if(title)title.textContent=user.global_name||user.username;if(subtitle)subtitle.textContent="@"+user.username+" · "+user.id;
   if(input)input.disabled=false;if(send)send.disabled=false;
@@ -2096,7 +2096,9 @@ async function dcOpenGuild(guild){
   }catch(error){if(dcActiveGuild?.id===guild.id&&list)list.textContent=error.message;}finally{dcChannelsLoading.delete(guild.id);}
 }
 async function dcOpenGuildChannel(channel,silent=false){
-  if(!channel?.id||!dcActiveGuild)return;dcActiveChannel=channel;dcActiveUser=null;dcActiveDmChannelId=null;document.querySelectorAll(".dc-channel-item").forEach(x=>x.classList.toggle("active",x.dataset.channelId===channel.id));
+  if(!channel?.id||!dcActiveGuild)return;
+  if(dcActiveChannel?.id!==channel.id||dcActiveUser)dcClearReplyTarget();
+  dcActiveChannel=channel;dcActiveUser=null;dcActiveDmChannelId=null;document.querySelectorAll(".dc-channel-item").forEach(x=>x.classList.toggle("active",x.dataset.channelId===channel.id));
   const title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard"),root=document.getElementById("dcChatMessages");
   if(title)title.textContent="# "+channel.name;if(subtitle)subtitle.textContent=dcActiveGuild.name;if(input)input.disabled=!channel.can_send;if(send)send.disabled=!channel.can_send;if(hint)hint.textContent=channel.can_send?"Сообщение будет отправлено от имени бота.":"У бота нет права отправлять сообщения в этот канал.";if(card)card.textContent=dcActiveGuild.name+" · #"+channel.name;
   if(root&&!silent)root.innerHTML='<div class="dc-live-loading">Загружаем сообщения канала…</div>';
