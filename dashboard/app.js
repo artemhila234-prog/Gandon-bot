@@ -1754,9 +1754,9 @@ function dcRenderServerSettings(data){
   layout.append(sidebar,main);
 
   const navSections=[
-    {title:"НАСТРОЙКИ СЕРВЕРА",items:[["overview","Обзор","▦",true],["roles","Роли","♙",true],["channels","Каналы и категории","#",false],["members","Участники","♧",false],["invites","Приглашения","↗",false]]},
-    {title:"МОДЕРАЦИЯ",items:[["safety","Настройка безопасности","⛨",false],["audit","Журнал аудита","≋",false],["automod","AutoMod","◇",false]]},
-    {title:"СЕРВИСЫ",items:[["integrations","Интеграции","⌘",false],["emoji","Эмодзи и стикеры","☺",false],["events","События","◷",false]]}
+    {title:"НАСТРОЙКИ СЕРВЕРА",items:[["overview","Обзор","▦",true],["roles","Роли","♙",true],["channels","Каналы и категории","#",true],["members","Участники","♧",true],["invites","Приглашения","↗",true]]},
+    {title:"МОДЕРАЦИЯ",items:[["safety","Настройка безопасности","⛨",true],["audit","Журнал аудита","≋",true],["automod","AutoMod","◇",true]]},
+    {title:"СЕРВИСЫ",items:[["integrations","Интеграции","⌘",true],["emoji","Эмодзи и стикеры","☺",true],["events","События","◷",true]]}
   ];
   const navButtons=new Map();
   navSections.forEach(group=>{
@@ -2121,13 +2121,441 @@ function dcRenderServerSettings(data){
     try{await refreshRoles(null);}catch(error){roleList.textContent="Не удалось загрузить роли: "+error.message;}
   };
 
+
+  const serverSettingsBase="/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/settings/";
+  const serverSettingsRequest=async(section,method="GET",payload=null,itemId="")=>{
+    const url=serverSettingsBase+section+(itemId?"/"+encodeURIComponent(itemId):"");
+    const options={method,credentials:"same-origin"};
+    if(payload instanceof FormData)options.body=payload;
+    else if(payload!==null){options.headers={"Content-Type":"application/json"};options.body=JSON.stringify(payload);}
+    const response=await fetch(url,options);
+    const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{throw new Error("Discord вернул неожиданный ответ (HTTP "+response.status+").");}
+    if(!response.ok)throw new Error(result.detail||"Запрос к настройкам сервера не выполнен.");
+    return result;
+  };
+  const settingsHeading=(name,description)=>{
+    main.replaceChildren();
+    const head=document.createElement("div");head.className="dc-settings-page-heading";
+    const h=document.createElement("h3");h.textContent=name;
+    const p=document.createElement("p");p.textContent=description||"Настройки сервера GastWorld.";
+    head.append(h,p);main.append(head);return head;
+  };
+  const settingsNotice=(text,error=false)=>{
+    const node=document.createElement("div");node.className="dc-settings-permission"+(error?" dc-settings-notice-error":"");node.textContent=text;main.append(node);return node;
+  };
+  const settingsButton=(text,action,kind="secondary")=>{
+    const button=document.createElement("button");button.type="button";button.className="dc-settings-action dc-settings-action-"+kind;button.textContent=text;
+    button.addEventListener("click",action);return button;
+  };
+  const settingsLabel=(caption,control,wide=false)=>{
+    const label=document.createElement("label");label.className="dc-settings-field"+(wide?" wide":"");
+    const span=document.createElement("span");span.textContent=caption;label.append(span,control);return label;
+  };
+  const settingsInput=(value="",type="text",placeholder="")=>{
+    const input=document.createElement("input");input.type=type;input.value=value??"";input.placeholder=placeholder;return input;
+  };
+  const settingsSelect=(items,value)=>{
+    const select=document.createElement("select");(items||[]).forEach(item=>{
+      const option=document.createElement("option");option.value=String(item[0]);option.textContent=String(item[1]);select.append(option);
+    });select.value=String(value??"");return select;
+  };
+  const settingsPanel=(title)=>{
+    const panel=document.createElement("section");panel.className="dc-settings-section dc-settings-data-panel";
+    if(title){const h=document.createElement("h4");h.textContent=title;panel.append(h);}return panel;
+  };
+  const settingsError=(container,error)=>{
+    const box=document.createElement("div");box.className="dc-settings-permission dc-settings-notice-error";box.textContent=error?.message||String(error||"Неизвестная ошибка");container.append(box);
+  };
+  const settingsEmpty=(container,message)=>{
+    const empty=document.createElement("div");empty.className="dc-settings-empty";empty.textContent=message;container.append(empty);
+  };
+  const settingsRow=(container,title,subtitle,actions=[])=>{
+    const row=document.createElement("div");row.className="dc-settings-list-row";
+    const copy=document.createElement("div");copy.className="dc-settings-list-copy";
+    const strong=document.createElement("strong");strong.textContent=title||"Без названия";
+    copy.append(strong);
+    if(subtitle){const small=document.createElement("small");small.textContent=subtitle;copy.append(small);}
+    const tools=document.createElement("div");tools.className="dc-settings-list-actions";actions.forEach(a=>tools.append(a));
+    row.append(copy,tools);container.append(row);return row;
+  };
+  const settingsLoadError=(title,desc,error)=>{settingsHeading(title,desc);settingsError(main,error);};
+
+  const renderChannels=async()=>{
+    settingsHeading("Каналы и категории","Создавай, редактируй, перемещай и удаляй каналы и категории сервера.");
+    const workspace=document.createElement("div");workspace.className="dc-settings-management-workspace";
+    const listPane=settingsPanel("СТРУКТУРА СЕРВЕРА");
+    const addBar=document.createElement("div");addBar.className="dc-settings-toolbar";
+    const refresh=settingsButton("Обновить",()=>loadChannels(),"secondary");
+    addBar.append(refresh);listPane.append(addBar);
+    const list=document.createElement("div");list.className="dc-settings-data-list";list.textContent="Загрузка каналов…";listPane.append(list);
+    const editor=settingsPanel("СОЗДАТЬ / ИЗМЕНИТЬ");
+    workspace.append(listPane,editor);main.append(workspace);
+    let currentData={channels:[],categories:[]};
+    const typeSelect=settingsSelect([["text","Текстовый канал"],["announcement","Канал объявлений"],["voice","Голосовой канал"],["stage","Stage-канал"],["forum","Форум"],["category","Категория"]],"text");
+    const nameInput=settingsInput("","");
+    const categorySelect=settingsSelect([["","Без категории"]],"");
+    const topicInput=settingsInput("","");
+    const slowInput=settingsInput("0","number");
+    const createForm=document.createElement("form");createForm.className="dc-settings-form dc-settings-compact-form";
+    const fields=document.createElement("div");fields.className="dc-settings-fields";
+    fields.append(settingsLabel("Тип",typeSelect),settingsLabel("Название",nameInput),settingsLabel("Категория",categorySelect),settingsLabel("Медленный режим (сек.)",slowInput),settingsLabel("Тема / описание",topicInput,true));
+    const submit=document.createElement("button");submit.type="submit";submit.className="dc-settings-save";submit.textContent="Создать";
+    const reset=settingsButton("Очистить",()=>{createForm.dataset.editId="";createForm.reset();submit.textContent="Создать";typeSelect.disabled=false;topicInput.disabled=false;slowInput.disabled=false;});
+    createForm.append(fields);const foot=document.createElement("div");foot.className="dc-settings-footer";foot.append(reset,submit);createForm.append(foot);editor.append(createForm);
+    typeSelect.addEventListener("change",()=>{const type=typeSelect.value;topicInput.disabled=!["text","announcement","forum"].includes(type);slowInput.disabled=!["text","announcement"].includes(type);categorySelect.disabled=type==="category";});
+    const loadChannels=async()=>{
+      list.textContent="Загрузка каналов…";
+      try{
+        currentData=await serverSettingsRequest("channels");
+        const options=[["","Без категории"],...(currentData.categories||[]).map(c=>[c.id,c.name])];
+        categorySelect.replaceChildren();options.forEach(item=>{const o=document.createElement("option");o.value=item[0];o.textContent=item[1];categorySelect.append(o);});
+        list.replaceChildren();
+        const categories=currentData.categories||[],channels=currentData.channels||[];
+        if(!categories.length&&!channels.length){settingsEmpty(list,"На сервере пока нет каналов и категорий.");return;}
+        const renderItem=(item,isCategory)=>{
+          const actions=[];
+          actions.push(settingsButton("Изменить",()=>{
+            createForm.dataset.editId=String(item.id);nameInput.value=item.name||"";typeSelect.value=isCategory?"category":(item.type||"text");
+            typeSelect.disabled=true;categorySelect.value=item.category_id||"";categorySelect.disabled=isCategory;
+            topicInput.value=item.topic||"";topicInput.disabled=isCategory||!["text","announcement","forum"].includes(typeSelect.value);
+            slowInput.value=String(item.slowmode_delay||0);slowInput.disabled=isCategory||!["text","announcement"].includes(typeSelect.value);
+            submit.textContent="Сохранить";
+            editor.scrollIntoView({behavior:"smooth",block:"nearest"});
+          }));
+          actions.push(settingsButton("Удалить",async()=>{
+            if(!confirm("Удалить "+(isCategory?"категорию ":"канал ")+"«"+item.name+"»? Это действие нельзя отменить."))return;
+            try{await serverSettingsRequest("channels","DELETE",null,item.id);await loadChannels();showToast?.("Объект удалён.");}catch(error){settingsError(editor,error);}
+          },"danger"));
+          settingsRow(list,(isCategory?"▾ ":"# ")+item.name,isCategory?"Категория":"Тип: "+(item.type||"канал")+" · "+(item.category_name||"Без категории"),actions);
+        };
+        categories.forEach(item=>renderItem(item,true));
+        channels.forEach(item=>renderItem(item,false));
+      }catch(error){list.replaceChildren();settingsError(list,error);}
+    };
+    createForm.addEventListener("submit",async event=>{
+      event.preventDefault();submit.disabled=true;
+      const editId=createForm.dataset.editId||"";
+      const payload={name:nameInput.value.trim()};
+      if(!payload.name){settingsError(editor,new Error("Укажи название."));submit.disabled=false;return;}
+      if(!editId){
+        payload.type=typeSelect.value;payload.category_id=categorySelect.value||null;payload.topic=topicInput.value.trim();payload.slowmode_delay=Number(slowInput.value)||0;
+      }else{
+        payload.category_id=categorySelect.value||null;
+        if(!typeSelect.disabled&&["text","announcement","forum"].includes(typeSelect.value))payload.topic=topicInput.value.trim();
+        if(["text","announcement"].includes(typeSelect.value))payload.slowmode_delay=Number(slowInput.value)||0;
+      }
+      try{await serverSettingsRequest("channels",editId?"PATCH":"POST",payload,editId);createForm.dataset.editId="";createForm.reset();typeSelect.disabled=false;categorySelect.disabled=false;topicInput.disabled=false;slowInput.disabled=false;submit.textContent="Создать";await loadChannels();showToast?.(editId?"Канал обновлён.":"Объект создан.");}
+      catch(error){settingsError(editor,error);}
+      finally{submit.disabled=false;}
+    });
+    await loadChannels();
+  };
+
+  const renderMembers=async()=>{
+    settingsHeading("Участники","Список участников сервера, быстрый поиск и инструменты модерации. Все действия учитывают права и иерархию Discord.");
+    const search=settingsInput("","search","Поиск по имени, нику или ID");search.className="dc-role-member-search";main.append(search);
+    const status=document.createElement("p");status.className="dc-settings-status";status.textContent="Загрузка участников…";main.append(status);
+    const list=document.createElement("div");list.className="dc-settings-data-list dc-settings-member-list";main.append(list);
+    let members=[];
+    const draw=()=>{
+      const term=search.value.trim().toLocaleLowerCase("ru");
+      const filtered=members.filter(m=>[m.global_name,m.username,m.id].join(" ").toLocaleLowerCase("ru").includes(term));
+      list.replaceChildren();
+      if(!filtered.length){settingsEmpty(list,members.length?"Участники не найдены.":"Список пуст.");return;}
+      filtered.slice(0,1200).forEach(member=>{
+        const actions=[];
+        actions.push(settingsButton("Профиль",()=>dcOpenProfile(member)));
+        actions.push(settingsButton("Ник",async()=>{
+          const nickname=prompt("Новый ник (пусто — сбросить):",member.global_name||member.username||"");if(nickname===null)return;
+          try{await serverSettingsRequest("members","POST",{action:"nickname",nickname},member.id);showToast?.("Ник участника изменён.");}catch(error){settingsError(list,error);}
+        }));
+        actions.push(settingsButton("Тайм-аут",async()=>{
+          const minutes=prompt("Минуты тайм-аута (0 — снять, максимум 40320):","10");if(minutes===null)return;
+          const n=Number(minutes);if(!Number.isInteger(n)||n<0||n>40320){alert("Укажи число от 0 до 40320.");return;}
+          try{await serverSettingsRequest("members","POST",{action:"timeout",minutes:n},member.id);showToast?.(n?"Тайм-аут выдан.":"Тайм-аут снят.");}catch(error){settingsError(list,error);}
+        }));
+        actions.push(settingsButton("Кик",async()=>{
+          if(!confirm("Исключить "+(member.global_name||member.username)+" с сервера?"))return;
+          try{await serverSettingsRequest("members","POST",{action:"kick"},member.id);members=members.filter(m=>m.id!==member.id);draw();showToast?.("Участник исключён.");}catch(error){settingsError(list,error);}
+        },"danger"));
+        actions.push(settingsButton("Бан",async()=>{
+          if(!confirm("Заблокировать "+(member.global_name||member.username)+" на сервере?"))return;
+          try{await serverSettingsRequest("members","POST",{action:"ban",delete_message_seconds:0},member.id);members=members.filter(m=>m.id!==member.id);draw();showToast?.("Участник заблокирован.");}catch(error){settingsError(list,error);}
+        },"danger"));
+        const avatar=document.createElement("span");avatar.className="dc-settings-member-avatar";
+        const url=member.avatar||member.avatar_url||"";
+        if(url){const img=document.createElement("img");img.src=url;img.alt="";avatar.append(img);}else avatar.textContent=(member.global_name||member.username||"?").slice(0,1).toUpperCase();
+        const row=settingsRow(list,(member.bot?"◆ ":"")+ (member.global_name||member.username||member.id),"@"+(member.username||"unknown")+" · ID "+member.id,actions);row.prepend(avatar);
+      });
+    };
+    search.addEventListener("input",draw);
+    try{
+      let after="0",hasMore=true;
+      while(hasMore&&members.length<10000){
+        const page=await apiGet(serverSettingsBase+"members?after="+encodeURIComponent(after)+"&limit=500");
+        const batch=page.members||[];members.push(...batch);status.textContent="Загружено участников: "+members.length;
+        hasMore=!!page.has_more;after=String(page.next_after||"");
+        if(!hasMore||!after||!batch.length)break;
+      }
+      draw();status.textContent="Всего загружено: "+members.length+" участников"+(members.length>=10000?" · показана первая часть списка":"");
+    }catch(error){status.textContent="Ошибка загрузки участников: "+error.message;}
+  };
+
+  const renderInvites=async()=>{
+    settingsHeading("Приглашения","Просматривай активные ссылки приглашений и создавай новые с ограничением по сроку и числу использований.");
+    const form=settingsPanel("СОЗДАТЬ ПРИГЛАШЕНИЕ");
+    const channelSelect=settingsSelect([["","Загрузка каналов…"]],"");
+    const expiry=settingsSelect([[3600,"1 час"],[21600,"6 часов"],[86400,"24 часа"],[604800,"7 дней"],[0,"Без срока"]],86400);
+    const uses=settingsSelect([[0,"Без лимита"],[1,"1 использование"],[5,"5 использований"],[10,"10 использований"],[25,"25 использований"],[50,"50 использований"],[100,"100 использований"]],0);
+    const fields=document.createElement("div");fields.className="dc-settings-fields";fields.append(settingsLabel("Канал",channelSelect),settingsLabel("Срок действия",expiry),settingsLabel("Лимит использований",uses));
+    const create=settingsButton("Создать ссылку",async()=>{
+      if(!channelSelect.value){settingsError(form,new Error("Выбери канал."));return;}
+      create.disabled=true;
+      try{const invite=await serverSettingsRequest("invites","POST",{channel_id:channelSelect.value,max_age:Number(expiry.value),max_uses:Number(uses.value),unique:true});
+        const result=document.createElement("div");result.className="dc-settings-created-invite";const link=document.createElement("a");link.href="https://discord.gg/"+invite.code;link.target="_blank";link.rel="noopener noreferrer";link.textContent="https://discord.gg/"+invite.code;
+        const copy=settingsButton("Копировать",()=>navigator.clipboard?.writeText(link.href));result.append(link,copy);form.append(result);await loadInvites();
+      }catch(error){settingsError(form,error);}finally{create.disabled=false;}
+    },"primary");
+    form.append(fields,create);main.append(form);
+    const listPanel=settingsPanel("АКТИВНЫЕ ПРИГЛАШЕНИЯ"),list=document.createElement("div");list.className="dc-settings-data-list";list.textContent="Загрузка…";listPanel.append(list);main.append(listPanel);
+    try{const channels=await serverSettingsRequest("channels");channelSelect.replaceChildren();(channels.channels||[]).filter(c=>["text","announcement"].includes(c.type)).forEach(c=>{const op=document.createElement("option");op.value=c.id;op.textContent="# "+c.name;channelSelect.append(op);});if(!channelSelect.options.length)channelSelect.add(new Option("Нет текстовых каналов",""));
+    }catch(error){channelSelect.replaceChildren(new Option("Не удалось загрузить каналы",""));}
+    const loadInvites=async()=>{
+      list.textContent="Загрузка приглашений…";
+      try{const data=await serverSettingsRequest("invites");list.replaceChildren();if(!data.length){settingsEmpty(list,"Активных приглашений нет.");return;}
+        data.forEach(inv=>{
+          const expiryLabel=inv.max_age?new Date(new Date(inv.created_at).getTime()+inv.max_age*1000).toLocaleString("ru-RU"):"Без срока";
+          const acts=[settingsButton("Открыть",()=>window.open("https://discord.gg/"+inv.code,"_blank","noopener"))];
+          acts.push(settingsButton("Отозвать",async()=>{if(!confirm("Отозвать приглашение "+inv.code+"?"))return;try{await serverSettingsRequest("invites","DELETE",null,inv.code);await loadInvites();}catch(error){settingsError(list,error);}},"danger"));
+          settingsRow(list,"discord.gg/"+inv.code,"Канал: "+(inv.channel?.name||inv.channel_id||"—")+" · Использовано: "+(inv.uses||0)+(inv.max_uses?"/"+inv.max_uses:"")+" · "+expiryLabel,acts);
+        });
+      }catch(error){list.replaceChildren();settingsError(list,error);}
+    };
+    await loadInvites();
+  };
+
+  const renderSafety=async()=>{
+    settingsHeading("Настройка безопасности","Уровни проверки участников, фильтры контента и временная защита сервера от рейдов.");
+    const panel=settingsPanel("БЕЗОПАСНОСТЬ УЧАСТНИКОВ");panel.textContent="Загрузка параметров безопасности…";main.append(panel);
+    try{
+      const data=await serverSettingsRequest("safety"),settings=data.settings||{},incidents=data.incidents||{};
+      panel.replaceChildren();const fields=document.createElement("div");fields.className="dc-settings-fields";
+      const verification=settingsSelect([[0,"Без ограничений"],[1,"Подтверждённая почта"],[2,"Аккаунт старше 5 минут"],[3,"На сервере 10 минут"],[4,"Подтверждённый телефон"]],settings.verification_level);
+      const filter=settingsSelect([[0,"Не фильтровать"],[1,"Без роли"],[2,"Все сообщения"]],settings.explicit_content_filter);
+      const notify=settingsSelect([[0,"Все сообщения"],[1,"Только упоминания"]],settings.default_notifications);
+      fields.append(settingsLabel("Уровень проверки",verification),settingsLabel("Фильтр медиа-контента",filter),settingsLabel("Уведомления по умолчанию",notify));
+      panel.append(fields);
+      const incidentPanel=settingsPanel("ЗАЩИТА ОТ РЕЙДОВ");incidentPanel.classList.add("dc-settings-nested-panel");
+      const inviteUntil=settingsSelect([[0,"Включено"],[1,"Отключить на 1 час"],[6,"Отключить на 6 часов"],[12,"Отключить на 12 часов"],[24,"Отключить на 24 часа"]],incidents.invites_disabled_until?Math.max(1,Math.ceil((new Date(incidents.invites_disabled_until)-Date.now())/3600000)):0);
+      const dmUntil=settingsSelect([[0,"Включено"],[1,"Отключить на 1 час"],[6,"Отключить на 6 часов"],[12,"Отключить на 12 часов"],[24,"Отключить на 24 часа"]],incidents.dms_disabled_until?Math.max(1,Math.ceil((new Date(incidents.dms_disabled_until)-Date.now())/3600000)):0);
+      const ifields=document.createElement("div");ifields.className="dc-settings-fields";ifields.append(settingsLabel("Новые приглашения",inviteUntil),settingsLabel("Личные сообщения новых участников",dmUntil));incidentPanel.append(ifields);panel.append(incidentPanel);
+      const note=document.createElement("p");note.className="dc-settings-permission";note.textContent="Текущий уровень MFA: "+(data.mfa_level===2?"Включён":data.mfa_level===1?"Требуется для модерации":"Не требуется")+" · Для защиты от рейдов Discord разрешает временное отключение приглашений и личных сообщений не более чем на 24 часа.";panel.append(note);
+      const status=document.createElement("p");status.className="dc-settings-status";panel.append(status);
+      const save=settingsButton("Сохранить безопасность",async()=>{
+        save.disabled=true;
+        const expiryIso=value=>Number(value)>0?new Date(Date.now()+Number(value)*3600000).toISOString():null;
+        try{await serverSettingsRequest("safety","PATCH",{verification_level:Number(verification.value),explicit_content_filter:Number(filter.value),default_notifications:Number(notify.value),invites_disabled_until:expiryIso(inviteUntil.value),dms_disabled_until:expiryIso(dmUntil.value)});status.textContent="✓ Настройки безопасности сохранены.";showToast?.("Настройки безопасности сохранены.");}
+        catch(error){status.textContent=error.message;}
+        finally{save.disabled=false;}
+      },"primary");panel.append(save);
+    }catch(error){panel.replaceChildren();settingsError(panel,error);}
+  };
+
+  const renderAudit=async()=>{
+    settingsHeading("Журнал аудита","Последние действия администраторов и модераторов на сервере GastWorld.");
+    const refresh=settingsButton("Обновить",loadAudit);main.append(refresh);
+    const list=settingsPanel("ПОСЛЕДНИЕ 100 ДЕЙСТВИЙ");list.classList.add("dc-settings-audit-list");list.textContent="Загрузка журнала…";main.append(list);
+    const loadAudit=async()=>{
+      list.textContent="Загрузка журнала аудита…";
+      try{
+        const data=await serverSettingsRequest("audit");list.replaceChildren();
+        const users=new Map((data.users||[]).map(u=>[String(u.id),u]));
+        const actions=data.audit_log_entries||[];
+        if(!actions.length){settingsEmpty(list,"Записей в журнале нет или Discord не вернул доступную историю.");return;}
+        actions.forEach(entry=>{
+          const user=users.get(String(entry.user_id));const action=String(entry.action_type||"Неизвестное действие");const target=entry.target_id?"ID объекта: "+entry.target_id:"";
+          const time=entry.id?new Date(Number(BigInt(entry.id)>>22n)+1420070400000).toLocaleString("ru-RU"):"";
+          settingsRow(list,action+" · "+(user?.global_name||user?.username||entry.user_id||"Система"),[target,entry.reason?"Причина: "+entry.reason:"",time].filter(Boolean).join(" · "));
+        });
+      }catch(error){list.replaceChildren();settingsError(list,error);}
+    };
+    await loadAudit();
+  };
+
+  const renderAutoMod=async()=>{
+    settingsHeading("AutoMod","Настраивай автоматические правила: блокировка слов, спам, упоминания и фильтр профилей.");
+    const createPanel=settingsPanel("НОВОЕ ПРАВИЛО");
+    const fields=document.createElement("div");fields.className="dc-settings-fields";
+    const name=settingsInput("Фильтр GastWorld");const type=settingsSelect([[1,"Ключевые слова"],[3,"Спам"],[4,"Слова из пресетов Discord"],[5,"Массовые упоминания"],[6,"Слова в профиле участника"]],1);
+    const keywords=settingsInput("","text","слово1, слово2");const mentionLimit=settingsInput("5","number");const action=settingsSelect([[1,"Блокировать сообщение"],[2,"Отправить предупреждение в канал"],[3,"Тайм-аут"]],1);
+    const alertChannel=settingsSelect([["","Выбери канал"]],"");const timeout=settingsInput("600","number");const custom=settingsInput("Сообщение заблокировано фильтром сервера");
+    fields.append(settingsLabel("Название",name),settingsLabel("Тип правила",type),settingsLabel("Ключевые слова",keywords,true),settingsLabel("Лимит упоминаний",mentionLimit),settingsLabel("Действие",action),settingsLabel("Канал для логов",alertChannel),settingsLabel("Тайм-аут (сек.)",timeout),settingsLabel("Сообщение пользователю",custom,true));
+    const typeHint=document.createElement("p");typeHint.className="dc-settings-permission";typeHint.textContent="Ключевые слова и профили поддерживают список слов; пресеты используют встроенные наборы Discord; спам и массовые упоминания анализируются Discord.";
+    createPanel.append(fields,typeHint);main.append(createPanel);
+    const loadRules=async()=>{
+      const list=settingsPanel("ПРАВИЛА СЕРВЕРА");list.textContent="Загрузка AutoMod…";main.append(list);
+      try{
+        const rules=await serverSettingsRequest("automod");list.replaceChildren();
+        if(!rules.length){settingsEmpty(list,"Правила AutoMod ещё не созданы.");}
+        rules.forEach(rule=>{
+          const detail="Тип триггера: "+rule.trigger_type+" · Действия: "+(rule.actions||[]).map(a=>({1:"блокировка",2:"уведомление",3:"тайм-аут",4:"блокировка взаимодействий"}[a.type]||a.type)).join(", ");
+          const toggle=settingsButton(rule.enabled?"Отключить":"Включить",async()=>{
+            try{await serverSettingsRequest("automod","PATCH",{enabled:!rule.enabled},rule.id);await loadRules();}catch(error){settingsError(list,error);}
+          });
+          const del=settingsButton("Удалить",async()=>{if(!confirm("Удалить правило «"+rule.name+"»?"))return;try{await serverSettingsRequest("automod","DELETE",null,rule.id);await loadRules();}catch(error){settingsError(list,error);}},"danger");
+          settingsRow(list,rule.name,detail,[toggle,del]);
+        });
+      }catch(error){list.replaceChildren();settingsError(list,error);}
+    };
+    const save=settingsButton("Создать правило",async()=>{
+      const triggerType=Number(type.value);const actionType=Number(action.value);
+      let metadata={};
+      if([1,6].includes(triggerType)){metadata.keyword_filter=keywords.value.split(",").map(x=>x.trim()).filter(Boolean);if(!metadata.keyword_filter.length){settingsError(createPanel,new Error("Введи хотя бы одно ключевое слово."));return;}}
+      if(triggerType===4)metadata.presets=[1,2,3];
+      if(triggerType===5){metadata.mention_total_limit=Number(mentionLimit.value)||5;metadata.mention_raid_protection_enabled=true;}
+      let actionPayload={type:actionType};
+      if(actionType===1&&custom.value.trim())actionPayload.metadata={custom_message:custom.value.trim().slice(0,150)};
+      if(actionType===2){if(!alertChannel.value){settingsError(createPanel,new Error("Для уведомлений выбери канал."));return;}actionPayload.metadata={channel_id:alertChannel.value};}
+      if(actionType===3){if(![1,5].includes(triggerType)){settingsError(createPanel,new Error("Тайм-аут доступен для ключевых слов и массовых упоминаний."));return;}actionPayload.metadata={duration_seconds:Math.max(60,Math.min(2419200,Number(timeout.value)||600))};}
+      const body={name:name.value.trim(),event_type:1,trigger_type:triggerType,actions:[actionPayload],enabled:true};
+      if(Object.keys(metadata).length)body.trigger_metadata=metadata;
+      if(!body.name){settingsError(createPanel,new Error("Укажи название правила."));return;}
+      save.disabled=true;
+      try{await serverSettingsRequest("automod","POST",body);showToast?.("Правило AutoMod создано.");await loadRules();}
+      catch(error){settingsError(createPanel,error);}
+      finally{save.disabled=false;}
+    },"primary");
+    createPanel.append(save);
+    try{const channels=await serverSettingsRequest("channels");alertChannel.replaceChildren();alertChannel.add(new Option("Выбери канал",""));(channels.channels||[]).filter(c=>["text","announcement"].includes(c.type)).forEach(c=>alertChannel.add(new Option("# "+c.name,c.id)));}
+    catch(error){settingsError(createPanel,error);}
+    await loadRules();
+  };
+
+  const renderIntegrations=async()=>{
+    settingsHeading("Интеграции","Подключённые интеграции Discord и их состояние. Удаление отключает соответствующую связь сервера.");
+    const list=settingsPanel("ИНТЕГРАЦИИ СЕРВЕРА");list.textContent="Загрузка интеграций…";main.append(list);
+    try{
+      const items=await serverSettingsRequest("integrations");list.replaceChildren();
+      if(!items.length){settingsEmpty(list,"Подключённых интеграций не найдено.");return;}
+      items.forEach(item=>{
+        const subtitle=[item.type,item.enabled===false?"Отключена":"Активна",item.account?.name].filter(Boolean).join(" · ");
+        const remove=settingsButton("Отключить",async()=>{
+          if(!confirm("Удалить интеграцию «"+(item.name||item.application?.name||item.id)+"»? Связанные вебхуки могут быть удалены."))return;
+          try{await serverSettingsRequest("integrations","DELETE",null,item.id);await renderIntegrations();}catch(error){settingsError(list,error);}
+        },"danger");
+        settingsRow(list,item.name||item.application?.name||"Интеграция",subtitle,[remove]);
+      });
+    }catch(error){list.replaceChildren();settingsError(list,error);}
+  };
+
+  const renderEmoji=async()=>{
+    settingsHeading("Эмодзи и стикеры","Управляй пользовательскими эмодзи и стикерами сервера. Discord ограничивает размер и поддерживаемые форматы файлов.");
+    const emojiPanel=settingsPanel("ЭМОДЗИ");const emojiList=document.createElement("div");emojiList.className="dc-settings-expression-grid";emojiList.textContent="Загрузка эмодзи…";emojiPanel.append(emojiList);main.append(emojiPanel);
+    const emojiForm=document.createElement("form");emojiForm.className="dc-settings-form dc-settings-expression-form";
+    const emojiName=settingsInput("","text","имя_эмодзи");const emojiFile=settingsInput("");emojiFile.type="file";emojiFile.accept="image/png,image/jpeg,image/gif,image/webp";
+    const addEmoji=document.createElement("button");addEmoji.type="submit";addEmoji.className="dc-settings-save";addEmoji.textContent="Загрузить эмодзи";
+    emojiForm.append(settingsLabel("Имя (2–32, латиница/цифры/_)",emojiName),settingsLabel("Изображение (до 256 КБ)",emojiFile),addEmoji);emojiPanel.append(emojiForm);
+    const stickerPanel=settingsPanel("СТИКЕРЫ");const stickerList=document.createElement("div");stickerList.className="dc-settings-expression-grid";stickerList.textContent="Загрузка стикеров…";stickerPanel.append(stickerList);main.append(stickerPanel);
+    const stickerForm=document.createElement("form");stickerForm.className="dc-settings-form dc-settings-expression-form";
+    const stickerName=settingsInput("","text","Название");const stickerTags=settingsInput("gastworld","text","теги");const stickerDesc=settingsInput("","text","Описание");const stickerFile=settingsInput("");stickerFile.type="file";stickerFile.accept="image/png,image/apng,image/gif,application/json";
+    const addSticker=document.createElement("button");addSticker.type="submit";addSticker.className="dc-settings-save";addSticker.textContent="Загрузить стикер";
+    stickerForm.append(settingsLabel("Название",stickerName),settingsLabel("Теги (обязательны)",stickerTags),settingsLabel("Описание",stickerDesc),settingsLabel("Файл (до 512 КБ)",stickerFile),addSticker);stickerPanel.append(stickerForm);
+    try{
+      const data=await serverSettingsRequest("emoji");emojiList.replaceChildren();stickerList.replaceChildren();
+      (data.emojis||[]).forEach(item=>{
+        const card=document.createElement("div");card.className="dc-expression-card";const img=document.createElement("img");img.src=item.url||("https://cdn.discordapp.com/emojis/"+item.id+".png");img.alt=item.name;
+        const label=document.createElement("span");label.textContent=":"+item.name+":";
+        const del=settingsButton("×",async()=>{if(!confirm("Удалить эмодзи :"+item.name+":?"))return;try{await serverSettingsRequest("emoji","DELETE",null,item.id);await renderEmoji();}catch(error){settingsError(emojiPanel,error);}},"danger");
+        card.append(img,label,del);emojiList.append(card);
+      });
+      if(!(data.emojis||[]).length)settingsEmpty(emojiList,"Эмодзи отсутствуют.");
+      (data.stickers||[]).forEach(item=>{
+        const card=document.createElement("div");card.className="dc-expression-card";const img=document.createElement("img");img.src="https://cdn.discordapp.com/stickers/"+item.id+".png?size=128";img.alt=item.name;
+        const label=document.createElement("span");label.textContent=item.name;
+        const del=settingsButton("×",async()=>{if(!confirm("Удалить стикер «"+item.name+"»?"))return;try{await serverSettingsRequest("stickers","DELETE",null,item.id);await renderEmoji();}catch(error){settingsError(stickerPanel,error);}},"danger");
+        card.append(img,label,del);stickerList.append(card);
+      });
+      if(!(data.stickers||[]).length)settingsEmpty(stickerList,"Стикеры отсутствуют.");
+    }catch(error){emojiList.replaceChildren();stickerList.replaceChildren();settingsError(emojiList,error);}
+    emojiForm.addEventListener("submit",async event=>{
+      event.preventDefault();if(!emojiFile.files?.[0]){settingsError(emojiPanel,new Error("Выбери изображение."));return;}
+      const file=emojiFile.files[0];if(file.size>256*1024){settingsError(emojiPanel,new Error("Эмодзи должен быть не больше 256 КБ."));return;}
+      const reader=new FileReader();reader.onload=async()=>{
+        addEmoji.disabled=true;try{await serverSettingsRequest("emoji","POST",{name:emojiName.value.trim(),image:String(reader.result)});await renderEmoji();showToast?.("Эмодзи добавлен.");}
+        catch(error){settingsError(emojiPanel,error);}finally{addEmoji.disabled=false;}
+      };reader.readAsDataURL(file);
+    });
+    stickerForm.addEventListener("submit",async event=>{
+      event.preventDefault();const file=stickerFile.files?.[0];if(!file){settingsError(stickerPanel,new Error("Выбери файл стикера."));return;}
+      if(file.size>512*1024){settingsError(stickerPanel,new Error("Файл стикера должен быть не больше 512 КБ."));return;}
+      const form=new FormData();form.append("name",stickerName.value.trim());form.append("tags",stickerTags.value.trim());form.append("description",stickerDesc.value.trim());form.append("file",file,file.name);
+      addSticker.disabled=true;try{await serverSettingsRequest("stickers","POST",form);await renderEmoji();showToast?.("Стикер добавлен.");}
+      catch(error){settingsError(stickerPanel,error);}finally{addSticker.disabled=false;}
+    });
+  };
+
+  const renderEvents=async()=>{
+    settingsHeading("События","Создавай внешние события и мероприятия в голосовых или Stage-каналах сервера.");
+    const panel=settingsPanel("СОЗДАТЬ СОБЫТИЕ");const form=document.createElement("form");form.className="dc-settings-form";
+    const name=settingsInput("","text","Название события");const description=settingsInput("","text","Описание");
+    const type=settingsSelect([[3,"Внешнее событие"],[2,"Голосовой канал"],[1,"Stage-канал"]],3);
+    const location=settingsInput("","text","Место проведения");const channel=settingsSelect([["","Выбери канал"]],"");
+    const start=settingsInput("","datetime-local");const end=settingsInput("","datetime-local");
+    const fields=document.createElement("div");fields.className="dc-settings-fields";
+    fields.append(settingsLabel("Название",name),settingsLabel("Тип события",type),settingsLabel("Описание",description,true),settingsLabel("Место",location),settingsLabel("Канал",channel),settingsLabel("Начало",start),settingsLabel("Окончание",end));
+    form.append(fields);
+    const create=document.createElement("button");create.type="submit";create.className="dc-settings-save";create.textContent="Создать событие";form.append(create);panel.append(form);main.append(panel);
+    const list=settingsPanel("СОБЫТИЯ СЕРВЕРА");list.textContent="Загрузка событий…";main.append(list);
+    const loadEvents=async()=>{
+      try{const items=await serverSettingsRequest("events");list.replaceChildren();if(!items.length){settingsEmpty(list,"Запланированных событий нет.");return;}
+        items.forEach(item=>{
+          const startDate=item.scheduled_start_time?new Date(item.scheduled_start_time).toLocaleString("ru-RU"):"";
+          const subtitle=[startDate,item.entity_type===3?(item.entity_metadata?.location||"Внешнее событие"):(item.channel_id?"Канал "+item.channel_id:""),"Участников: "+(item.user_count??0)].filter(Boolean).join(" · ");
+          const acts=[];
+          if(item.status===1)acts.push(settingsButton("Отменить",async()=>{if(!confirm("Отменить событие «"+item.name+"»?"))return;try{await serverSettingsRequest("events","PATCH",{status:4},item.id);await loadEvents();}catch(error){settingsError(list,error);}},"danger"));
+          acts.push(settingsButton("Удалить",async()=>{if(!confirm("Удалить событие «"+item.name+"»?"))return;try{await serverSettingsRequest("events","DELETE",null,item.id);await loadEvents();}catch(error){settingsError(list,error);}},"danger"));
+          settingsRow(list,item.name,subtitle,acts);
+        });
+      }catch(error){list.replaceChildren();settingsError(list,error);}
+    };
+    try{const channels=await serverSettingsRequest("channels");channel.replaceChildren();channel.add(new Option("Выбери голосовой канал",""));(channels.channels||[]).filter(c=>["voice","stage"].includes(c.type)).forEach(c=>channel.add(new Option(c.name,c.id)));}
+    catch(error){settingsError(panel,error);}
+    type.addEventListener("change",()=>{const external=type.value==="3";location.disabled=!external;channel.disabled=external;});
+    type.dispatchEvent(new Event("change"));
+    form.addEventListener("submit",async event=>{
+      event.preventDefault();if(!name.value.trim()||!start.value){settingsError(panel,new Error("Укажи название и время начала."));return;}
+      const startDate=new Date(start.value),endDate=end.value?new Date(end.value):null;
+      if(Number.isNaN(startDate.getTime())||startDate.getTime()<=Date.now()){settingsError(panel,new Error("Время начала должно быть в будущем."));return;}
+      if(endDate&&endDate<=startDate){settingsError(panel,new Error("Время окончания должно быть позже начала."));return;}
+      const body={name:name.value.trim(),description:description.value.trim(),entity_type:Number(type.value),scheduled_start_time:startDate.toISOString()};
+      if(Number(type.value)===3){if(!location.value.trim()||!endDate){settingsError(panel,new Error("Для внешнего события укажи место и время окончания."));return;}body.entity_metadata={location:location.value.trim()};body.scheduled_end_time=endDate.toISOString();}
+      else {if(!channel.value){settingsError(panel,new Error("Выбери голосовой или Stage-канал."));return;}body.channel_id=channel.value;if(endDate)body.scheduled_end_time=endDate.toISOString();}
+      create.disabled=true;try{await serverSettingsRequest("events","POST",body);showToast?.("Событие создано.");await loadEvents();form.reset();}
+      catch(error){settingsError(panel,error);}finally{create.disabled=false;}
+    });
+    await loadEvents();
+  };
+
+  const renderSection=async tab=>{
+    if(tab==="channels")return renderChannels();
+    if(tab==="members")return renderMembers();
+    if(tab==="invites")return renderInvites();
+    if(tab==="safety")return renderSafety();
+    if(tab==="audit")return renderAudit();
+    if(tab==="automod")return renderAutoMod();
+    if(tab==="integrations")return renderIntegrations();
+    if(tab==="emoji")return renderEmoji();
+    if(tab==="events")return renderEvents();
+  };
   const switchTab=tab=>{
     navButtons.forEach((button,key)=>button.classList.toggle("active",key===tab));
     if(tab==="overview")renderOverview();
     else if(tab==="roles")renderRoles();
+    else renderSection(tab).catch(error=>{settingsHeading("Ошибка загрузки раздела");settingsError(main,error);});
   };
   navButtons.get("overview").addEventListener("click",()=>switchTab("overview"));
   navButtons.get("roles").addEventListener("click",()=>switchTab("roles"));
+  navButtons.forEach((button,key)=>button.addEventListener("click",()=>switchTab(key)));
   card.append(head,layout);modal.append(card);
   modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});
   document.body.append(modal);
