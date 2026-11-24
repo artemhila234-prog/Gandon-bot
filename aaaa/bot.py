@@ -4199,6 +4199,94 @@ async def panel_settings_channel_delete(guild_id, actor_id, channel_id):
     return {"ok": True, "deleted_id": str(channel_id)}
 
 
+async def panel_settings_channel_permissions(guild_id, actor_id, channel_id):
+    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
+    if not str(channel_id).isdigit():
+        raise ValueError("Некорректный ID канала.")
+    channel = guild.get_channel(int(channel_id))
+    if channel is None or isinstance(channel, discord.Thread):
+        raise ValueError("Канал не найден или не поддерживает переопределения прав.")
+    allowed_keys = [
+        "view_channel", "send_messages", "read_message_history", "add_reactions",
+        "embed_links", "attach_files", "mention_everyone", "manage_messages",
+        "use_external_emojis", "use_external_stickers", "use_application_commands",
+        "create_public_threads", "create_private_threads", "send_messages_in_threads",
+        "connect", "speak", "stream", "use_vad", "mute_members", "deafen_members",
+        "move_members",
+    ]
+    targets = []
+    for target, overwrite in channel.overwrites.items():
+        if isinstance(target, discord.Role):
+            target_type = "role"
+            target_name = "@everyone" if target.is_default() else target.name
+        elif isinstance(target, discord.Member):
+            target_type = "member"
+            target_name = target.display_name
+        else:
+            continue
+        targets.append({
+            "id": str(target.id), "type": target_type, "name": target_name,
+            "permissions": {key: getattr(overwrite, key, None) for key in allowed_keys},
+        })
+    roles = [{"id": str(role.id), "name": role.name} for role in sorted(guild.roles, key=lambda item: item.position, reverse=True)]
+    return {"channel_id": str(channel.id), "channel_name": channel.name, "targets": targets, "roles": roles, "permission_keys": allowed_keys}
+
+
+async def panel_settings_channel_permission_update(guild_id, actor_id, channel_id, target_id, payload):
+    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
+    if not str(channel_id).isdigit() or not str(target_id).isdigit() or not isinstance(payload, dict):
+        raise ValueError("Некорректные параметры переопределения прав.")
+    channel = guild.get_channel(int(channel_id))
+    if channel is None or isinstance(channel, discord.Thread):
+        raise ValueError("Канал не найден.")
+    target_type = str(payload.get("target_type") or "role")
+    if target_type == "member":
+        target = await panel_fetch_guild_member(guild, target_id)
+    elif target_type == "role":
+        target = guild.get_role(int(target_id))
+    else:
+        raise ValueError("Тип цели должен быть role или member.")
+    if target is None:
+        raise ValueError("Роль или участник не найдены на этом сервере.")
+    permissions = payload.get("permissions") or {}
+    if not isinstance(permissions, dict):
+        raise ValueError("Список разрешений должен быть объектом.")
+    allowed_keys = {
+        "view_channel", "send_messages", "read_message_history", "add_reactions",
+        "embed_links", "attach_files", "mention_everyone", "manage_messages",
+        "use_external_emojis", "use_external_stickers", "use_application_commands",
+        "create_public_threads", "create_private_threads", "send_messages_in_threads",
+        "connect", "speak", "stream", "use_vad", "mute_members", "deafen_members",
+        "move_members",
+    }
+    if set(permissions) - allowed_keys:
+        raise ValueError("Переданы неизвестные права канала.")
+    overwrite = channel.overwrites_for(target)
+    for key, value in permissions.items():
+        if value not in (True, False, None):
+            raise ValueError("Значение права должно быть true, false или null.")
+        setattr(overwrite, key, value)
+    await channel.set_permissions(
+        target, overwrite=None if overwrite.is_empty() else overwrite,
+        reason="GastWorld Control Panel: channel permission overwrite"
+    )
+    return await panel_settings_channel_permissions(guild_id, actor_id, channel_id)
+
+
+async def panel_settings_channel_permission_delete(guild_id, actor_id, channel_id, target_id):
+    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
+    if not str(channel_id).isdigit() or not str(target_id).isdigit():
+        raise ValueError("Некорректные ID канала или цели.")
+    channel = guild.get_channel(int(channel_id))
+    if channel is None:
+        raise ValueError("Канал не найден.")
+    target = guild.get_role(int(target_id)) or guild.get_member(int(target_id))
+    if target is None:
+        raise ValueError("Роль или участник не найдены.")
+    await channel.set_permissions(target, overwrite=None, reason="GastWorld Control Panel: remove channel overwrite")
+    return {"ok": True, "channel_id": str(channel_id), "target_id": str(target_id)}
+
+
 async def panel_settings_member_action(guild_id, actor_id, member_id, payload):
     if not isinstance(payload, dict) or not str(member_id).isdigit():
         raise ValueError("Некорректные данные участника.")
@@ -4443,6 +4531,9 @@ async def run_services():
         "settings_channel_create": panel_settings_channel_create,
         "settings_channel_update": panel_settings_channel_update,
         "settings_channel_delete": panel_settings_channel_delete,
+        "settings_channel_permissions": panel_settings_channel_permissions,
+        "settings_channel_permission_update": panel_settings_channel_permission_update,
+        "settings_channel_permission_delete": panel_settings_channel_permission_delete,
         "settings_member_action": panel_settings_member_action,
         "discord_emojis": panel_guild_emojis,
         "discord_channel_history": panel_channel_history,
