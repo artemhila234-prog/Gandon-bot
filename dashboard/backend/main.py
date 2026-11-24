@@ -1367,6 +1367,9 @@ async def api_discord_server_settings_section(guild_id: str, section: str, reque
     if section == "invites":
         await require_guild_setting_permission(guild_id, actor, "manage_guild")
         return await discord_request("GET", f"/guilds/{guild_id}/invites")
+    if section == "bans":
+        await require_guild_setting_permission(guild_id, actor, "ban_members|view_audit_log")
+        return await discord_request("GET", f"/guilds/{guild_id}/bans?limit=1000")
     if section == "audit":
         await require_guild_setting_permission(guild_id, actor, "view_audit_log")
         return await discord_request("GET", f"/guilds/{guild_id}/audit-logs?limit=100")
@@ -1495,6 +1498,15 @@ async def api_discord_server_channel_permission_delete(guild_id: str, channel_id
         raise HTTPException(status_code=400, detail=str(error)[:300])
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось сбросить переопределение прав: {str(error)[:300]}")
+
+
+@app.delete("/api/discord/guilds/{guild_id}/settings/bans/{user_id}")
+async def api_discord_server_unban(guild_id: str, user_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not user_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или пользователя.")
+    await require_guild_setting_permission(guild_id, actor, "ban_members")
+    return await discord_request("DELETE", f"/guilds/{guild_id}/bans/{user_id}")
 
 
 @app.post("/api/discord/guilds/{guild_id}/settings/members/{member_id}/action")
@@ -1721,6 +1733,24 @@ async def api_discord_server_sticker_create(guild_id: str, request: Request):
         raise
     except Exception:
         raise HTTPException(status_code=400, detail="Не удалось прочитать файл стикера.")
+
+
+@app.patch("/api/discord/guilds/{guild_id}/settings/stickers/{sticker_id}")
+async def api_discord_server_sticker_update(guild_id: str, sticker_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not sticker_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID стикера.")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
+    payload = await request.json()
+    if not isinstance(payload, dict) or set(payload) - {"name", "description", "tags"}:
+        raise HTTPException(status_code=400, detail="Некорректные параметры стикера.")
+    if "name" in payload and not 2 <= len(str(payload["name"]).strip()) <= 30:
+        raise HTTPException(status_code=400, detail="Имя стикера должно содержать 2–30 символов.")
+    if "description" in payload and len(str(payload["description"] or "")) not in (0,) and not 2 <= len(str(payload["description"])) <= 100:
+        raise HTTPException(status_code=400, detail="Описание стикера должно быть пустым или содержать 2–100 символов.")
+    if "tags" in payload and not 1 <= len(str(payload["tags"]).strip()) <= 200:
+        raise HTTPException(status_code=400, detail="Тег стикера должен содержать от 1 до 200 символов.")
+    return await discord_request("PATCH", f"/guilds/{guild_id}/stickers/{sticker_id}", payload=payload)
 
 
 @app.delete("/api/discord/guilds/{guild_id}/settings/stickers/{sticker_id}")
