@@ -1046,16 +1046,41 @@ async function dcToggleReaction(message,emoji){
   try{await dcMessageRequest("POST",channelId,message.id,{emoji});await dcRefreshCurrentHistory();}
   catch(error){if(typeof showToast==="function")showToast(error.message);else alert(error.message);}
 }
+const dcGuildEmojiCache=new Map();
+async function dcLoadGuildEmojis(guildId){
+  if(!guildId)return [];
+  if(dcGuildEmojiCache.has(String(guildId)))return dcGuildEmojiCache.get(String(guildId));
+  const response=await fetch("/api/discord/guilds/"+encodeURIComponent(guildId)+"/emojis",{credentials:"same-origin",cache:"no-store"});
+  const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}
+  if(!response.ok)throw new Error(data.detail||"Не удалось загрузить эмодзи сервера.");
+  const emojis=Array.isArray(data.emojis)?data.emojis:[];
+  dcGuildEmojiCache.set(String(guildId),emojis);
+  return emojis;
+}
+function dcMakeCustomEmojiButton(emoji,onPick){
+  const button=document.createElement("button");button.type="button";button.className="dc-reaction-choice dc-custom-emoji-choice";
+  button.title=":"+emoji.name+":";
+  const image=document.createElement("img");image.src=emoji.url;image.alt=":"+emoji.name+":";image.loading="lazy";
+  button.append(image);button.addEventListener("click",()=>onPick(emoji));return button;
+}
 function dcShowReactionPicker(event,message){
   document.querySelector(".dc-message-context")?.remove();
   const menu=document.createElement("div");menu.className="dc-message-context dc-reaction-picker";
-  ["👍","❤️","😂","🎉","🔥","👀","✅","😮","😭","💀","🤝","⭐"].forEach(emoji=>{
-    const button=document.createElement("button");button.type="button";button.className="dc-reaction-choice";button.textContent=emoji;
-    button.addEventListener("click",()=>{menu.remove();dcToggleReaction(message,emoji);});menu.append(button);
-  });
+  const addUnicode=emoji=>{const button=document.createElement("button");button.type="button";button.className="dc-reaction-choice";button.textContent=emoji;button.addEventListener("click",()=>{menu.remove();dcToggleReaction(message,emoji);});menu.append(button);};
+  ["👍","❤️","😂","🎉","🔥","👀","✅","😮","😭","💀","🤝","⭐"].forEach(addUnicode);
+  const guildId=dcActiveGuild?.id;
+  if(guildId){
+    const loading=document.createElement("div");loading.className="dc-reaction-emoji-state";loading.textContent="Загрузка эмодзи сервера…";menu.append(loading);
+    dcLoadGuildEmojis(guildId).then(emojis=>{
+      loading.remove();
+      if(emojis.length){const heading=document.createElement("div");heading.className="dc-reaction-emoji-heading";heading.textContent="ЭМОДЗИ СЕРВЕРА";menu.append(heading);
+        emojis.forEach(emoji=>menu.append(dcMakeCustomEmojiButton(emoji,selected=>{menu.remove();dcToggleReaction(message,"custom:"+selected.id);})));
+      }else{const empty=document.createElement("div");empty.className="dc-reaction-emoji-state";empty.textContent="На сервере нет доступных эмодзи.";menu.append(empty);}
+    }).catch(error=>{loading.textContent=error.message;});
+  }
   document.body.append(menu);
   const rect=event.currentTarget?.getBoundingClientRect?.();
-  const x=Math.min(event.clientX??rect?.left??20,window.innerWidth-220),y=Math.min(event.clientY??rect?.top??20,window.innerHeight-110);
+  const x=Math.min(event.clientX??rect?.left??20,window.innerWidth-280),y=Math.min(event.clientY??rect?.top??20,window.innerHeight-260);
   menu.style.left=Math.max(8,x)+"px";menu.style.top=Math.max(8,y)+"px";
   setTimeout(()=>document.addEventListener("click",()=>menu.remove(),{once:true}),0);
 }
@@ -1488,7 +1513,16 @@ function dcCloseEmojiPicker(){
 function dcToggleEmojiPicker(){
   const root=document.getElementById("dcEmojiPicker"),input=document.getElementById("dcMessageInput");if(!root||!input)return;
   if(!root.hidden){dcCloseEmojiPicker();return;}
-  root.replaceChildren();dcEmojiChoices.forEach(emoji=>{const button=document.createElement("button");button.type="button";button.textContent=emoji;button.addEventListener("click",()=>{const start=input.selectionStart??input.value.length,end=input.selectionEnd??start;input.value=input.value.slice(0,start)+emoji+input.value.slice(end);const caret=start+emoji.length;input.setSelectionRange(caret,caret);input.focus();dcCloseEmojiPicker();});root.append(button);});root.hidden=false;
+  root.replaceChildren();
+  const insert=value=>{const start=input.selectionStart??input.value.length,end=input.selectionEnd??start;input.value=input.value.slice(0,start)+value+input.value.slice(end);const caret=start+value.length;input.setSelectionRange(caret,caret);input.focus();dcCloseEmojiPicker();};
+  const heading=document.createElement("div");heading.className="dc-reaction-emoji-heading";heading.textContent="ОБЫЧНЫЕ ЭМОДЗИ";root.append(heading);
+  dcEmojiChoices.forEach(emoji=>{const button=document.createElement("button");button.type="button";button.textContent=emoji;button.addEventListener("click",()=>insert(emoji));root.append(button);});
+  if(dcActiveGuild?.id){
+    const serverHeading=document.createElement("div");serverHeading.className="dc-reaction-emoji-heading dc-composer-server-emoji-heading";serverHeading.textContent="ЭМОДЗИ СЕРВЕРА";root.append(serverHeading);
+    const state=document.createElement("div");state.className="dc-reaction-emoji-state";state.textContent="Загрузка…";root.append(state);
+    dcLoadGuildEmojis(dcActiveGuild.id).then(emojis=>{state.remove();if(!emojis.length){const empty=document.createElement("div");empty.className="dc-reaction-emoji-state";empty.textContent="Нет доступных эмодзи.";root.append(empty);return;}emojis.forEach(emoji=>root.append(dcMakeCustomEmojiButton(emoji,selected=>insert(selected.markup))));}).catch(error=>{state.textContent=error.message;});
+  }
+  root.hidden=false;
 }
 const dcStatusLabels={online:"В сети",idle:"Не активен",dnd:"Не беспокоить",offline:"Не в сети"};
 function dcStatusClass(status){return ["online","idle","dnd"].includes(status)?status:"offline";}
