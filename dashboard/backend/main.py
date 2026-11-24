@@ -1241,8 +1241,18 @@ async def api_discord_guild_members(guild_id: str, request: Request):
     actor = await require_access(request, "adm")
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    after = str(request.query_params.get("after", "0") or "0")
     try:
-        return await get_dm_controller("discord_members")(guild_id, str(actor.get("id", "")))
+        limit = int(request.query_params.get("limit", "500"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некорректный размер страницы участников.")
+    if not after.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный курсор списка участников.")
+    limit = max(1, min(limit, 1000))
+    try:
+        return await get_dm_controller("discord_members")(
+            guild_id, str(actor.get("id", "")), after, limit
+        )
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось загрузить участников сервера: {str(error)[:300]}")
 
