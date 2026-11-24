@@ -3177,6 +3177,26 @@ async def panel_message_mentions(message):
             "tertiary_color_hex": f"#{role.tertiary_color.value:06x}" if getattr(role, "tertiary_color", None) else "",
             "style": "holographic" if getattr(role, "tertiary_color", None) else ("gradient" if getattr(role, "secondary_color", None) else "solid"),
         })
+    reply_preview = None
+    reference = getattr(message, "reference", None)
+    if reference and getattr(reference, "message_id", None):
+        resolved = getattr(reference, "resolved", None)
+        reply_preview = {
+            "message_id": str(reference.message_id),
+            "channel_id": str(getattr(reference, "channel_id", "") or message.channel.id),
+            "author": await panel_dm_user_payload(resolved.author) if isinstance(resolved, discord.Message) else None,
+            "content": str(resolved.content or "")[:240] if isinstance(resolved, discord.Message) else "",
+        }
+    reactions = []
+    for reaction in list(getattr(message, "reactions", []) or [])[:20]:
+        emoji = reaction.emoji
+        reactions.append({
+            "emoji": str(emoji),
+            "name": str(getattr(emoji, "name", "") or emoji),
+            "url": str(getattr(emoji, "url", "") or ""),
+            "count": int(reaction.count),
+            "me": bool(reaction.me),
+        })
     return {
         "mentions": users,
         "role_mentions": roles,
@@ -3185,6 +3205,8 @@ async def panel_message_mentions(message):
         "mention_everyone": bool(message.mention_everyone),
         "edited_at": message.edited_at.isoformat() if message.edited_at else None,
         "pinned": bool(message.pinned),
+        "reply_preview": reply_preview,
+        "reactions": reactions,
         "stickers": [{
             "id": str(sticker.id),
             "name": sticker.name,
@@ -3215,7 +3237,7 @@ async def panel_dm_history(user_id, limit=60):
     messages.reverse()
     return {"user": await panel_dm_user_payload(user), "channel_id": str(channel.id), "messages": messages}
 
-async def panel_dm_send(user_id, content, files=None):
+async def panel_dm_send(user_id, content, files=None, reply_to=None):
     if not bot.is_ready(): raise RuntimeError('Discord-бот ещё подключается.')
     content=str(content or '').strip()
     files=files or []
@@ -3225,7 +3247,12 @@ async def panel_dm_send(user_id, content, files=None):
     user=await bot.fetch_user(int(user_id)); channel=await user.create_dm()
     from io import BytesIO
     discord_files=[discord.File(BytesIO(data),filename=name) for name,data in files]
-    message=await channel.send(content or None, files=discord_files, allowed_mentions=discord.AllowedMentions.none())
+    reference=None
+    if reply_to:
+        if not str(reply_to).isdigit(): raise ValueError('Некорректный ID сообщения для ответа.')
+        reference=await channel.fetch_message(int(reply_to))
+    allowed=discord.AllowedMentions(users=True, roles=True, everyone=False, replied_user=False)
+    message=await channel.send(content or None, files=discord_files, reference=reference, mention_author=False, allowed_mentions=allowed)
     return {'ok':True,'message':{'id':str(message.id),'content':message.content,'created_at':message.created_at.isoformat(),'author':await panel_dm_user_payload(message.author),'attachments':[{'filename':item.filename,'url':item.url,'content_type':item.content_type or ''} for item in message.attachments],'embeds':[]}}
 
 
@@ -3992,7 +4019,7 @@ async def panel_channel_history(channel_id, limit=100):
     }
 
 
-async def panel_channel_send(channel_id, content, files=None):
+async def panel_channel_send(channel_id, content, files=None, reply_to=None):
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
     content = str(content or "").strip()
@@ -4004,15 +4031,86 @@ async def panel_channel_send(channel_id, content, files=None):
     if not str(channel_id).isdigit():
         raise ValueError("Некорректный ID канала.")
     channel = await bot.fetch_channel(int(channel_id))
-    if not isinstance(channel, discord.TextChannel):
-        raise ValueError("Отправлять можно только в текстовые каналы.")
+    if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+        raise ValueError("Отправлять можно только в текстовые каналы и ветки.")
     permissions = channel.permissions_for(channel.guild.me)
     if not permissions.view_channel or not permissions.send_messages or (files and not permissions.attach_files):
         raise PermissionError("У бота нет прав отправлять сообщения или прикреплять файлы в этот канал.")
+    reference = None
+    if reply_to:
+        if not str(reply_to).isdigit():
+            raise ValueError("Некорректный ID сообщения для ответа.")
+        reference = await channel.fetch_message(int(reply_to))
     from io import BytesIO
     discord_files = [discord.File(BytesIO(data), filename=name) for name, data in files]
-    message = await channel.send(content or None, files=discord_files, allowed_mentions=discord.AllowedMentions.none())
+    # Разрешаем только явные user/role mentions. @everyone и @here остаются выключены.
+    allowed = discord.AllowedMentions(users=True, roles=True, everyone=False, replied_user=False)
+    message = await channel.send(
+        content or None, files=discord_files, reference=reference,
+        mention_author=False, allowed_mentions=allowed
+    )
     return {"ok": True, "message": {"id": str(message.id), "content": message.content, "created_at": message.created_at.isoformat(), "author": await panel_dm_user_payload(message.author), "attachments": [{"filename": item.filename, "url": item.url, "content_type": item.content_type or ""} for item in message.attachments], "embeds": []}}
+
+
+async def panel_message_action_target(channel_id, message_id):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    if not str(channel_id).isdigit() or not str(message_id).isdigit():
+        raise ValueError("Некорректный ID канала или сообщения.")
+    channel = await bot.fetch_channel(int(channel_id))
+    if not isinstance(channel, (discord.TextChannel, discord.Thread, discord.DMChannel)):
+        raise ValueError("Этот тип канала не поддерживает действия с сообщениями.")
+    message = await channel.fetch_message(int(message_id))
+    return channel, message
+
+
+async def panel_message_edit(channel_id, message_id, content):
+    content = str(content or "").strip()
+    if len(content) > 2000:
+        raise ValueError("Discord ограничивает сообщение 2000 символами.")
+    channel, message = await panel_message_action_target(channel_id, message_id)
+    if message.author.id != bot.user.id:
+        raise PermissionError("Через панель можно редактировать только сообщения самого бота.")
+    allowed = discord.AllowedMentions(users=True, roles=True, everyone=False, replied_user=False)
+    await message.edit(content=content or None, allowed_mentions=allowed)
+    return {"ok": True, "message_id": str(message.id), "content": message.content, "edited_at": message.edited_at.isoformat() if message.edited_at else ""}
+
+
+async def panel_message_delete(channel_id, message_id):
+    _, message = await panel_message_action_target(channel_id, message_id)
+    if message.author.id != bot.user.id:
+        raise PermissionError("Через панель можно удалять только сообщения самого бота.")
+    await message.delete()
+    return {"ok": True, "message_id": str(message_id)}
+
+
+async def panel_message_react(channel_id, message_id, emoji):
+    emoji = str(emoji or "").strip()
+    if not emoji or len(emoji) > 80:
+        raise ValueError("Укажи корректный эмодзи для реакции.")
+    _, message = await panel_message_action_target(channel_id, message_id)
+    existing = next((reaction for reaction in message.reactions if str(reaction.emoji) == emoji), None)
+    if existing and existing.me:
+        await message.remove_reaction(existing.emoji, bot.user)
+        action = "removed"
+    else:
+        await message.add_reaction(emoji)
+        action = "added"
+    return {"ok": True, "action": action, "message_id": str(message_id), "emoji": emoji}
+
+
+async def panel_message_pin(channel_id, message_id, pinned):
+    channel, message = await panel_message_action_target(channel_id, message_id)
+    if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+        raise ValueError("Закреплять сообщения можно только на серверных каналах.")
+    permissions = channel.permissions_for(channel.guild.me)
+    if not permissions.manage_messages:
+        raise PermissionError("У бота нет права Manage Messages для закрепления сообщений.")
+    if bool(pinned) and not message.pinned:
+        await message.pin(reason="GastWorld Control Panel")
+    elif not bool(pinned) and message.pinned:
+        await message.unpin(reason="GastWorld Control Panel")
+    return {"ok": True, "message_id": str(message_id), "pinned": bool(pinned)}
 
 
 async def run_services():
@@ -4049,6 +4147,10 @@ async def run_services():
         "discord_channels": panel_guild_channels,
         "discord_channel_history": panel_channel_history,
         "discord_channel_send": panel_channel_send,
+        "discord_message_edit": panel_message_edit,
+        "discord_message_delete": panel_message_delete,
+        "discord_message_react": panel_message_react,
+        "discord_message_pin": panel_message_pin,
         "actions": {
             "sync_commands": panel_sync_commands,
             "sync_roles": panel_sync_roles,
