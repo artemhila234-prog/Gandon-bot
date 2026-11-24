@@ -2262,7 +2262,7 @@ function dcRenderServerSettings(data){
           try{await request("DELETE",null,target.id);await loadChannelPermissions(channel);showToast?.("Переопределение удалено.");}catch(error){settingsError(permissionsEditor,error);}
         },"danger");
         const save=settingsButton("Сохранить права",async()=>{
-          const target=currentTarget();if(!target.id||!/^\\d+$/.test(target.id)){settingsError(permissionsEditor,new Error("Выбери роль или введи корректный Discord ID участника."));return;}
+          const target=currentTarget();if(!target.id||!/^\d+$/.test(target.id)){settingsError(permissionsEditor,new Error("Выбери роль или введи корректный Discord ID участника."));return;}
           const values={};Array.from(permissionControls.querySelectorAll("select")).forEach((select,index)=>{const key=(data.permission_keys||[])[index];values[key]=select.value===""?null:select.value==="true";});
           save.disabled=true;
           try{await request("PATCH",{target_type:target.type,permissions:values},target.id);showToast?.("Права канала сохранены.");await loadChannelPermissions(channel);}
