@@ -2312,10 +2312,15 @@ function dcRenderServerSettings(data){
             if(!confirm("Удалить "+(isCategory?"категорию ":"канал ")+"«"+item.name+"»? Это действие нельзя отменить."))return;
             try{await serverSettingsRequest("channels","DELETE",null,item.id);await loadChannels();showToast?.("Объект удалён.");}catch(error){settingsError(editor,error);}
           },"danger"));
-          settingsRow(list,(isCategory?"▾ ":"# ")+item.name,isCategory?"Категория":"Тип: "+(item.type||"канал")+" · "+(item.category_name||"Без категории"),actions);
+          const row=settingsRow(list,(isCategory?"▾ ":"# ")+item.name,isCategory?"Категория":"Тип: "+(item.type||"канал")+" · "+(item.category_name||"Без категории"),actions);
+          if(!isCategory)row.style.marginLeft="16px";
         };
-        categories.forEach(item=>renderItem(item,true));
-        channels.forEach(item=>renderItem(item,false));
+        const placed=new Set();
+        categories.forEach(category=>{
+          renderItem(category,true);
+          channels.filter(channel=>String(channel.category_id||"")===String(category.id)).forEach(channel=>{renderItem(channel,false);placed.add(String(channel.id));});
+        });
+        channels.filter(channel=>!placed.has(String(channel.id))).forEach(channel=>renderItem(channel,false));
       }catch(error){list.replaceChildren();settingsError(list,error);}
     };
     createForm.addEventListener("submit",async event=>{
@@ -2389,10 +2394,11 @@ function dcRenderServerSettings(data){
     };
     search.addEventListener("input",draw);
     const returnToMembers=()=>{
-      showingBans=false;bansButton.textContent="Заблокированные участники";draw();status.textContent="Список участников сервера.";
+      showingBans=false;bansButton.textContent="Заблокированные участники";draw();
+      moreButton.hidden=!membersHaveMore;status.textContent="Загружено участников: "+members.length+(membersHaveMore?" · есть ещё участники":" · список завершён");
     };
     const loadBans=async()=>{
-      showingBans=true;bansButton.textContent="Вернуться к участникам";
+      showingBans=true;bansButton.textContent="Вернуться к участникам";moreButton.hidden=true;
       bansButton.disabled=true;status.textContent="Загрузка списка блокировок…";list.replaceChildren();
       try{
         const bans=await serverSettingsRequest("bans");
