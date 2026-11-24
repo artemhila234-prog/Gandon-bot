@@ -1672,6 +1672,12 @@ async def api_discord_server_emoji_update(guild_id: str, emoji_id: str, request:
         raise HTTPException(status_code=400, detail="Некорректный ID эмодзи.")
     await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
     payload = await request.json()
+    if not isinstance(payload, dict) or set(payload) - {"name", "roles"}:
+        raise HTTPException(status_code=400, detail="Некорректные параметры эмодзи.")
+    if "name" in payload and not re.fullmatch(r"[A-Za-z0-9_]{2,32}", str(payload["name"]).strip()):
+        raise HTTPException(status_code=400, detail="Имя эмодзи: 2–32 символа, латинские буквы, цифры и _.")
+    if "roles" in payload and (not isinstance(payload["roles"], list) or any(not str(role_id).isdigit() for role_id in payload["roles"])):
+        raise HTTPException(status_code=400, detail="Список ролей для эмодзи некорректен.")
     return await discord_request("PATCH", f"/guilds/{guild_id}/emojis/{emoji_id}", payload=payload)
 
 
@@ -1721,8 +1727,8 @@ async def api_discord_server_sticker_create(guild_id: str, request: Request):
         name = str(form.get("name") or "").strip()
         tags = str(form.get("tags") or "").strip()
         description = str(form.get("description") or "").strip()
-        if not 2 <= len(name) <= 30 or not tags or len(tags) > 200 or len(description) > 100:
-            raise HTTPException(status_code=400, detail="Проверь имя (2–30), теги и описание стикера (до 100).")
+        if not 2 <= len(name) <= 30 or not 1 <= len(tags) <= 200 or (description and not 2 <= len(description) <= 100):
+            raise HTTPException(status_code=400, detail="Проверь имя (2–30), Unicode-эмодзи тег (1–200) и описание (пустое или 2–100 символов).")
         return await discord_multipart_request(
             f"/guilds/{guild_id}/stickers",
             data={"name": name, "tags": tags, "description": description},
@@ -1772,7 +1778,12 @@ async def api_discord_server_event_create(guild_id: str, request: Request):
     name = str(payload.get("name") or "").strip()
     if not 1 <= len(name) <= 100:
         raise HTTPException(status_code=400, detail="Название события должно содержать 1–100 символов.")
-    entity_type = int(payload.get("entity_type") or 3)
+    try:
+        entity_type = int(payload.get("entity_type") or 3)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некорректный тип события.")
+    if entity_type not in {1, 2, 3}:
+        raise HTTPException(status_code=400, detail="Тип события должен быть внешним, голосовым или Stage.")
     body = {
         "name": name,
         "description": str(payload.get("description") or "")[:1000] or None,
@@ -1807,10 +1818,19 @@ async def api_discord_server_event_update(guild_id: str, event_id: str, request:
         raise HTTPException(status_code=400, detail="Некорректный ID события.")
     await require_guild_setting_permission(guild_id, actor, "manage_events|create_events")
     payload = await request.json()
-    allowed = {"name", "description", "scheduled_start_time", "scheduled_end_time", "status"}
+    allowed = {"name", "description", "scheduled_start_time", "scheduled_end_time", "status", "entity_metadata"}
     body = {key: payload[key] for key in allowed if key in payload}
     if not body:
         raise HTTPException(status_code=400, detail="Нет полей для изменения события.")
+    if "name" in body and not 1 <= len(str(body["name"]).strip()) <= 100:
+        raise HTTPException(status_code=400, detail="Название события должно содержать 1–100 символов.")
+    if "description" in body and body["description"] is not None and len(str(body["description"])) > 1000:
+        raise HTTPException(status_code=400, detail="Описание события не должно превышать 1000 символов.")
+    if "entity_metadata" in body:
+        location = str((body["entity_metadata"] or {}).get("location") or "").strip()
+        if not location:
+            raise HTTPException(status_code=400, detail="Для внешнего события укажи место проведения.")
+        body["entity_metadata"] = {"location": location[:100]}
     return await discord_request("PATCH", f"/guilds/{guild_id}/scheduled-events/{event_id}", payload=body)
 
 
