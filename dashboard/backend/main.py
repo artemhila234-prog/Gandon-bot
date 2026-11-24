@@ -1345,7 +1345,11 @@ async def api_discord_server_settings_section(guild_id: str, section: str, reque
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
     if section == "channels":
         try:
-            return await get_dm_controller("discord_channels")(guild_id)
+            return await get_dm_controller("settings_guild_channels")(guild_id, str(actor.get("id", "")))
+        except PermissionError as error:
+            raise HTTPException(status_code=403, detail=str(error)[:300])
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)[:300])
         except Exception as error:
             raise HTTPException(status_code=502, detail=f"Не удалось загрузить каналы: {str(error)[:300]}")
     if section == "members":
