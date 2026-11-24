@@ -2135,3 +2135,5 @@ body.discord-mode #pageContent.discord-fullscreen .dc-live-message{position:rela
 .dc-settings-compact-form .dc-settings-fields label:has(input[type=checkbox]) span{line-height:1.4}
 .dc-settings-compact-form .dc-settings-fields input[type=number]{font-variant-numeric:tabular-nums}
 @media(max-width:700px){.dc-channel-permission-grid{grid-template-columns:1fr}.dc-settings-management-workspace>.dc-settings-data-panel:last-child{grid-column:auto}}
+/* Fallback for Discord sticker IDs embedded in legacy message text. */
+.dc-message-sticker-inline{display:inline-block;max-width:88px;max-height:88px;width:auto;height:auto;object-fit:contain;vertical-align:middle;margin:0 3px}
