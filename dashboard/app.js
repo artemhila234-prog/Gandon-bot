@@ -1397,30 +1397,32 @@ function dcCloseMentionPicker(){
 }
 function dcMentionCandidates(trigger,query){
   const needle=String(query||"").toLocaleLowerCase("ru");
-  const result=[];
+  const users=[],roles=[],channels=[];
   if(trigger==="@"||trigger==="@&"){
     if(trigger==="@" ){
       const members=dcActiveGuild?dcMemberCache:(dcActiveUser?[dcActiveUser]:[]);
       members.forEach(member=>{
         const label=member.global_name||member.display_name||member.username||"Участник";
         if((label+" "+(member.username||"")+" "+member.id).toLocaleLowerCase("ru").includes(needle))
-          result.push({kind:"user",id:String(member.id),label,detail:"@"+(member.username||""),avatar:member.avatar_url||member.avatar||""});
+          users.push({kind:"user",id:String(member.id),label,detail:"@"+(member.username||""),avatar:member.avatar_url||member.avatar||""});
       });
     }
     if(dcActiveGuild){
       (dcMemberRoleCache||[]).forEach(role=>{
         if((role.name||"").toLocaleLowerCase("ru").includes(needle))
-          result.push({kind:"role",id:String(role.id),label:role.name,detail:"Роль сервера",color:role.color_hex||""});
+          roles.push({kind:"role",id:String(role.id),label:role.name,detail:"Роль сервера",color:role.color_hex||""});
       });
     }
-  }else if(trigger==="#"){
-    const channels=dcActiveGuild?(dcChannelsCacheByGuild.get(dcActiveGuild.id)?.channels||[]):[];
-    channels.forEach(channel=>{
+    return trigger==="@&"?roles.slice(0,30):[...users.slice(0,15),...roles.slice(0,15)];
+  }
+  if(trigger==="#"){
+    const available=dcActiveGuild?(dcChannelsCacheByGuild.get(dcActiveGuild.id)?.channels||[]):[];
+    available.forEach(channel=>{
       if((channel.name||"").toLocaleLowerCase("ru").includes(needle))
-        result.push({kind:"channel",id:String(channel.id),label:channel.name,detail:channel.category_name||"Текстовый канал"});
+        channels.push({kind:"channel",id:String(channel.id),label:channel.name,detail:channel.category_name||"Текстовый канал"});
     });
   }
-  return result.slice(0,30);
+  return channels.slice(0,30);
 }
 function dcRenderMentionPicker(){
   const root=document.getElementById("dcMentionPicker");if(!root)return;
