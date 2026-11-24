@@ -1559,7 +1559,7 @@ function dcOpenProfile(member,roleDefinitions=dcMemberRoleCache){
     if(!manageable)checkbox.title=role.managed?"Роль управляется интеграцией Discord.":"Бот не может управлять этой ролью: проверь Manage Roles и иерархию ролей.";
     checkbox.addEventListener("change",async()=>{
       checkbox.disabled=true;
-      try{await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id)+"/roles",{role_id:String(role.id),action:checkbox.checked?"add":"remove"});const fresh=await apiGet("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id));dcMemberCache=dcMemberCache.map(item=>String(item.id)===String(member.id)?fresh.member:item);dcMemberCacheByGuild.set(dcActiveGuild.id,dcMemberCache);modal.remove();dcOpenProfile(fresh.member,fresh.roles||roleList);}
+      try{await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id)+"/roles",{role_id:String(role.id),action:checkbox.checked?"add":"remove"});const fresh=await apiGet("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id));dcMemberCache=dcMemberCache.map(item=>String(item.id)===String(member.id)?fresh.member:item);dcMemberCacheByGuild.set(dcActiveGuild.id,dcMemberCache);modal.remove();dcOpenProfile(fresh.member,fresh.roles||roleDefinitions);}
       catch(error){checkbox.checked=!checkbox.checked;alert(error.message);}
       finally{checkbox.disabled=!manageable;}
     });
