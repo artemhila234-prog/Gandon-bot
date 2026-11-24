@@ -4100,22 +4100,71 @@ async def panel_guild_channels(guild_id):
         for category in sorted(guild.categories, key=lambda item: (item.position, item.name.casefold()))
     ]
     channels = []
-    for channel in sorted(guild.text_channels, key=lambda item: (item.position, item.name.casefold())):
+    all_channels = sorted(
+        [*guild.text_channels, *guild.voice_channels, *guild.stage_channels],
+        key=lambda item: (item.position, item.name.casefold())
+    )
+    for channel in all_channels:
         permissions = channel.permissions_for(me)
         if not permissions.view_channel:
             continue
-        channels.append({
-            "id": str(channel.id), "name": channel.name,
+        base = {
+            "id": str(channel.id),
+            "name": channel.name,
             "category_id": str(channel.category_id) if channel.category_id else "",
             "category_name": channel.category.name if channel.category else "Без категории",
             "position": channel.position,
-            "can_send": bool(permissions.send_messages),
-            "can_history": bool(permissions.read_message_history),
-            "can_manage_messages": bool(permissions.manage_messages),
-            "can_pin_messages": bool(permissions.pin_messages or permissions.manage_messages),
-            "can_mention_everyone": bool(permissions.mention_everyone),
-            "type": "announcement" if getattr(channel, "is_news", lambda: False)() else "text",
-        })
+        }
+        if isinstance(channel, discord.TextChannel):
+            channels.append({
+                **base,
+                "can_send": bool(permissions.send_messages),
+                "can_history": bool(permissions.read_message_history),
+                "can_manage_messages": bool(permissions.manage_messages),
+                "can_pin_messages": bool(permissions.pin_messages or permissions.manage_messages),
+                "can_mention_everyone": bool(permissions.mention_everyone),
+                "type": "announcement" if getattr(channel, "is_news", lambda: False)() else "text",
+            })
+        elif isinstance(channel, discord.VoiceChannel):
+            channels.append({
+                **base,
+                "type": "voice",
+                "can_connect": bool(permissions.connect),
+                "can_speak": bool(permissions.speak),
+                "can_manage_channels": bool(permissions.manage_channels),
+                "member_count": len(channel.members),
+                "members": [{
+                    "id": str(member.id),
+                    "name": str(member.display_name),
+                    "username": str(member.name),
+                    "avatar": str(member.display_avatar.url),
+                    "bot": bool(member.bot),
+                    "self_mute": bool(getattr(member.voice, "self_mute", False)),
+                    "self_deaf": bool(getattr(member.voice, "self_deaf", False)),
+                    "mute": bool(getattr(member.voice, "mute", False)),
+                    "deaf": bool(getattr(member.voice, "deaf", False)),
+                } for member in channel.members],
+            })
+        elif isinstance(channel, discord.StageChannel):
+            channels.append({
+                **base,
+                "type": "stage",
+                "can_connect": bool(permissions.connect),
+                "can_speak": bool(permissions.speak or permissions.request_to_speak),
+                "can_manage_channels": bool(permissions.manage_channels),
+                "member_count": len(channel.members),
+                "members": [{
+                    "id": str(member.id),
+                    "name": str(member.display_name),
+                    "username": str(member.name),
+                    "avatar": str(member.display_avatar.url),
+                    "bot": bool(member.bot),
+                    "self_mute": bool(getattr(member.voice, "self_mute", False)),
+                    "self_deaf": bool(getattr(member.voice, "self_deaf", False)),
+                    "mute": bool(getattr(member.voice, "mute", False)),
+                    "deaf": bool(getattr(member.voice, "deaf", False)),
+                } for member in channel.members],
+            })
     return {"guild": {"id": str(guild.id), "name": guild.name, "icon_url": str(guild.icon.url) if guild.icon else ""}, "categories": categories, "channels": channels}
 
 
