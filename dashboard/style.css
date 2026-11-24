@@ -2137,3 +2137,27 @@ body.discord-mode #pageContent.discord-fullscreen .dc-live-message{position:rela
 @media(max-width:700px){.dc-channel-permission-grid{grid-template-columns:1fr}.dc-settings-management-workspace>.dc-settings-data-panel:last-child{grid-column:auto}}
 /* Fallback for Discord sticker IDs embedded in legacy message text. */
 .dc-message-sticker-inline{display:inline-block;max-width:88px;max-height:88px;width:auto;height:auto;object-fit:contain;vertical-align:middle;margin:0 3px}
+
+/* Voice and Stage channel room */
+.dc-voice-room{width:min(900px,100%);margin:auto;padding:clamp(22px,4vw,54px);display:flex;flex-direction:column;gap:18px}
+.dc-voice-room-heading{display:flex;align-items:center;gap:18px}
+.dc-voice-room-glyph{width:58px;height:58px;border-radius:18px;background:#3b3d46;color:#c7b4ff;display:grid;place-items:center;font-size:27px;flex:0 0 58px}
+.dc-voice-room-copy{min-width:0}
+.dc-voice-room-copy h2{margin:0 0 6px;font-size:23px;color:#f2f3f5}
+.dc-voice-room-copy p{margin:0;color:#aeb3bb;font-size:12px}
+.dc-voice-room-tools{display:flex;gap:10px;flex-wrap:wrap}
+.dc-voice-room-status{padding:12px 14px;border:1px solid #484b55;background:#292b31;border-radius:9px;color:#c7cbd2;font-size:12px;line-height:1.5}
+.dc-voice-room h3{margin:12px 0 0;color:#9da3ad;font-size:10px;letter-spacing:1.1px}
+.dc-voice-room-members{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:9px}
+.dc-voice-room-member{min-width:0;display:flex;align-items:center;gap:10px;padding:10px;border-radius:9px;background:#303239;border:1px solid #444751}
+.dc-voice-room-avatar{width:34px;height:34px;border-radius:50%;flex:0 0 34px;overflow:hidden;display:grid;place-items:center;background:#474a55;color:#f4f4f5;font-weight:700}
+.dc-voice-room-avatar img{width:100%;height:100%;object-fit:cover}
+.dc-voice-room-member-copy{min-width:0;display:grid;gap:3px;flex:1}
+.dc-voice-room-member-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f1f2f4;font-size:12px}
+.dc-voice-room-member-copy small{color:#aeb3bb;font-size:10px}
+.dc-voice-room-member-flags{display:grid;gap:2px}
+.dc-voice-room-member-flags i{font-style:normal;color:#f0bd77;font-size:9px}
+.dc-voice-room-empty{padding:22px;border:1px dashed #555965;border-radius:9px;color:#aeb3bb;text-align:center;font-size:12px}
+.dc-voice-room-note{color:#8f96a1;font-size:10px;line-height:1.5}
+.dc-channel-item-voice .dc-channel-symbol{color:#a7a0d1}
+@media(max-width:700px){.dc-voice-room{padding:20px 12px}.dc-voice-room-copy h2{font-size:19px}.dc-voice-room-members{grid-template-columns:1fr}}
