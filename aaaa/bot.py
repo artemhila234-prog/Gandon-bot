@@ -4061,255 +4061,30 @@ async def panel_guild_channels(guild_id):
     me = guild.me or guild.get_member(bot.user.id)
     if me is None:
         raise ValueError("Не удалось определить права бота на сервере.")
-    categories = []
+    categories = [
+        {"id": str(category.id), "name": category.name, "position": category.position}
+        for category in sorted(guild.categories, key=lambda item: (item.position, item.name.casefold()))
+    ]
     channels = []
-    for category in sorted(guild.categories, key=lambda item: (item.position, item.name.casefold())):
-        categories.append({"id": str(category.id), "name": category.name, "position": category.position, "type": "category"})
-    for channel in sorted(guild.channels, key=lambda item: (getattr(item, "position", 0), item.name.casefold())):
-        if isinstance(channel, discord.CategoryChannel):
-            continue
+    for channel in sorted(guild.text_channels, key=lambda item: (item.position, item.name.casefold())):
         permissions = channel.permissions_for(me)
-        kind = "text"
-        if isinstance(channel, discord.ForumChannel):
-            kind = "forum"
-        elif isinstance(channel, discord.StageChannel):
-            kind = "stage"
-        elif isinstance(channel, discord.VoiceChannel):
-            kind = "voice"
-        elif isinstance(channel, discord.TextChannel):
-            kind = "announcement" if getattr(channel, "is_news", lambda: False)() else "text"
-        elif isinstance(channel, discord.Thread):
-            kind = "thread"
-        else:
+        if not permissions.view_channel:
             continue
         channels.append({
             "id": str(channel.id), "name": channel.name,
             "category_id": str(channel.category_id) if channel.category_id else "",
             "category_name": channel.category.name if channel.category else "Без категории",
-            "position": int(getattr(channel, "position", 0)),
-            "topic": str(getattr(channel, "topic", "") or ""),
-            "nsfw": bool(getattr(channel, "nsfw", False)),
-            "slowmode_delay": int(getattr(channel, "slowmode_delay", 0) or 0),
-            "bitrate": int(getattr(channel, "bitrate", 0) or 0),
-            "user_limit": int(getattr(channel, "user_limit", 0) or 0),
-            "can_view": bool(permissions.view_channel),
-            "can_send": bool(getattr(permissions, "send_messages", False)),
-            "can_history": bool(getattr(permissions, "read_message_history", False)),
-            "can_manage_messages": bool(getattr(permissions, "manage_messages", False)),
-            "can_mention_everyone": bool(getattr(permissions, "mention_everyone", False)),
-            "type": kind,
+            "position": channel.position,
+            "can_send": bool(permissions.send_messages),
+            "can_history": bool(permissions.read_message_history),
+            "can_manage_messages": bool(permissions.manage_messages),
+            "can_mention_everyone": bool(permissions.mention_everyone),
+            "type": "announcement" if getattr(channel, "is_news", lambda: False)() else "text",
         })
     return {"guild": {"id": str(guild.id), "name": guild.name, "icon_url": str(guild.icon.url) if guild.icon else ""}, "categories": categories, "channels": channels}
 
 
-async def panel_settings_channel_create(guild_id, actor_id, payload):
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
-    if not isinstance(payload, dict):
-        raise ValueError("Некорректные параметры нового канала.")
-    raw_name = str(payload.get("name") or "").strip()
-    kind = str(payload.get("type") or "text").lower()
-    name = raw_name if kind == "category" else raw_name.lower().replace(" ", "-")
-    if not name or len(name) > 100:
-        raise ValueError("Название должно содержать от 1 до 100 символов.")
-    parent = None
-    parent_id = str(payload.get("category_id") or "").strip()
-    if parent_id:
-        if not parent_id.isdigit():
-            raise ValueError("Некорректная категория.")
-        parent = guild.get_channel(int(parent_id))
-        if not isinstance(parent, discord.CategoryChannel):
-            raise ValueError("Выбранная категория не найдена.")
-    reason = str(payload.get("reason") or "GastWorld Control Panel")[:400]
-    position = max(0, min(int(payload.get("position") or 0), 500))
-    if kind == "category":
-        channel = await guild.create_category(name, position=position, reason=reason)
-    elif kind in {"text", "announcement"}:
-        channel = await guild.create_text_channel(
-            name, category=parent, position=position,
-            topic=str(payload.get("topic") or "")[:1024] or None,
-            nsfw=bool(payload.get("nsfw", False)),
-            slowmode_delay=max(0, min(int(payload.get("slowmode_delay") or 0), 21600)),
-            news=(kind == "announcement"),
-            reason=reason,
-        )
-    elif kind == "voice":
-        channel = await guild.create_voice_channel(
-            name, category=parent, position=position,
-            bitrate=max(8000, min(int(payload.get("bitrate") or 64000), int(getattr(guild, "bitrate_limit", 96000)))),
-            user_limit=max(0, min(int(payload.get("user_limit") or 0), 99)),
-            nsfw=bool(payload.get("nsfw", False)),
-            reason=reason,
-        )
-    elif kind == "stage":
-        channel = await guild.create_stage_channel(
-            name, category=parent, position=position,
-            bitrate=max(8000, min(int(payload.get("bitrate") or 64000), int(getattr(guild, "bitrate_limit", 96000)))),
-            user_limit=max(0, min(int(payload.get("user_limit") or 0), 99)),
-            nsfw=bool(payload.get("nsfw", False)), reason=reason
-        )
-    elif kind == "forum":
-        channel = await guild.create_forum(
-            name, category=parent, position=position, topic=str(payload.get("topic") or "")[:1024] or None,
-            nsfw=bool(payload.get("nsfw", False)),
-            slowmode_delay=max(0, min(int(payload.get("slowmode_delay") or 0), 21600)),
-            reason=reason,
-        )
-    else:
-        raise ValueError("Неизвестный тип канала.")
-    return {"ok": True, "channel_id": str(channel.id), "channels": await panel_guild_channels(guild_id)}
-
-
-async def panel_settings_channel_update(guild_id, actor_id, channel_id, payload):
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
-    if not str(channel_id).isdigit() or not isinstance(payload, dict):
-        raise ValueError("Некорректный канал или параметры.")
-    channel = guild.get_channel(int(channel_id))
-    if channel is None or isinstance(channel, discord.Thread):
-        raise ValueError("Канал не найден или не поддерживает эти настройки.")
-    allowed = {"name", "topic", "category_id", "position", "nsfw", "slowmode_delay", "bitrate", "user_limit"}
-    if set(payload) - allowed:
-        raise ValueError("Переданы неизвестные параметры канала.")
-    changes = {}
-    if "name" in payload:
-        raw_name = str(payload.get("name") or "").strip()
-        name = raw_name if isinstance(channel, discord.CategoryChannel) else raw_name.lower().replace(" ", "-")
-        if not name or len(name) > 100:
-            raise ValueError("Название канала должно содержать от 1 до 100 символов.")
-        changes["name"] = name
-    if "topic" in payload and isinstance(channel, (discord.TextChannel, discord.ForumChannel)):
-        topic = str(payload.get("topic") or "").strip()
-        if len(topic) > 1024:
-            raise ValueError("Описание канала не должно превышать 1024 символа.")
-        changes["topic"] = topic or None
-    if "category_id" in payload:
-        raw = str(payload.get("category_id") or "").strip()
-        category = guild.get_channel(int(raw)) if raw.isdigit() else None
-        if raw and not isinstance(category, discord.CategoryChannel):
-            raise ValueError("Выбранная категория не найдена.")
-        changes["category"] = category
-    if "position" in payload:
-        changes["position"] = max(0, min(int(payload["position"]), 500))
-    if "nsfw" in payload and isinstance(channel, (discord.TextChannel, discord.ForumChannel, discord.VoiceChannel, discord.StageChannel)):
-        changes["nsfw"] = bool(payload["nsfw"])
-    if "slowmode_delay" in payload and isinstance(channel, (discord.TextChannel, discord.ForumChannel)):
-        changes["slowmode_delay"] = max(0, min(int(payload["slowmode_delay"]), 21600))
-    if "bitrate" in payload and isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
-        changes["bitrate"] = max(8000, min(int(payload["bitrate"]), int(getattr(guild, "bitrate_limit", 96000))))
-    if "user_limit" in payload and isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
-        changes["user_limit"] = max(0, min(int(payload["user_limit"]), 99))
-    if not changes:
-        raise ValueError("Нет изменений для сохранения или параметры неприменимы к этому типу канала.")
-    await channel.edit(**changes, reason="GastWorld Control Panel")
-    return {"ok": True, "channels": await panel_guild_channels(guild_id)}
-
-
-async def panel_settings_channel_delete(guild_id, actor_id, channel_id):
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
-    if not str(channel_id).isdigit():
-        raise ValueError("Некорректный ID канала.")
-    channel = guild.get_channel(int(channel_id))
-    if channel is None:
-        raise ValueError("Канал или категория не найдены.")
-    await channel.delete(reason="Удалено из GastWorld Control Panel")
-    return {"ok": True, "deleted_id": str(channel_id)}
-
-
-async def panel_settings_channel_permissions(guild_id, actor_id, channel_id):
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_roles")
-    if not str(channel_id).isdigit():
-        raise ValueError("Некорректный ID канала.")
-    channel = guild.get_channel(int(channel_id))
-    if channel is None or isinstance(channel, discord.Thread):
-        raise ValueError("Канал не найден или не поддерживает переопределения прав.")
-    allowed_keys = [
-        "view_channel", "send_messages", "read_message_history", "add_reactions",
-        "embed_links", "attach_files", "mention_everyone", "manage_messages",
-        "use_external_emojis", "use_external_stickers", "use_application_commands",
-        "create_public_threads", "create_private_threads", "send_messages_in_threads",
-        "connect", "speak", "stream", "use_vad", "mute_members", "deafen_members",
-        "move_members",
-    ]
-    targets = []
-    for target, overwrite in channel.overwrites.items():
-        if isinstance(target, discord.Role):
-            target_type = "role"
-            target_name = "@everyone" if target.is_default() else target.name
-        elif isinstance(target, discord.Member):
-            target_type = "member"
-            target_name = target.display_name
-        else:
-            continue
-        targets.append({
-            "id": str(target.id), "type": target_type, "name": target_name,
-            "permissions": {key: getattr(overwrite, key, None) for key in allowed_keys},
-        })
-    roles = [{"id": str(role.id), "name": role.name} for role in sorted(guild.roles, key=lambda item: item.position, reverse=True)]
-    channel_permissions = channel.permissions_for(me)
-    manageable_keys = [
-        key for key in allowed_keys
-        if me.guild_permissions.administrator
-        or bool(getattr(me.guild_permissions, key, False))
-        or bool(getattr(channel_permissions, key, False))
-    ]
-    return {"channel_id": str(channel.id), "channel_name": channel.name, "targets": targets, "roles": roles, "permission_keys": manageable_keys}
-
-
-async def panel_settings_channel_permission_update(guild_id, actor_id, channel_id, target_id, payload):
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_roles")
-    if not str(channel_id).isdigit() or not str(target_id).isdigit() or not isinstance(payload, dict):
-        raise ValueError("Некорректные параметры переопределения прав.")
-    channel = guild.get_channel(int(channel_id))
-    if channel is None or isinstance(channel, discord.Thread):
-        raise ValueError("Канал не найден.")
-    target_type = str(payload.get("target_type") or "role")
-    if target_type == "member":
-        target = await panel_fetch_guild_member(guild, target_id)
-    elif target_type == "role":
-        target = guild.get_role(int(target_id))
-    else:
-        raise ValueError("Тип цели должен быть role или member.")
-    if target is None:
-        raise ValueError("Роль или участник не найдены на этом сервере.")
-    permissions = payload.get("permissions") or {}
-    if not isinstance(permissions, dict):
-        raise ValueError("Список разрешений должен быть объектом.")
-    allowed_keys = {
-        "view_channel", "send_messages", "read_message_history", "add_reactions",
-        "embed_links", "attach_files", "mention_everyone", "manage_messages",
-        "use_external_emojis", "use_external_stickers", "use_application_commands",
-        "create_public_threads", "create_private_threads", "send_messages_in_threads",
-        "connect", "speak", "stream", "use_vad", "mute_members", "deafen_members",
-        "move_members",
-    }
-    if set(permissions) - allowed_keys:
-        raise ValueError("Переданы неизвестные права канала.")
-    overwrite = channel.overwrites_for(target)
-    for key, value in permissions.items():
-        if value not in (True, False, None):
-            raise ValueError("Значение права должно быть true, false или null.")
-        setattr(overwrite, key, value)
-    await channel.set_permissions(
-        target, overwrite=None if overwrite.is_empty() else overwrite,
-        reason="GastWorld Control Panel: channel permission overwrite"
-    )
-    return await panel_settings_channel_permissions(guild_id, actor_id, channel_id)
-
-
-async def panel_settings_channel_permission_delete(guild_id, actor_id, channel_id, target_id):
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_roles")
-    if not str(channel_id).isdigit() or not str(target_id).isdigit():
-        raise ValueError("Некорректные ID канала или цели.")
-    channel = guild.get_channel(int(channel_id))
-    if channel is None:
-        raise ValueError("Канал не найден.")
-    target = guild.get_role(int(target_id)) or guild.get_member(int(target_id))
-    if target is None:
-        raise ValueError("Роль или участник не найдены.")
-    await channel.set_permissions(target, overwrite=None, reason="GastWorld Control Panel: remove channel overwrite")
-    return {"ok": True, "channel_id": str(channel_id), "target_id": str(target_id)}
-
-
-async def panel_settings_event_permission_context(guild_id, actor_id, channel_id=None, entity_type=3):
+async def panel_settings_guild_channels(guild_id, actor_id):
     if not bot.is_ready() or not str(guild_id).isdigit() or not str(actor_id).isdigit():
         raise ValueError("Некорректный ID сервера или пользователя.")
     guild = bot.get_guild(int(guild_id))
@@ -4319,79 +4094,52 @@ async def panel_settings_event_permission_context(guild_id, actor_id, channel_id
     me = guild.me or guild.get_member(bot.user.id)
     if me is None:
         raise RuntimeError("Не удалось определить права бота на сервере.")
-    try:
-        entity_type = int(entity_type)
-    except (TypeError, ValueError):
-        raise ValueError("Некорректный тип события.")
-    if entity_type == 3:
-        actor_perms = actor.guild_permissions
-        bot_perms = me.guild_permissions
-    else:
-        if not str(channel_id or "").isdigit():
-            raise ValueError("Не выбран канал для события.")
-        channel = guild.get_channel(int(channel_id))
-        if entity_type == 1 and not isinstance(channel, discord.StageChannel):
-            raise ValueError("Для Stage-события выбери Stage-канал.")
-        if entity_type == 2 and not isinstance(channel, discord.VoiceChannel):
-            raise ValueError("Для голосового события выбери голосовой канал.")
-        if entity_type not in {1, 2}:
-            raise ValueError("Неизвестный тип события.")
-        actor_perms = channel.permissions_for(actor)
-        bot_perms = channel.permissions_for(me)
-    actor_owner = actor.id == guild.owner_id
-    actor_has_create = actor_owner or actor_perms.administrator or actor_perms.manage_events or actor_perms.create_events
-    bot_has_create = me.guild_permissions.administrator or bot_perms.administrator or bot_perms.manage_events or bot_perms.create_events
-    if not actor_has_create:
-        raise PermissionError("Тебе нужно право «Создавать события» или «Управлять событиями» в выбранном месте.")
-    if not bot_has_create:
-        raise PermissionError("Боту нужно право «Создавать события» или «Управлять событиями» в выбранном месте.")
-    if entity_type == 2:
-        required = ("view_channel", "connect")
-    elif entity_type == 1:
-        required = ("manage_channels", "mute_members", "move_members")
-    else:
-        required = ()
-    for key in required:
-        if not (actor_owner or actor_perms.administrator or bool(getattr(actor_perms, key, False))):
-            raise PermissionError("Для этого события тебе также нужно право «" + key.replace("_", " ") + "» в канале.")
-        if not (me.guild_permissions.administrator or bool(getattr(bot_perms, key, False))):
-            raise PermissionError("Боту также нужно право «" + key.replace("_", " ") + "» в канале.")
-    return {"ok": True, "guild_id": str(guild.id), "channel_id": str(channel_id or ""), "entity_type": entity_type}
-
-
-async def panel_settings_member_action(guild_id, actor_id, member_id, payload):
-    if not isinstance(payload, dict) or not str(member_id).isdigit():
-        raise ValueError("Некорректные данные участника.")
-    action = str(payload.get("action") or "").lower()
-    permission = {"kick": "kick_members", "ban": "ban_members", "timeout": "moderate_members", "nickname": "manage_nicknames"}.get(action)
-    if not permission:
-        raise ValueError("Неизвестное действие над участником.")
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, permission)
-    target = await panel_fetch_guild_member(guild, member_id)
-    if target.id in {guild.owner_id, me.id}:
-        raise PermissionError("Нельзя выполнить это действие над владельцем сервера или самим ботом.")
     actor_is_owner = actor.id == guild.owner_id
-    if not actor_is_owner and target.top_role >= actor.top_role:
-        raise PermissionError("Твоя высшая роль должна быть выше роли этого участника.")
-    if target.top_role >= me.top_role:
-        raise PermissionError("Роль бота должна быть выше роли этого участника.")
-    reason = str(payload.get("reason") or "GastWorld Control Panel")[:400]
-    if action == "kick":
-        await target.kick(reason=reason)
-    elif action == "ban":
-        delete_seconds = max(0, min(int(payload.get("delete_message_seconds") or 0), 604800))
-        await guild.ban(target, reason=reason, delete_message_seconds=delete_seconds)
-    elif action == "timeout":
-        minutes = int(payload.get("minutes") or 0)
-        if minutes < 0 or minutes > 40320:
-            raise ValueError("Тайм-аут должен быть от 0 до 40320 минут.")
-        await target.timeout(timedelta(minutes=minutes) if minutes else None, reason=reason)
-    elif action == "nickname":
-        nickname = str(payload.get("nickname") or "").strip()
-        if len(nickname) > 32:
-            raise ValueError("Никнейм не должен превышать 32 символа.")
-        await target.edit(nick=nickname or None, reason=reason)
-    return {"ok": True, "member_id": str(target.id), "action": action}
+    actor_can_manage = actor_is_owner or actor.guild_permissions.administrator or actor.guild_permissions.manage_channels
+    bot_can_manage = me.guild_permissions.administrator or me.guild_permissions.manage_channels
+    actor_can_manage_roles = actor_is_owner or actor.guild_permissions.administrator or actor.guild_permissions.manage_roles
+    bot_can_manage_roles = me.guild_permissions.administrator or me.guild_permissions.manage_roles
+    categories = [
+        {"id": str(category.id), "name": category.name, "position": int(category.position), "type": "category"}
+        for category in sorted(guild.categories, key=lambda item: (item.position, item.name.casefold()))
+    ]
+    channels = []
+    all_channels = sorted(guild.channels, key=lambda item: (getattr(item, "position", 0), item.name.casefold()))
+    for channel in all_channels:
+        if isinstance(channel, discord.CategoryChannel) or isinstance(channel, discord.Thread):
+            continue
+        if isinstance(channel, discord.ForumChannel):
+            kind = "forum"
+        elif isinstance(channel, discord.StageChannel):
+            kind = "stage"
+        elif isinstance(channel, discord.VoiceChannel):
+            kind = "voice"
+        elif isinstance(channel, discord.TextChannel):
+            kind = "announcement" if getattr(channel, "is_news", lambda: False)() else "text"
+        else:
+            continue
+        channels.append({
+            "id": str(channel.id),
+            "name": channel.name,
+            "category_id": str(channel.category_id) if channel.category_id else "",
+            "category_name": channel.category.name if channel.category else "Без категории",
+            "position": int(getattr(channel, "position", 0)),
+            "topic": str(getattr(channel, "topic", "") or ""),
+            "nsfw": bool(getattr(channel, "nsfw", False)),
+            "slowmode_delay": int(getattr(channel, "slowmode_delay", 0) or 0),
+            "bitrate": int(getattr(channel, "bitrate", 0) or 0),
+            "user_limit": int(getattr(channel, "user_limit", 0) or 0),
+            "type": kind,
+        })
+    return {
+        "guild": {"id": str(guild.id), "name": guild.name, "icon_url": str(guild.icon.url) if guild.icon else ""},
+        "categories": categories,
+        "channels": channels,
+        "can_edit": bool(actor_can_manage and bot_can_manage),
+        "actor_can_edit": bool(actor_can_manage),
+        "bot_can_edit": bool(bot_can_manage),
+        "can_manage_permissions": bool(actor_can_manage_roles and bot_can_manage_roles),
+    }
 
 
 async def panel_guild_emojis(guild_id):
@@ -4599,6 +4347,7 @@ async def run_services():
         "discord_presence": panel_guild_presence,
         "discord_member_role": panel_member_role,
         "discord_channels": panel_guild_channels,
+        "settings_guild_channels": panel_settings_guild_channels,
         "settings_permission": panel_settings_permission_context,
         "settings_channel_create": panel_settings_channel_create,
         "settings_channel_update": panel_settings_channel_update,
