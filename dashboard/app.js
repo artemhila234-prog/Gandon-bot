@@ -1003,22 +1003,34 @@ function dcRenderMessageContent(parent,message){
       if(target){node.tabIndex=0;node.setAttribute("role","button");node.addEventListener("click",()=>dcOpenGuildChannel(target));}
     }else if(match[4]){
       const stamp=Number(match[4]);node=document.createElement("time");node.className="dc-timestamp";node.dateTime=new Date(stamp*1000).toISOString();const date=new Date(stamp*1000);const style=(match[5]||"f").toLowerCase();node.textContent=style==="r"?new Intl.RelativeTimeFormat("ru",{numeric:"auto"}).format(Math.round((stamp*1000-Date.now())/60000),"minute"):date.toLocaleString("ru-RU",style==="t"||style==="T"?{hour:"2-digit",minute:"2-digit"}:style==="d"?{day:"2-digit",month:"2-digit",year:"numeric"}:style==="f"?{day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}:{weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"});node.title=date.toLocaleString("ru-RU");
-    }else if(match[7]){
-      node=document.createElement("img");node.className="dc-custom-emoji";node.alt=":"+match[8]+":";node.title=node.alt;const animateEmoji=match[7]==="a"&&dcAccessibilityPrefs.animatedEmoji&&!dcAccessibilityPrefs.reducedMotion;node.src="https://cdn.discordapp.com/emojis/"+match[9]+"."+(animateEmoji?"gif":"png")+"?size=48&quality=lossless";node.onerror=()=>{if(animateEmoji){node.src="https://cdn.discordapp.com/emojis/"+match[9]+".png?size=48&quality=lossless";}else node.replaceWith(document.createTextNode(node.alt));};
+    }else if(match[6]!==undefined){
+      const emojiName=match[7],emojiId=match[8];
+      node=document.createElement("img");node.className="dc-custom-emoji";node.alt=":"+emojiName+":";node.title=node.alt;
+      const animateEmoji=match[6]==="a"&&dcAccessibilityPrefs.animatedEmoji&&!dcAccessibilityPrefs.reducedMotion;
+      node.src="https://cdn.discordapp.com/emojis/"+emojiId+"."+(animateEmoji?"gif":"png")+"?size=48&quality=lossless";
+      node.onerror=()=>{if(animateEmoji){node.src="https://cdn.discordapp.com/emojis/"+emojiId+".png?size=48&quality=lossless";}else node.replaceWith(document.createTextNode(node.alt));};
+    }else if(match[9]){
+      node=document.createElement("a");node.href=match[9];node.target="_blank";node.rel="noopener noreferrer";node.textContent=match[9];
     }else if(match[10]){
-      node=document.createElement("a");node.href=match[10];node.target="_blank";node.rel="noopener noreferrer";node.textContent=match[10];
-    }else if(match[11]){
-      const stickerId=match[11];
+      const stickerId=match[10];
       if(stickerIds.has(stickerId)){
-        // Full sticker metadata is rendered in the sticker block below; remove the raw :ID: marker.
+        // Metadata renderer below displays the sticker image; hide the legacy :ID: marker.
         cursor=token.lastIndex;continue;
       }
       node=document.createElement("img");node.className="dc-message-sticker dc-message-sticker-inline";
       node.alt="Стикер Discord";node.title="Стикер Discord";node.loading="lazy";
-      const pngUrl="https://cdn.discordapp.com/stickers/"+stickerId+".png?size=320";
-      const gifUrl="https://cdn.discordapp.com/stickers/"+stickerId+".gif?size=320";
-      node.src=pngUrl;
-      node.onerror=()=>{if(!node.dataset.gifFallback){node.dataset.gifFallback="1";node.src=gifUrl;}else node.replaceWith(document.createTextNode(":"+stickerId+":"));};
+      const stickerUrls=[
+        "https://cdn.discordapp.com/stickers/"+stickerId+".png?size=320",
+        "https://cdn.discordapp.com/stickers/"+stickerId+".gif?size=320",
+        "https://media.discordapp.net/stickers/"+stickerId+".png?size=320",
+        "https://media.discordapp.net/stickers/"+stickerId+".gif?size=320"
+      ];
+      let stickerUrlIndex=0;node.src=stickerUrls[stickerUrlIndex];
+      node.onerror=()=>{
+        stickerUrlIndex++;
+        if(stickerUrlIndex<stickerUrls.length)node.src=stickerUrls[stickerUrlIndex];
+        else{const link=document.createElement("a");link.href="https://discord.com/stickers/"+stickerId;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Открыть стикер";link.className="dc-sticker-static-label";node.replaceWith(link);}
+      };
     }
     if(node)parent.append(node);cursor=token.lastIndex;
   }
