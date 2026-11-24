@@ -1325,6 +1325,392 @@ async def api_discord_guild_emojis(guild_id: str, request: Request):
         raise HTTPException(status_code=502, detail=f"Не удалось загрузить эмодзи сервера: {str(error)[:300]}")
 
 
+
+async def require_guild_setting_permission(guild_id: str, actor: dict[str, Any], permission: str):
+    try:
+        return await get_dm_controller("settings_permission")(guild_id, str(actor.get("id", "")), permission)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось проверить серверные права: {str(error)[:250]}")
+
+
+@app.get("/api/discord/guilds/{guild_id}/settings/{section}")
+async def api_discord_server_settings_section(guild_id: str, section: str, request: Request, after: str = "0", limit: int = 500):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    if section == "channels":
+        try:
+            return await get_dm_controller("discord_channels")(guild_id)
+        except Exception as error:
+            raise HTTPException(status_code=502, detail=f"Не удалось загрузить каналы: {str(error)[:300]}")
+    if section == "members":
+        if not after.isdigit() or not 1 <= limit <= 1000:
+            raise HTTPException(status_code=400, detail="Некорректные параметры списка участников.")
+        try:
+            return await get_dm_controller("discord_members")(guild_id, str(actor.get("id", "")), after, limit)
+        except Exception as error:
+            raise HTTPException(status_code=502, detail=f"Не удалось загрузить участников: {str(error)[:300]}")
+    if section == "safety":
+        settings = await get_dm_controller("discord_settings")(guild_id, str(actor.get("id", "")))
+        guild_data = await discord_request("GET", f"/guilds/{guild_id}")
+        return {
+            **settings,
+            "incidents": guild_data.get("incidents_data") or {},
+            "mfa_level": guild_data.get("mfa_level", 0),
+            "verification_level": guild_data.get("verification_level", settings.get("settings", {}).get("verification_level", 0)),
+        }
+    if section == "invites":
+        await require_guild_setting_permission(guild_id, actor, "manage_guild")
+        return await discord_request("GET", f"/guilds/{guild_id}/invites")
+    if section == "audit":
+        await require_guild_setting_permission(guild_id, actor, "view_audit_log")
+        return await discord_request("GET", f"/guilds/{guild_id}/audit-logs?limit=100")
+    if section == "automod":
+        await require_guild_setting_permission(guild_id, actor, "manage_guild")
+        return await discord_request("GET", f"/guilds/{guild_id}/auto-moderation/rules")
+    if section == "integrations":
+        await require_guild_setting_permission(guild_id, actor, "manage_guild")
+        return await discord_request("GET", f"/guilds/{guild_id}/integrations")
+    if section == "emoji":
+        await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+        emojis = await discord_request("GET", f"/guilds/{guild_id}/emojis")
+        stickers = await discord_request("GET", f"/guilds/{guild_id}/stickers")
+        return {"emojis": emojis or [], "stickers": stickers or []}
+    if section == "events":
+        await require_guild_setting_permission(guild_id, actor, "view_audit_log")
+        return await discord_request("GET", f"/guilds/{guild_id}/scheduled-events?with_user_count=true")
+    raise HTTPException(status_code=404, detail="Неизвестный раздел настроек сервера.")
+
+
+@app.post("/api/discord/guilds/{guild_id}/settings/channels")
+async def api_discord_server_channel_create(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        payload = await request.json()
+        return await get_dm_controller("settings_channel_create")(guild_id, str(actor.get("id", "")), payload)
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось создать канал: {str(error)[:300]}")
+
+
+@app.patch("/api/discord/guilds/{guild_id}/settings/channels/{channel_id}")
+async def api_discord_server_channel_update(guild_id: str, channel_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или канала.")
+    try:
+        payload = await request.json()
+        return await get_dm_controller("settings_channel_update")(guild_id, str(actor.get("id", "")), channel_id, payload)
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось изменить канал: {str(error)[:300]}")
+
+
+@app.delete("/api/discord/guilds/{guild_id}/settings/channels/{channel_id}")
+async def api_discord_server_channel_delete(guild_id: str, channel_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или канала.")
+    try:
+        return await get_dm_controller("settings_channel_delete")(guild_id, str(actor.get("id", "")), channel_id)
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось удалить канал: {str(error)[:300]}")
+
+
+@app.post("/api/discord/guilds/{guild_id}/settings/members/{member_id}/action")
+async def api_discord_server_member_action(guild_id: str, member_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not member_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или участника.")
+    try:
+        payload = await request.json()
+        return await get_dm_controller("settings_member_action")(guild_id, str(actor.get("id", "")), member_id, payload)
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось выполнить действие над участником: {str(error)[:300]}")
+
+
+@app.patch("/api/discord/guilds/{guild_id}/settings/safety")
+async def api_discord_server_safety_update(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректные настройки безопасности.")
+    incident_payload = {}
+    for key in ("invites_disabled_until", "dms_disabled_until"):
+        if key in payload:
+            incident_payload[key] = payload[key]
+    regular = {key: value for key, value in payload.items() if key not in incident_payload}
+    result = None
+    if regular:
+        result = await get_dm_controller("discord_settings_update")(guild_id, str(actor.get("id", "")), regular)
+    if incident_payload:
+        await require_guild_setting_permission(guild_id, actor, "manage_guild")
+        incidents = await discord_request("PUT", f"/guilds/{guild_id}/incident-actions", payload=incident_payload)
+        if result is None:
+            result = {"ok": True}
+        result["incidents"] = incidents
+    return result or {"ok": True}
+
+
+@app.post("/api/discord/guilds/{guild_id}/settings/invites")
+async def api_discord_server_invite_create(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    payload = await request.json()
+    channel_id = str(payload.get("channel_id") or "")
+    if not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Выбери текстовый канал для приглашения.")
+    await require_guild_setting_permission(guild_id, actor, "create_instant_invite")
+    channel = await discord_request("GET", f"/channels/{channel_id}")
+    if str(channel.get("guild_id") or "") != guild_id:
+        raise HTTPException(status_code=400, detail="Канал не принадлежит выбранному серверу.")
+    body = {
+        "max_age": max(0, min(int(payload.get("max_age") or 86400), 604800)),
+        "max_uses": max(0, min(int(payload.get("max_uses") or 0), 100)),
+        "temporary": bool(payload.get("temporary", False)),
+        "unique": bool(payload.get("unique", True)),
+    }
+    return await discord_request("POST", f"/channels/{channel_id}/invites", payload=body)
+
+
+@app.delete("/api/discord/guilds/{guild_id}/settings/invites/{code}")
+async def api_discord_server_invite_delete(guild_id: str, code: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not code or len(code) > 100:
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или код приглашения.")
+    await require_guild_setting_permission(guild_id, actor, "manage_guild")
+    invite = await discord_request("GET", f"/invites/{code}")
+    if str(invite.get("guild", {}).get("id") or "") != guild_id:
+        raise HTTPException(status_code=404, detail="Приглашение не относится к выбранному серверу.")
+    return await discord_request("DELETE", f"/invites/{code}")
+
+
+@app.post("/api/discord/guilds/{guild_id}/settings/automod")
+async def api_discord_server_automod_create(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    await require_guild_setting_permission(guild_id, actor, "manage_guild")
+    payload = await request.json()
+    return await discord_request("POST", f"/guilds/{guild_id}/auto-moderation/rules", payload=payload)
+
+
+@app.patch("/api/discord/guilds/{guild_id}/settings/automod/{rule_id}")
+async def api_discord_server_automod_update(guild_id: str, rule_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not rule_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или правила AutoMod.")
+    await require_guild_setting_permission(guild_id, actor, "manage_guild")
+    payload = await request.json()
+    return await discord_request("PATCH", f"/guilds/{guild_id}/auto-moderation/rules/{rule_id}", payload=payload)
+
+
+@app.delete("/api/discord/guilds/{guild_id}/settings/automod/{rule_id}")
+async def api_discord_server_automod_delete(guild_id: str, rule_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not rule_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или правила AutoMod.")
+    await require_guild_setting_permission(guild_id, actor, "manage_guild")
+    return await discord_request("DELETE", f"/guilds/{guild_id}/auto-moderation/rules/{rule_id}")
+
+
+@app.delete("/api/discord/guilds/{guild_id}/settings/integrations/{integration_id}")
+async def api_discord_server_integration_delete(guild_id: str, integration_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not integration_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID интеграции.")
+    await require_guild_setting_permission(guild_id, actor, "manage_guild")
+    return await discord_request("DELETE", f"/guilds/{guild_id}/integrations/{integration_id}")
+
+
+@app.post("/api/discord/guilds/{guild_id}/settings/emoji")
+async def api_discord_server_emoji_create(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    payload = await request.json()
+    name = str(payload.get("name") or "").strip()
+    image = str(payload.get("image") or "")
+    if not 2 <= len(name) <= 32 or not re.fullmatch(r"[A-Za-z0-9_]+", name):
+        raise HTTPException(status_code=400, detail="Имя эмодзи: 2–32 символа, латинские буквы, цифры и _.")
+    if not image.startswith("data:image/") or len(image) > 400000:
+        raise HTTPException(status_code=400, detail="Загрузи изображение эмодзи размером не более 256 КБ.")
+    return await discord_request("POST", f"/guilds/{guild_id}/emojis", payload={"name": name, "image": image, "roles": payload.get("roles") or []})
+
+
+@app.patch("/api/discord/guilds/{guild_id}/settings/emoji/{emoji_id}")
+async def api_discord_server_emoji_update(guild_id: str, emoji_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not emoji_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID эмодзи.")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    payload = await request.json()
+    return await discord_request("PATCH", f"/guilds/{guild_id}/emojis/{emoji_id}", payload=payload)
+
+
+@app.delete("/api/discord/guilds/{guild_id}/settings/emoji/{emoji_id}")
+async def api_discord_server_emoji_delete(guild_id: str, emoji_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not emoji_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID эмодзи.")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    return await discord_request("DELETE", f"/guilds/{guild_id}/emojis/{emoji_id}")
+
+
+async def discord_multipart_request(path: str, *, data: dict[str, str], file_name: str, file_bytes: bytes, content_type: str = "application/octet-stream"):
+    if not BOT_TOKEN:
+        raise HTTPException(status_code=503, detail="Не настроен DISCORD_BOT_TOKEN.")
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            f"{DISCORD_API}{path}",
+            headers={"Authorization": f"Bot {BOT_TOKEN}"},
+            data=data,
+            files={"file": (file_name, file_bytes, content_type)},
+        )
+    if response.status_code >= 400:
+        try:
+            error_data = response.json()
+        except ValueError:
+            error_data = {}
+        detail = str(error_data.get("message") or response.text or "без описания")[:500]
+        raise HTTPException(status_code=502, detail=f"Discord API отклонил загрузку файла (HTTP {response.status_code}): {detail}")
+    return response.json() if response.content else None
+
+
+@app.post("/api/discord/guilds/{guild_id}/settings/stickers")
+async def api_discord_server_sticker_create(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    try:
+        form = await request.form()
+        upload = form.get("file")
+        if not upload or not getattr(upload, "filename", ""):
+            raise HTTPException(status_code=400, detail="Выбери файл стикера.")
+        content = await upload.read()
+        if len(content) > 512 * 1024:
+            raise HTTPException(status_code=413, detail="Файл стикера не должен превышать 512 КБ.")
+        name = str(form.get("name") or "").strip()
+        tags = str(form.get("tags") or "").strip()
+        description = str(form.get("description") or "").strip()
+        if not 2 <= len(name) <= 30 or not tags or len(tags) > 200 or len(description) > 100:
+            raise HTTPException(status_code=400, detail="Проверь имя (2–30), теги и описание стикера (до 100).")
+        return await discord_multipart_request(
+            f"/guilds/{guild_id}/stickers",
+            data={"name": name, "tags": tags, "description": description},
+            file_name=str(upload.filename)[:255], file_bytes=content,
+            content_type=str(getattr(upload, "content_type", "") or "application/octet-stream"),
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Не удалось прочитать файл стикера.")
+
+
+@app.delete("/api/discord/guilds/{guild_id}/settings/stickers/{sticker_id}")
+async def api_discord_server_sticker_delete(guild_id: str, sticker_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not sticker_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID стикера.")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    return await discord_request("DELETE", f"/guilds/{guild_id}/stickers/{sticker_id}")
+
+
+@app.post("/api/discord/guilds/{guild_id}/settings/events")
+async def api_discord_server_event_create(guild_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    await require_guild_setting_permission(guild_id, actor, "manage_events")
+    payload = await request.json()
+    name = str(payload.get("name") or "").strip()
+    if not 1 <= len(name) <= 100:
+        raise HTTPException(status_code=400, detail="Название события должно содержать 1–100 символов.")
+    entity_type = int(payload.get("entity_type") or 3)
+    body = {
+        "name": name,
+        "description": str(payload.get("description") or "")[:1000] or None,
+        "privacy_level": 2,
+        "entity_type": entity_type,
+        "scheduled_start_time": payload.get("scheduled_start_time"),
+    }
+    if entity_type == 3:
+        location = str((payload.get("entity_metadata") or {}).get("location") or "").strip()
+        if not location or not payload.get("scheduled_end_time"):
+            raise HTTPException(status_code=400, detail="Для внешнего события укажи место и время окончания.")
+        body["channel_id"] = None
+        body["entity_metadata"] = {"location": location[:100]}
+        body["scheduled_end_time"] = payload["scheduled_end_time"]
+    else:
+        channel_id = str(payload.get("channel_id") or "")
+        if not channel_id.isdigit():
+            raise HTTPException(status_code=400, detail="Выбери голосовой или Stage-канал.")
+        channel = await discord_request("GET", f"/channels/{channel_id}")
+        if str(channel.get("guild_id") or "") != guild_id or int(channel.get("type") or 0) not in {2, 13}:
+            raise HTTPException(status_code=400, detail="Событие можно привязать только к голосовому или Stage-каналу этого сервера.")
+        body["channel_id"] = channel_id
+    if payload.get("scheduled_end_time") and entity_type != 3:
+        body["scheduled_end_time"] = payload["scheduled_end_time"]
+    return await discord_request("POST", f"/guilds/{guild_id}/scheduled-events", payload=body)
+
+
+@app.patch("/api/discord/guilds/{guild_id}/settings/events/{event_id}")
+async def api_discord_server_event_update(guild_id: str, event_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not event_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID события.")
+    await require_guild_setting_permission(guild_id, actor, "manage_events")
+    payload = await request.json()
+    allowed = {"name", "description", "scheduled_start_time", "scheduled_end_time", "status"}
+    body = {key: payload[key] for key in allowed if key in payload}
+    if not body:
+        raise HTTPException(status_code=400, detail="Нет полей для изменения события.")
+    return await discord_request("PATCH", f"/guilds/{guild_id}/scheduled-events/{event_id}", payload=body)
+
+
+@app.delete("/api/discord/guilds/{guild_id}/settings/events/{event_id}")
+async def api_discord_server_event_delete(guild_id: str, event_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not event_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID события.")
+    await require_guild_setting_permission(guild_id, actor, "manage_events")
+    return await discord_request("DELETE", f"/guilds/{guild_id}/scheduled-events/{event_id}")
+
+
 @app.get("/api/discord/channels/{channel_id}/messages")
 async def api_discord_channel_history(channel_id: str, request: Request):
     await require_access(request, "adm")
