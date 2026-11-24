@@ -1314,6 +1314,17 @@ async def api_discord_guild_channels(guild_id: str, request: Request):
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось загрузить каналы: {str(error)[:300]}")
 
+@app.get("/api/discord/guilds/{guild_id}/emojis")
+async def api_discord_guild_emojis(guild_id: str, request: Request):
+    await require_access(request, "adm")
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
+    try:
+        return await get_dm_controller("discord_emojis")(guild_id)
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить эмодзи сервера: {str(error)[:300]}")
+
+
 @app.get("/api/discord/channels/{channel_id}/messages")
 async def api_discord_channel_history(channel_id: str, request: Request):
     await require_access(request, "adm")
