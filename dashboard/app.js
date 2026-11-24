@@ -2350,7 +2350,8 @@ function dcRenderServerSettings(data){
     settingsHeading("Участники","Список участников сервера, быстрый поиск и инструменты модерации. Все действия учитывают права и иерархию Discord.");
     const search=settingsInput("","search","Поиск по имени, нику или ID");search.className="dc-role-member-search";main.append(search);
     const memberToolbar=document.createElement("div");memberToolbar.className="dc-settings-toolbar";
-    const bansButton=settingsButton("Заблокированные участники",()=>loadBans());memberToolbar.append(bansButton);main.append(memberToolbar);
+    let showingBans=false;
+    const bansButton=settingsButton("Заблокированные участники",()=>showingBans?returnToMembers():loadBans());memberToolbar.append(bansButton);main.append(memberToolbar);
     const status=document.createElement("p");status.className="dc-settings-status";status.textContent="Загрузка участников…";main.append(status);
     const list=document.createElement("div");list.className="dc-settings-data-list dc-settings-member-list";main.append(list);
     let members=[];
@@ -2386,7 +2387,11 @@ function dcRenderServerSettings(data){
       });
     };
     search.addEventListener("input",draw);
+    const returnToMembers=()=>{
+      showingBans=false;bansButton.textContent="Заблокированные участники";draw();status.textContent="Список участников сервера.";
+    };
     const loadBans=async()=>{
+      showingBans=true;bansButton.textContent="Вернуться к участникам";
       bansButton.disabled=true;status.textContent="Загрузка списка блокировок…";list.replaceChildren();
       try{
         const bans=await serverSettingsRequest("bans");
@@ -2469,7 +2474,12 @@ function dcRenderServerSettings(data){
       const ifields=document.createElement("div");ifields.className="dc-settings-fields";ifields.append(settingsLabel("Новые приглашения",inviteUntil),settingsLabel("Личные сообщения новых участников",dmUntil));incidentPanel.append(ifields);panel.append(incidentPanel);
       const note=document.createElement("p");note.className="dc-settings-permission";note.textContent="Текущий уровень MFA: "+(data.mfa_level===2?"Включён":data.mfa_level===1?"Требуется для модерации":"Не требуется")+" · Для защиты от рейдов Discord разрешает временное отключение приглашений и личных сообщений не более чем на 24 часа.";panel.append(note);
       const status=document.createElement("p");status.className="dc-settings-status";panel.append(status);
+      if(!data.can_edit){
+        const note=document.createElement("div");note.className="dc-settings-permission";note.textContent="Для изменения этих параметров нужны права «Управлять сервером» у твоего аккаунта и у бота.";panel.append(note);
+        [verification,filter,notify,inviteUntil,dmUntil].forEach(control=>control.disabled=true);
+      }
       const save=settingsButton("Сохранить безопасность",async()=>{
+        if(!data.can_edit)return;
         save.disabled=true;
         const expiryIso=value=>Number(value)>0?new Date(Date.now()+Number(value)*3600000).toISOString():null;
         try{await serverSettingsRequest("safety","PATCH",{verification_level:Number(verification.value),explicit_content_filter:Number(filter.value),default_notifications:Number(notify.value),invites_disabled_until:expiryIso(inviteUntil.value),dms_disabled_until:expiryIso(dmUntil.value)});status.textContent="✓ Настройки безопасности сохранены.";showToast?.("Настройки безопасности сохранены.");}
@@ -2518,11 +2528,29 @@ function dcRenderServerSettings(data){
         if(!rules.length){settingsEmpty(list,"Правила AutoMod ещё не созданы.");}
         rules.forEach(rule=>{
           const detail="Тип триггера: "+rule.trigger_type+" · Действия: "+(rule.actions||[]).map(a=>({1:"блокировка",2:"уведомление",3:"тайм-аут",4:"блокировка взаимодействий"}[a.type]||a.type)).join(", ");
+          const edit=settingsButton("Изменить",async()=>{
+            const nextName=prompt("Название правила:",rule.name||"");if(nextName===null)return;
+            const body={name:nextName.trim()};
+            const metadata={...(rule.trigger_metadata||{})};
+            if([1,6].includes(Number(rule.trigger_type))){
+              const nextKeywords=prompt("Ключевые слова через запятую:",(metadata.keyword_filter||[]).join(", "));if(nextKeywords===null)return;
+              const values=nextKeywords.split(",").map(x=>x.trim()).filter(Boolean);
+              if(!values.length){settingsError(list,new Error("Нужно оставить хотя бы одно ключевое слово."));return;}
+              metadata.keyword_filter=values;
+              body.trigger_metadata=metadata;
+            }else if(Number(rule.trigger_type)===5){
+              const nextLimit=prompt("Максимум уникальных упоминаний:",String(metadata.mention_total_limit||5));if(nextLimit===null)return;
+              const value=Number(nextLimit);if(!Number.isInteger(value)||value<1||value>50){settingsError(list,new Error("Лимит должен быть числом от 1 до 50."));return;}
+              metadata.mention_total_limit=value;body.trigger_metadata=metadata;
+            }
+            try{await serverSettingsRequest("automod","PATCH",body,rule.id);showToast?.("Правило обновлено.");await loadRules();}
+            catch(error){settingsError(list,error);}
+          });
           const toggle=settingsButton(rule.enabled?"Отключить":"Включить",async()=>{
             try{await serverSettingsRequest("automod","PATCH",{enabled:!rule.enabled},rule.id);await loadRules();}catch(error){settingsError(list,error);}
           });
           const del=settingsButton("Удалить",async()=>{if(!confirm("Удалить правило «"+rule.name+"»?"))return;try{await serverSettingsRequest("automod","DELETE",null,rule.id);await loadRules();}catch(error){settingsError(list,error);}},"danger");
-          settingsRow(list,rule.name,detail,[toggle,del]);
+          settingsRow(list,rule.name,detail,[edit,toggle,del]);
         });
       }catch(error){list.replaceChildren();settingsError(list,error);}
     };
