@@ -1163,7 +1163,9 @@ function dcRenderMessages(messages){
   root.scrollTop=root.scrollHeight;
 }
 async function dcOpenConversation(user,silent=false){
-  if(!user?.id)return;dcActiveUser=user;
+  if(!user?.id)return;
+  if(dcActiveUser?.id!==user.id)dcClearReplyTarget();
+  dcActiveUser=user;dcActiveChannel=null;dcActiveDmChannelId=null;dcSetMode("dm");
   const title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard");
   if(title)title.textContent=user.global_name||user.username;if(subtitle)subtitle.textContent="@"+user.username+" · "+user.id;
   if(input)input.disabled=false;if(send)send.disabled=false;
@@ -1371,7 +1373,7 @@ async function dcLoadGuildMembers(guild,force=false){
     if(dcActiveGuild?.id!==guild.id)return;
     dcMemberCache=allMembers;dcMemberRoleCache=roles;
     dcMemberCacheByGuild.set(guild.id,dcMemberCache);dcMemberRolesByGuild.set(guild.id,dcMemberRoleCache);
-    dcRenderGuildMembers();
+    dcRenderGuildMembers();dcUpdateMentionPicker(document.getElementById("dcMessageInput"));
   }catch(error){
     if(dcActiveGuild?.id!==guild.id)return;
     dcMemberCacheByGuild.delete(guild.id);dcMemberRolesByGuild.delete(guild.id);
@@ -2084,12 +2086,12 @@ async function dcOpenGuild(guild){
   dcLoadGuildMembers(guild);
   const root=document.getElementById("dcChatMessages");if(root){root.innerHTML="";const welcome=document.createElement("div");welcome.className="dc-live-welcome";welcome.innerHTML='<div class="dc-live-welcome-icon">#</div><h1>'+dcEscape(guild.name)+'</h1><p>Выбери канал слева, чтобы читать историю и отправлять сообщения.</p>';root.append(welcome);}
   const cachedChannels=dcChannelsCacheByGuild.get(guild.id);
-  if(cachedChannels){dcRenderGuildChannels(cachedChannels,list,title,guild);return;}
+  if(cachedChannels){dcRenderGuildChannels(cachedChannels,list,title,guild);dcUpdateMentionPicker(document.getElementById("dcMessageInput"));return;}
   if(dcChannelsLoading.has(guild.id))return;
   dcChannelsLoading.add(guild.id);
   if(list)list.innerHTML='<div class="dc-live-loading">Загружаем список каналов…</div>';
   try{
-    const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guild.id)+"/channels");if(dcActiveGuild?.id!==guild.id)return;dcChannelsCacheByGuild.set(guild.id,data);dcRenderGuildChannels(data,list,title,guild);
+    const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guild.id)+"/channels");if(dcActiveGuild?.id!==guild.id)return;dcChannelsCacheByGuild.set(guild.id,data);dcRenderGuildChannels(data,list,title,guild);dcUpdateMentionPicker(document.getElementById("dcMessageInput"));
 
   }catch(error){if(dcActiveGuild?.id===guild.id&&list)list.textContent=error.message;}finally{dcChannelsLoading.delete(guild.id);}
 }
