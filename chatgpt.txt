@@ -2212,3 +2212,42 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Дополнительная точность курсора: после сверки с реализацией Guild.fetch_members в discord.py подтверждено, что библиотека сама передаёт ID последнего элемента API-ответа как следующий after, а наружу yield-ит ответ в обратном порядке. Поэтому next_after теперь фиксируется от первого элемента до сортировки страницы, а не вычисляется после сортировки по имени. Исправление: aaaa/bot.py commit 0bde8b3c294b06e970a64657027be589c79d28b4; blob c23f27b7880a4944a6188d301b6d0a6463bc2a85.
 - Статическая проверка после коммитов: app.js успешно разбирается V8; подтверждены client-side paging, query parsing в backend, fetch_members с cursor, next_after/has_more и новая версия cache-bust. Реальные запросы к Discord из хостинга, браузерный e2e и deploy не выполнялись.
 - Следующий шаг: синхронизировать main на обоих сервисах, если панель и бот запущены отдельно; перезапустить их. Затем открыть LIVE и выбрать сервер. Если снова не загрузится, посмотреть Network → запрос /api/discord/guilds/{id}/members?limit=500&after=0: HTTP status/время ответа/response body; при Failed to fetch без статуса приложить логи панели и bot-host процесса по этому времени.
+
+
+39. РАСШИРЕНИЕ LIVE-ЧАТА: УПОМИНАНИЯ И ОСНОВНЫЕ ДЕЙСТВИЯ СООБЩЕНИЙ (2026-11-24)
+- Пользователь попросил добавить полноценную Discord-подобную систему упоминаний «@», каналов «#» и остальные функции чата. Перед изменениями перечитана актуальная памятка; изучены dashboard/app.js, dashboard/style.css, dashboard/index.html, dashboard/backend/main.py и aaaa/bot.py. Проверены официальные Discord API правила форматирования mention и Allowed Mentions: https://discord.com/developers/docs/reference#message-formatting и https://discord.com/developers/docs/resources/message#allowed-mentions-object.
+- Добавлен autocomplete в поле сообщения:
+  - «@» предлагает до 13 пользователей и до 15 ролей, с клавиатурной навигацией ↑/↓, Enter/Tab для выбора, Escape для закрытия.
+  - «@&» показывает только роли.
+  - «#» показывает доступные текстовые каналы выбранного сервера.
+  - «@everyone» и «@here» предлагаются только если выбранный канал сообщает, что у бота есть MENTION_EVERYONE permission.
+  - По выбору вставляется настоящий Discord token: <@USER_ID>, <@&ROLE_ID>, <#CHANNEL_ID>, @everyone или @here.
+- Система отображения упоминаний улучшена: names разрешаются через message mentions, текущий кэш участников/ролей/каналов; пользовательские mentions открывают DM, channel mentions переключают на соответствующий канал; role mentions отображаются с цветом роли. Для ролей в payload добавлено mentionable, UI показывает предупреждение, если роль может потребовать MENTION_EVERYONE.
+- Отправка сообщений больше не отключает все упоминания:
+  - user/role mentions разрешены через AllowedMentions.
+  - @everyone/@here разрешены только если бот имеет MENTION_EVERYONE permission в выбранном текстовом канале; в DM эти массовые mentions выключены.
+  - Упоминание роли всё равно зависит от флага mentionable роли либо MENTION_EVERYONE права бота согласно правилам Discord.
+- Добавлены функции чата:
+  1) Ответ на сообщение: preview над composer, отправка через Discord Message Reference; автор оригинального сообщения автоматически не пингуется.
+  2) Реакции: отображение существующих реакций и количества, кнопки toggle для реакции бота, emoji palette из обычных Unicode-эмодзи.
+  3) Редактирование своих сообщений, отправленных ботом.
+  4) Удаление своих сообщений; удаление чужих сообщений разрешено только при Manage Messages у бота в текстовом канале/ветке.
+  5) Закрепление/открепление только при Manage Messages; действия скрываются, если право не передано в channel payload.
+  6) Добавлены видимые quick actions на сообщениях: Reply, Reaction, More/context menu; контекстное меню содержит copy text, message ID, message link, edit/delete/pin when permitted.
+  7) Message metadata теперь включает reply preview, reaction list, pinned state.
+- Изменённые файлы и последние релевантные коммиты:
+  - aaaa/bot.py: message actions/metadata/allowed mentions + role/channel permissions. Последний commit этой итерации: 4d8acb254e671bef3aacc143a02c2eeeff9d9a03; blob SHA dfcf6f4f67f3c9dca51103def270f9e76828b2ce.
+  - dashboard/backend/main.py: новые PATCH/DELETE/reactions/pin routes и reply_to в multipart send handlers. Commit: 32d543907b09f64ca441f4a345f1abef33a106d2; blob SHA 52c7bb6942bcd9f0f16ffbd33874b7de751b959f.
+  - dashboard/app.js: mention autocomplete/rendering, replies, reactions, edit/delete/pin context actions, emoji picker, quick toolbar, permission-gated @everyone/@here. Последний commit: ba3da674b60d49dae8888b940387807cd38669f0; blob SHA 2a03c9b926d747cd8dfbf75093ff973bb7ca7fc6.
+  - dashboard/style.css: autocomplete, reply/reaction/toolbar styles. Последний commit: 3cf2536fd9ccbbe59a8cb64a8063e80fbbb21219; blob SHA 3f49e21f7b5e2c9fcaef3822b0b0836bd1974e3b.
+  - dashboard/index.html: CSS/JS cache-bust 20261124-chat-tools5. Последний commit: b095f59834a7b893578b3f5612a9e74ba158edb7; blob SHA 7bf47820adf9654ac52a7a06c143db086e283237.
+- Статическая проверка последнего состояния: dashboard/app.js успешно проходит V8 new Function; проверки подтвердили mention formats, suggestions, mention rendering, reply route/payload, reactions, edit/delete/pin routes/controllers, Manage Messages, per-channel broadcast mention permissions, CSS selectors and cache-bust.
+- Не утверждать, что production/browser/Discord API уже протестированы: эти проверки не выполнялись. Изменения закоммичены в main, но не задеплоены автоматически.
+- Ограничения текущей реализации:
+  - @everyone/@here не появляются и не отправляются без MENTION_EVERYONE в channel permissions.
+  - Роль может быть выбрана как mention, но реальное уведомление зависит от role.mentionable или MENTION_EVERYONE у бота.
+  - Редактировать можно только сообщения самого бота; удалять чужие — только когда бот имеет Manage Messages.
+  - Pin/unpin доступен при Manage Messages.
+  - Emoji palette пока использует встроенный набор Unicode; нет поиска GIF/стикеров/сервера emoji picker.
+  - LIVE остаётся bot-account workspace: Discord voice calls, group DMs, персональные аккаунтные функции/self-bot не становятся доступными автоматически. Пока нет полнофункционального thread/poll/voice composer, message search, загрузки старой истории по cursor, контекстных меню вложений/ссылок и полноценного slash-command autocomplete.
+- Следующий шаг: синхронизировать main на сервисе панели и процессе бота (они должны видеть одну и ту же ревизию), перезапустить; выполнить проверку @имя, @&роль, #канал, @everyone/@here (только если permission есть), reply, reaction, edit/delete/pin. Затем по замечаниям продолжить остальные компоненты чата; не объявлять 1:1 завершённость до браузерных и live API проверок.
