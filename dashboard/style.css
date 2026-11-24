@@ -2123,3 +2123,15 @@ body.discord-mode #pageContent.discord-fullscreen .dc-live-message{position:rela
  .dc-settings-expression-form,.dc-settings-compact-form .dc-settings-fields{grid-template-columns:1fr}
  .dc-settings-expression-form .dc-settings-save{grid-column:auto}
 }
+
+
+/* Final layout for server-management subpages and per-channel permission matrix. */
+.dc-settings-management-workspace>.dc-settings-data-panel:last-child{grid-column:1/-1}
+.dc-channel-permission-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:430px;overflow:auto;margin:14px 0;padding:2px}
+.dc-channel-permission-grid .dc-settings-field{padding:8px 9px;border:1px solid #3a404b;border-radius:5px;background:#1d2027}
+.dc-channel-permission-grid .dc-settings-field select{min-height:32px;padding:6px 8px}
+.dc-settings-compact-form .dc-settings-fields input[type=checkbox]{width:18px;min-height:18px;accent-color:#5865f2;justify-self:start}
+.dc-settings-compact-form .dc-settings-fields label:has(input[type=checkbox]){display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border:1px solid #3d414c;border-radius:6px;background:#17191f}
+.dc-settings-compact-form .dc-settings-fields label:has(input[type=checkbox]) span{line-height:1.4}
+.dc-settings-compact-form .dc-settings-fields input[type=number]{font-variant-numeric:tabular-nums}
+@media(max-width:700px){.dc-channel-permission-grid{grid-template-columns:1fr}.dc-settings-management-workspace>.dc-settings-data-panel:last-child{grid-column:auto}}
