@@ -4262,12 +4262,16 @@ async def panel_settings_channel_permissions(guild_id, actor_id, channel_id):
     if channel is None or isinstance(channel, discord.Thread):
         raise ValueError("Канал не найден или не поддерживает переопределения прав.")
     allowed_keys = [
-        "view_channel", "send_messages", "read_message_history", "add_reactions",
+        "create_instant_invite", "manage_channels", "manage_roles", "manage_webhooks",
+        "create_events", "manage_events", "view_channel", "send_messages",
+        "send_messages_in_threads", "read_message_history", "add_reactions",
         "embed_links", "attach_files", "mention_everyone", "manage_messages",
-        "use_external_emojis", "use_external_stickers", "use_application_commands",
-        "create_public_threads", "create_private_threads", "send_messages_in_threads",
-        "connect", "speak", "stream", "use_vad", "mute_members", "deafen_members",
-        "move_members",
+        "manage_threads", "send_tts_messages", "send_polls", "bypass_slowmode",
+        "use_application_commands", "use_embedded_activities", "use_external_apps",
+        "use_external_emojis", "use_external_stickers", "create_public_threads",
+        "create_private_threads", "connect", "speak", "stream", "use_vad",
+        "priority_speaker", "request_to_speak", "mute_members", "deafen_members",
+        "move_members", "use_soundboard", "use_external_sounds", "send_voice_messages",
     ]
     targets = []
     for target, overwrite in channel.overwrites.items():
@@ -4327,12 +4331,16 @@ async def panel_settings_channel_permission_update(guild_id, actor_id, channel_i
     if not isinstance(permissions, dict):
         raise ValueError("Список разрешений должен быть объектом.")
     allowed_keys = {
-        "view_channel", "send_messages", "read_message_history", "add_reactions",
+        "create_instant_invite", "manage_channels", "manage_roles", "manage_webhooks",
+        "create_events", "manage_events", "view_channel", "send_messages",
+        "send_messages_in_threads", "read_message_history", "add_reactions",
         "embed_links", "attach_files", "mention_everyone", "manage_messages",
-        "use_external_emojis", "use_external_stickers", "use_application_commands",
-        "create_public_threads", "create_private_threads", "send_messages_in_threads",
-        "connect", "speak", "stream", "use_vad", "mute_members", "deafen_members",
-        "move_members",
+        "manage_threads", "send_tts_messages", "send_polls", "bypass_slowmode",
+        "use_application_commands", "use_embedded_activities", "use_external_apps",
+        "use_external_emojis", "use_external_stickers", "create_public_threads",
+        "create_private_threads", "connect", "speak", "stream", "use_vad",
+        "priority_speaker", "request_to_speak", "mute_members", "deafen_members",
+        "move_members", "use_soundboard", "use_external_sounds", "send_voice_messages",
     }
     if set(permissions) - allowed_keys:
         raise ValueError("Переданы неизвестные права канала.")
