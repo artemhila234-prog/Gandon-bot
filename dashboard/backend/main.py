@@ -1556,7 +1556,14 @@ async def api_discord_server_safety_update(guild_id: str, request: Request):
     regular = {key: value for key, value in payload.items() if key not in incident_payload}
     result = None
     if regular:
-        result = await get_dm_controller("discord_settings_update")(guild_id, str(actor.get("id", "")), regular)
+        try:
+            result = await get_dm_controller("discord_settings_update")(guild_id, str(actor.get("id", "")), regular)
+        except PermissionError as error:
+            raise HTTPException(status_code=403, detail=str(error)[:300])
+        except ValueError as error:
+            raise HTTPException(status_code=400, detail=str(error)[:300])
+        except Exception as error:
+            raise HTTPException(status_code=502, detail=f"Не удалось сохранить общие параметры безопасности: {str(error)[:250]}")
     if incident_payload:
         await require_guild_setting_permission(guild_id, actor, "manage_guild")
         incidents = await discord_request("PUT", f"/guilds/{guild_id}/incident-actions", payload=incident_payload)
@@ -1650,6 +1657,21 @@ async def api_discord_server_automod_update(guild_id: str, rule_id: str, request
         raise HTTPException(status_code=400, detail="Некорректный ID сервера или правила AutoMod.")
     await require_guild_setting_permission(guild_id, actor, "manage_guild")
     payload = await request.json()
+    if not isinstance(payload, dict) or not payload:
+        raise HTTPException(status_code=400, detail="Некорректные изменения правила AutoMod.")
+    if "actions" in payload:
+        actions = payload.get("actions")
+        if not isinstance(actions, list) or not actions or any(not isinstance(item, dict) or int(item.get("type") or 0) not in {1, 2, 3, 4} for item in actions):
+            raise HTTPException(status_code=400, detail="Некорректный список действий AutoMod.")
+        if any(int(item.get("type") or 0) == 3 for item in actions):
+            current = await discord_request("GET", f"/guilds/{guild_id}/auto-moderation/rules/{rule_id}")
+            if int(current.get("trigger_type") or 0) not in {1, 5}:
+                raise HTTPException(status_code=400, detail="Discord разрешает тайм-аут только для ключевых слов и массовых упоминаний.")
+            await require_guild_setting_permission(guild_id, actor, "moderate_members")
+        if any(int(item.get("type") or 0) == 4 for item in actions):
+            current = await discord_request("GET", f"/guilds/{guild_id}/auto-moderation/rules/{rule_id}")
+            if int(current.get("trigger_type") or 0) != 6:
+                raise HTTPException(status_code=400, detail="Блокировка взаимодействий предназначена для фильтра профиля участника.")
     return await discord_request("PATCH", f"/guilds/{guild_id}/auto-moderation/rules/{rule_id}", payload=payload)
 
 
