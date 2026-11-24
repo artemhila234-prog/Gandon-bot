@@ -1579,9 +1579,16 @@ async def api_discord_server_invite_create(guild_id: str, request: Request):
     channel = await discord_request("GET", f"/channels/{channel_id}")
     if str(channel.get("guild_id") or "") != guild_id:
         raise HTTPException(status_code=400, detail="Канал не принадлежит выбранному серверу.")
+    try:
+        max_age = int(payload.get("max_age", 86400))
+        max_uses = int(payload.get("max_uses", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Срок и лимит приглашения должны быть числами.")
+    if max_age not in {0, 3600, 21600, 86400, 604800} or not 0 <= max_uses <= 100:
+        raise HTTPException(status_code=400, detail="Недопустимый срок или лимит использований приглашения.")
     body = {
-        "max_age": max(0, min(int(payload.get("max_age") or 86400), 604800)),
-        "max_uses": max(0, min(int(payload.get("max_uses") or 0), 100)),
+        "max_age": max_age,
+        "max_uses": max_uses,
         "temporary": bool(payload.get("temporary", False)),
         "unique": bool(payload.get("unique", True)),
     }
