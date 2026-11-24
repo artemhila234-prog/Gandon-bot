@@ -1081,6 +1081,10 @@ function dcShowMessageMenu(event,message){
     await dcMessageRequest("DELETE",channelId,message.id);
     await dcRefreshCurrentHistory();
   }]);
+  const messageLink=dcActiveGuild
+    ?"https://discord.com/channels/"+dcActiveGuild.id+"/"+channelId+"/"+message.id
+    :"https://discord.com/channels/@me/"+channelId+"/"+message.id;
+  actions.push(["Копировать ссылку",()=>navigator.clipboard.writeText(messageLink)]);
   if(dcActiveChannel)actions.push([message.pinned?"Открепить сообщение":"Закрепить сообщение",async()=>{
     await dcMessageRequest("POST",channelId,message.id,{pinned:!message.pinned});
     await dcRefreshCurrentHistory();
@@ -1158,7 +1162,12 @@ function dcRenderMessages(messages){
     if(!message.content&&!message.attachments?.length&&!message.embeds?.length&&!message.stickers?.length){const empty=document.createElement("p");empty.className="dc-message-content";empty.textContent="[Сообщение без текста]";body.append(empty);}
     dcRenderMessageReactions(body,message);
     if(message.pinned){const pin=document.createElement("small");pin.className="dc-message-pinned";pin.textContent="📌 Закреплено";body.append(pin);}
-    row.append(avatar,body);root.append(row);
+    const toolbar=document.createElement("div");toolbar.className="dc-message-toolbar";
+    const quick=(label,glyph,title,handler)=>{const button=document.createElement("button");button.type="button";button.textContent=glyph;button.title=title;button.setAttribute("aria-label",title);button.addEventListener("click",handler);toolbar.append(button);};
+    quick("Ответить","↶","Ответить",()=>dcSetReplyTarget(message));
+    quick("Реакция","☺","Добавить реакцию",event=>dcShowReactionPicker(event,message));
+    quick("Ещё","···","Действия с сообщением",event=>dcShowMessageMenu(event,message));
+    row.append(avatar,body,toolbar);root.append(row);
   });
   root.scrollTop=root.scrollHeight;
 }
