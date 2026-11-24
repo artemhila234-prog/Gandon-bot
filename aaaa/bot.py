@@ -4039,12 +4039,14 @@ async def panel_settings_permission_context(guild_id, actor_id, permission):
     me = guild.me or guild.get_member(bot.user.id)
     if me is None:
         raise RuntimeError("Не удалось определить участника-бота на сервере.")
-    actor_allowed = actor.id == guild.owner_id or actor.guild_permissions.administrator or bool(getattr(actor.guild_permissions, permission, False))
-    bot_allowed = me.guild_permissions.administrator or bool(getattr(me.guild_permissions, permission, False))
+    permission_options = [item.strip() for item in str(permission).split("|") if item.strip()]
+    actor_allowed = actor.id == guild.owner_id or actor.guild_permissions.administrator or any(bool(getattr(actor.guild_permissions, item, False)) for item in permission_options)
+    bot_allowed = me.guild_permissions.administrator or any(bool(getattr(me.guild_permissions, item, False)) for item in permission_options)
+    permission_label = " или ".join(item.replace("_", " ") for item in permission_options)
     if not actor_allowed:
-        raise PermissionError("Твоему Discord-аккаунту не хватает права «" + permission.replace("_", " ") + "».")
+        raise PermissionError("Твоему Discord-аккаунту не хватает одного из прав: «" + permission_label + "».")
     if not bot_allowed:
-        raise PermissionError("У бота нет права «" + permission.replace("_", " ") + "». Выдай его роли бота на сервере.")
+        raise PermissionError("У бота нет одного из прав: «" + permission_label + "». Выдай нужное право его роли на сервере.")
     return guild, actor, me
 
 
