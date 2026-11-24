@@ -3810,6 +3810,82 @@ async def panel_guild_settings_update(guild_id, actor_id, payload):
     return await panel_guild_settings_payload(guild, refreshed_actor)
 
 
+async def panel_guild_member_profile(guild_id, member_id, actor_id=None):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    if not str(guild_id).isdigit() or not str(member_id).isdigit():
+        raise ValueError("Некорректный ID сервера или участника.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден среди серверов, где состоит бот.")
+    target = await panel_fetch_guild_member(guild, member_id)
+    me = guild.me or guild.get_member(bot.user.id)
+    actor_member = await panel_fetch_guild_member(guild, actor_id) if actor_id is not None else None
+    actor_can_manage = bool(
+        actor_member and (
+            actor_member.id == guild.owner_id
+            or actor_member.guild_permissions.administrator
+            or actor_member.guild_permissions.manage_roles
+        )
+    )
+    bot_can_manage = bool(
+        me and (me.guild_permissions.administrator or me.guild_permissions.manage_roles)
+        and target.id != (me.id if me else 0)
+        and (target.top_role < me.top_role if me else False)
+    )
+    roles = []
+    for role in sorted(guild.roles, key=lambda item: item.position, reverse=True):
+        if role.id == guild.default_role.id:
+            continue
+        actor_hierarchy = bool(
+            actor_member and (
+                actor_member.id == guild.owner_id or role < actor_member.top_role
+            )
+        )
+        target_hierarchy = bool(
+            actor_member and (
+                actor_member.id == guild.owner_id or target.top_role < actor_member.top_role
+            )
+        )
+        roles.append({
+            "id": str(role.id),
+            "name": role.name,
+            "position": int(role.position),
+            "hoist": bool(role.hoist),
+            "mentionable": bool(role.mentionable),
+            "managed": bool(role.managed),
+            "manageable": bool(
+                actor_can_manage and bot_can_manage and actor_hierarchy and target_hierarchy
+                and not role.managed and role < me.top_role
+                and (actor_member.id == guild.owner_id or role < actor_member.top_role)
+            ),
+            "color_hex": f"#{role.color.value:06x}" if role.color.value else "",
+            "secondary_color_hex": f"#{role.secondary_color.value:06x}" if getattr(role, "secondary_color", None) else "",
+            "tertiary_color_hex": f"#{role.tertiary_color.value:06x}" if getattr(role, "tertiary_color", None) else "",
+            "style": "holographic" if getattr(role, "tertiary_color", None) else ("gradient" if getattr(role, "secondary_color", None) else "solid"),
+            "icon_url": str(role.icon.url) if getattr(role, "icon", None) else "",
+            "unicode_emoji": getattr(role, "unicode_emoji", None),
+        })
+    cached = guild.get_member(target.id)
+    presence_member = cached or target
+    activity = getattr(presence_member, "activity", None)
+    member_data = {
+        **(await panel_dm_user_payload(target)),
+        "global_name": str(target.nick or target.global_name or target.name),
+        "bot": bool(target.bot),
+        "role_ids": [str(role.id) for role in target.roles if role.id != guild.default_role.id],
+        "status": str(getattr(presence_member, "status", "offline")),
+        "activity": str(activity.name)[:100] if activity and getattr(activity, "name", None) else "",
+        "joined_at": target.joined_at.isoformat() if target.joined_at else "",
+        "created_at": target.created_at.isoformat(),
+    }
+    return {
+        "guild": {"id": str(guild.id), "name": guild.name},
+        "member": member_data,
+        "roles": roles,
+    }
+
+
 async def panel_guild_members(guild_id, actor_id=None, after="0", limit=500):
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
@@ -4156,6 +4232,7 @@ async def run_services():
         "discord_role_update": panel_guild_role_update,
         "discord_role_delete": panel_guild_role_delete,
         "discord_members": panel_guild_members,
+        "discord_member_profile": panel_guild_member_profile,
         "discord_presence": panel_guild_presence,
         "discord_member_role": panel_member_role,
         "discord_channels": panel_guild_channels,
