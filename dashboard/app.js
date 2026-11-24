@@ -980,13 +980,14 @@ function dcAppendInlineMarkdown(parent,value){
 }
 function dcRenderMessageContent(parent,message){
   const content=String(message.content||"");
+  const stickerIds=new Set((message.stickers||[]).map(sticker=>String(sticker.id||"")).filter(Boolean));
   const fallbackUsers=[...(dcMemberCache||[]),...(dcActiveUser?[dcActiveUser]:[])];
   const users=new Map([...fallbackUsers,...(message.mentions||[])].map(item=>[String(item.id),item]));
   const roleItems=[...(dcMemberRoleCache||[]),...(message.role_mentions||[])];
   const roles=new Map(roleItems.map(item=>[String(item.id),item]));
   const cachedChannels=dcActiveGuild?(dcChannelsCacheByGuild.get(dcActiveGuild.id)?.channels||[]):[];
   const channels=new Map([...cachedChannels,...(message.channel_mentions||[])].map(item=>[String(item.id),item]));
-  const token=/<@!?([0-9]{5,})>|<@&([0-9]{5,})>|<#([0-9]{5,})>|<t:(-?[0-9]+)(?::([tTdDfFR]))?>|<(a?):([A-Za-z0-9_]+):([0-9]{5,})>|(https?:\/\/[^\s<]+)/g;
+  const token=/<@!?([0-9]{5,})>|<@&([0-9]{5,})>|<#([0-9]{5,})>|<t:(-?[0-9]+)(?::([tTdDfFR]))?>|<(a?):([A-Za-z0-9_]+):([0-9]{5,})>|(https?:\/\/[^\s<]+)|:([0-9]{17,20}):/g;
   let cursor=0,match;
   while((match=token.exec(content))){
     if(match.index>cursor)dcAppendInlineMarkdown(parent,content.slice(cursor,match.index));
@@ -1004,10 +1005,22 @@ function dcRenderMessageContent(parent,message){
       const stamp=Number(match[4]);node=document.createElement("time");node.className="dc-timestamp";node.dateTime=new Date(stamp*1000).toISOString();const date=new Date(stamp*1000);const style=(match[5]||"f").toLowerCase();node.textContent=style==="r"?new Intl.RelativeTimeFormat("ru",{numeric:"auto"}).format(Math.round((stamp*1000-Date.now())/60000),"minute"):date.toLocaleString("ru-RU",style==="t"||style==="T"?{hour:"2-digit",minute:"2-digit"}:style==="d"?{day:"2-digit",month:"2-digit",year:"numeric"}:style==="f"?{day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"}:{weekday:"long",day:"numeric",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit"});node.title=date.toLocaleString("ru-RU");
     }else if(match[7]){
       node=document.createElement("img");node.className="dc-custom-emoji";node.alt=":"+match[8]+":";node.title=node.alt;const animateEmoji=match[7]==="a"&&dcAccessibilityPrefs.animatedEmoji&&!dcAccessibilityPrefs.reducedMotion;node.src="https://cdn.discordapp.com/emojis/"+match[9]+"."+(animateEmoji?"gif":"png")+"?size=48&quality=lossless";node.onerror=()=>{if(animateEmoji){node.src="https://cdn.discordapp.com/emojis/"+match[9]+".png?size=48&quality=lossless";}else node.replaceWith(document.createTextNode(node.alt));};
-    }else{
+    }else if(match[10]){
       node=document.createElement("a");node.href=match[10];node.target="_blank";node.rel="noopener noreferrer";node.textContent=match[10];
+    }else if(match[11]){
+      const stickerId=match[11];
+      if(stickerIds.has(stickerId)){
+        // Full sticker metadata is rendered in the sticker block below; remove the raw :ID: marker.
+        cursor=token.lastIndex;continue;
+      }
+      node=document.createElement("img");node.className="dc-message-sticker dc-message-sticker-inline";
+      node.alt="Стикер Discord";node.title="Стикер Discord";node.loading="lazy";
+      const pngUrl="https://cdn.discordapp.com/stickers/"+stickerId+".png?size=320";
+      const gifUrl="https://cdn.discordapp.com/stickers/"+stickerId+".gif?size=320";
+      node.src=pngUrl;
+      node.onerror=()=>{if(!node.dataset.gifFallback){node.dataset.gifFallback="1";node.src=gifUrl;}else node.replaceWith(document.createTextNode(":"+stickerId+":"));};
     }
-    parent.append(node);cursor=token.lastIndex;
+    if(node)parent.append(node);cursor=token.lastIndex;
   }
   if(cursor<content.length)dcAppendInlineMarkdown(parent,content.slice(cursor));
 }
