@@ -1224,7 +1224,8 @@ function dcRenderMessages(messages){
 async function dcOpenConversation(user,silent=false){
   if(!user?.id)return;
   if(dcActiveUser?.id!==user.id||dcActiveChannel)dcClearReplyTarget();
-  dcActiveUser=user;dcActiveChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcSetMode("dm");
+  dcActiveUser=user;dcActiveChannel=null;dcActiveVoiceChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcSetMode("dm");
+  const composerWrap=document.querySelector(".dc-composer-wrap");if(composerWrap)composerWrap.hidden=false;
   const title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard");
   if(title)title.textContent=user.global_name||user.username;if(subtitle)subtitle.textContent="@"+user.username+" · "+user.id;
   if(input)input.disabled=false;if(send)send.disabled=false;
@@ -1268,7 +1269,7 @@ async function dcSendMessage(event){
   }catch(error){hint.textContent=error.message;}
   finally{send.disabled=!!(dcActiveChannel&&!dcActiveChannel.can_send);input?.focus();}
 }
-let dcActiveGuild=null,dcActiveChannel=null,dcGuildCache=[];
+let dcActiveGuild=null,dcActiveChannel=null,dcActiveVoiceChannel=null,dcGuildCache=[];
 let dcActiveDmChannelId=null,dcReplyTarget=null;
 let dcMemberCache=[];
 let dcMemberCacheByGuild=new Map();
@@ -1748,7 +1749,7 @@ function dcRenderGuildMembers(){
   // Discord-style offline section is deliberately rendered last, regardless of role/hoist assignments.
   appendGroup("НЕ В СЕТИ",offlineMembers,"");
 }
-async function dcOpenServerSettings(){
+async function dcOpenServerSettings(initialTab="overview",targetChannelId=""){
   if(!dcActiveGuild?.id)return;
   const guild=dcActiveGuild;
   const button=document.getElementById("dcServerSettingsButton");
@@ -1756,11 +1757,11 @@ async function dcOpenServerSettings(){
   try{
     const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guild.id)+"/settings");
     if(dcActiveGuild?.id!==guild.id)return;
-    dcRenderServerSettings(data);
+    dcRenderServerSettings(data,initialTab,targetChannelId);
   }catch(error){if(typeof showToast==="function")showToast(error.message);else alert(error.message);}
   finally{if(button){button.disabled=false;button.textContent="⚙";}}
 }
-function dcRenderServerSettings(data){
+function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
   document.getElementById("dcServerSettingsModal")?.remove();
   const modal=document.createElement("div");modal.id="dcServerSettingsModal";modal.className="dc-settings-backdrop";
   const card=document.createElement("section");card.className="dc-settings-card dc-settings-discord-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
@@ -2377,7 +2378,8 @@ function dcRenderServerSettings(data){
           },"danger");
           deleteButton.disabled=!currentData.can_edit;
           actions.push(deleteButton);
-          const row=settingsRow(list,(isCategory?"▾ ":"# ")+item.name,isCategory?"Категория":"Тип: "+(item.type||"канал")+" · "+(item.category_name||"Без категории"),actions);
+          const row=settingsRow(list,(isCategory?"▾ ":(item.type==="voice"?"♫ ":item.type==="stage"?"◉ ":"# "))+item.name,isCategory?"Категория":"Тип: "+(item.type||"канал")+" · "+(item.category_name||"Без категории"),actions);
+          row.dataset.channelId=String(item.id);
           if(!isCategory)row.style.marginLeft="16px";
         };
         const placed=new Set();
@@ -2414,6 +2416,10 @@ function dcRenderServerSettings(data){
       finally{submit.disabled=false;}
     });
     await loadChannels();
+    if(targetChannelId){
+      const targetRow=Array.from(list.querySelectorAll("[data-channel-id]")).find(row=>row.dataset.channelId===String(targetChannelId));
+      targetRow?.querySelector("button")?.click();
+    }
   };
 
   const renderMembers=async()=>{
@@ -2813,7 +2819,7 @@ function dcRenderServerSettings(data){
   card.append(head,layout);modal.append(card);
   modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});
   document.body.append(modal);
-  switchTab("overview");
+  switchTab(navButtons.has(initialTab)?initialTab:"overview");
   document.addEventListener("keydown",function esc(event){if(event.key==="Escape"){modal.remove();document.removeEventListener("keydown",esc);}});
 }
 function dcRenderGuildChannels(data,list,title,guild){
@@ -2821,7 +2827,7 @@ function dcRenderGuildChannels(data,list,title,guild){
   if(title)title.textContent=data.guild?.name||guild.name;
   list.replaceChildren();
   const channels=data.channels||[],categories=data.categories||[];
-  if(!channels.length){list.textContent="Нет доступных текстовых каналов или у бота нет права их просматривать.";return;}
+  if(!channels.length){list.textContent="Нет доступных каналов или у бота нет права их просматривать.";return;}
   const grouped=new Map();
   channels.forEach(channel=>{const key=channel.category_id||"__none";if(!grouped.has(key))grouped.set(key,[]);grouped.get(key).push(channel);});
   const ordered=[
@@ -2844,17 +2850,83 @@ function dcRenderGuildChannels(data,list,title,guild){
     list.append(heading,items);
     (grouped.get(category.id)||[]).forEach(channel=>{
       const button=document.createElement("button");button.type="button";button.className="dc-channel-item";button.dataset.channelId=channel.id;
-      const hash=document.createElement("span");hash.className="dc-channel-symbol";hash.textContent=channel.type==="announcement"?"▤":"#";
+      const hash=document.createElement("span");hash.className="dc-channel-symbol";
+      hash.textContent=channel.type==="announcement"?"▤":channel.type==="voice"?"♫":channel.type==="stage"?"◉":"#";
       const name=document.createElement("span");name.textContent=channel.name;
+      button.classList.toggle("dc-channel-item-voice",channel.type==="voice"||channel.type==="stage");
       button.append(hash,name);
-      if(!channel.can_send){const lock=document.createElement("small");lock.textContent="Только чтение";button.append(lock);}
-      button.addEventListener("click",()=>dcOpenGuildChannel(channel));
+      if(channel.type==="voice"||channel.type==="stage"){
+        const count=document.createElement("small");count.textContent=String(channel.member_count??(channel.members||[]).length);button.append(count);
+        if(!channel.can_connect){const lock=document.createElement("small");lock.textContent="🔒";lock.title="У бота нет права подключаться";button.append(lock);}
+        button.addEventListener("click",()=>dcOpenVoiceChannel(channel));
+      }else{
+        if(!channel.can_send){const lock=document.createElement("small");lock.textContent="Только чтение";button.append(lock);}
+        button.addEventListener("click",()=>dcOpenGuildChannel(channel));
+      }
       items.append(button);
     });
   });
 }
+async function dcOpenVoiceChannel(channel){
+  if(!channel?.id||!dcActiveGuild)return;
+  dcActiveChannel=null;dcActiveVoiceChannel=channel;dcActiveUser=null;dcActiveDmChannelId=null;dcClearReplyTarget();
+  dcSetMode("guild");
+  document.querySelectorAll(".dc-channel-item").forEach(item=>item.classList.toggle("active",item.dataset.channelId===String(channel.id)));
+  const title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle");
+  if(title)title.textContent=(channel.type==="stage"?"◉ ":"♫ ")+channel.name;
+  if(subtitle)subtitle.textContent=(channel.type==="stage"?"Stage-канал":"Голосовой канал")+" · "+dcActiveGuild.name;
+  const input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint");
+  if(input){input.value="";input.disabled=true;}
+  if(send)send.disabled=true;
+  if(hint)hint.textContent="В голосовом канале текстовая отправка отключена.";
+  const composerWrap=document.querySelector(".dc-composer-wrap");if(composerWrap)composerWrap.hidden=true;
+  const root=document.getElementById("dcChatMessages");if(!root)return;
+  root.replaceChildren();
+  const room=document.createElement("section");room.className="dc-voice-room";
+  const heading=document.createElement("div");heading.className="dc-voice-room-heading";
+  const glyph=document.createElement("div");glyph.className="dc-voice-room-glyph";glyph.textContent=channel.type==="stage"?"◉":"♫";
+  const copy=document.createElement("div");copy.className="dc-voice-room-copy";
+  const name=document.createElement("h2");name.textContent=channel.name;
+  const meta=document.createElement("p");meta.textContent=(channel.type==="stage"?"Stage-канал":"Голосовой канал")+" · "+(channel.member_count??(channel.members||[]).length)+" участников";
+  copy.append(name,meta);heading.append(glyph,copy);
+  const tools=document.createElement("div");tools.className="dc-voice-room-tools";
+  const manage=document.createElement("button");manage.type="button";manage.className="dc-settings-action dc-settings-action-primary";manage.textContent="⚙ Настроить канал";
+  manage.addEventListener("click",()=>dcOpenServerSettings("channels",channel.id));tools.append(manage);
+  room.append(heading,tools);
+  const status=document.createElement("div");status.className="dc-voice-room-status";
+  if(!channel.can_connect)status.textContent="У бота нет разрешения подключаться к этому каналу. Это не влияет на доступ к его настройкам.";
+  else if(!channel.can_speak&&channel.type!=="stage")status.textContent="Бот может видеть канал, но у него нет разрешения говорить.";
+  else status.textContent="Здесь отображаются участники, которых Discord сейчас показывает в голосовом канале.";
+  room.append(status);
+  const memberHeading=document.createElement("h3");memberHeading.textContent="СЕЙЧАС В КАНАЛЕ";room.append(memberHeading);
+  const members=document.createElement("div");members.className="dc-voice-room-members";
+  (channel.members||[]).forEach(member=>{
+    const card=document.createElement("article");card.className="dc-voice-room-member";
+    const avatar=document.createElement("span");avatar.className="dc-voice-room-avatar";
+    if(member.avatar){const image=document.createElement("img");image.src=member.avatar;image.alt="";avatar.append(image);}
+    else avatar.textContent=(member.name||"?").slice(0,1).toUpperCase();
+    const details=document.createElement("span");details.className="dc-voice-room-member-copy";
+    const label=document.createElement("strong");label.textContent=member.name||member.username||"Участник";
+    const sub=document.createElement("small");sub.textContent=member.bot?"Бот":("@"+(member.username||"участник"));
+    details.append(label,sub);card.append(avatar,details);
+    const flags=document.createElement("span");flags.className="dc-voice-room-member-flags";
+    if(member.self_mute||member.mute){const flag=document.createElement("i");flag.textContent="Микрофон выключен";flags.append(flag);}
+    if(member.self_deaf||member.deaf){const flag=document.createElement("i");flag.textContent="Звук выключен";flags.append(flag);}
+    if(flags.childNodes.length)card.append(flags);
+    members.append(card);
+  });
+  if(!(channel.members||[]).length){const empty=document.createElement("div");empty.className="dc-voice-room-empty";empty.textContent="Сейчас в канале никого нет.";members.append(empty);}
+  room.append(members);
+  const note=document.createElement("p");note.className="dc-voice-room-note";
+  note.textContent="Настройки канала доступны через кнопку выше. Приём и передача живого звука из браузера пока не включены.";
+  room.append(note);root.append(room);
+  const memberList=document.getElementById("dcMemberList"),count=document.getElementById("dcMemberCount");
+  if(memberList){memberList.replaceChildren();(channel.members||[]).forEach(member=>{const row=document.createElement("div");row.className="dc-member";const avatar=document.createElement("span");avatar.className="dc-member-avatar";if(member.avatar){const img=document.createElement("img");img.src=member.avatar;img.alt="";img.style.width="100%";img.style.height="100%";img.style.borderRadius="50%";avatar.append(img);}else avatar.textContent=(member.name||"?").slice(0,1).toUpperCase();const details=document.createElement("div");const strong=document.createElement("strong");strong.textContent=member.name||member.username||"Участник";details.append(strong);row.append(avatar,details);memberList.append(row);});}
+  if(count)count.textContent=String((channel.members||[]).length);
+}
 async function dcOpenGuild(guild){
-  if(!guild?.id)return;dcActiveGuild=guild;dcActiveChannel=null;dcActiveUser=null;dcActiveDmChannelId=null;dcClearReplyTarget();dcSetMode("guild");
+  if(!guild?.id)return;dcActiveGuild=guild;dcActiveChannel=null;dcActiveVoiceChannel=null;dcActiveUser=null;dcActiveDmChannelId=null;dcClearReplyTarget();dcSetMode("guild");
+  const composerWrap=document.querySelector(".dc-composer-wrap");if(composerWrap)composerWrap.hidden=false;
   const list=document.getElementById("dcChannelList"),title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard");
   if(title)title.textContent=guild.name;if(subtitle)subtitle.textContent="Выбери текстовый канал";if(input){input.value="";input.disabled=true;}if(send)send.disabled=true;if(hint)hint.textContent="Сообщения будут отправляться от имени Discord-бота.";if(card)card.textContent="Выбран сервер: "+guild.name;
   dcLoadGuildMembers(guild);
@@ -2872,7 +2944,7 @@ async function dcOpenGuild(guild){
 async function dcOpenGuildChannel(channel,silent=false){
   if(!channel?.id||!dcActiveGuild)return;
   if(dcActiveChannel?.id!==channel.id||dcActiveUser)dcClearReplyTarget();
-  dcActiveChannel=channel;dcActiveUser=null;dcActiveDmChannelId=null;document.querySelectorAll(".dc-channel-item").forEach(x=>x.classList.toggle("active",x.dataset.channelId===channel.id));
+  dcActiveChannel=channel;dcActiveVoiceChannel=null;dcActiveUser=null;dcActiveDmChannelId=null;const composerWrap=document.querySelector(".dc-composer-wrap");if(composerWrap)composerWrap.hidden=false;document.querySelectorAll(".dc-channel-item").forEach(x=>x.classList.toggle("active",x.dataset.channelId===channel.id));
   const title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard"),root=document.getElementById("dcChatMessages");
   if(title)title.textContent="# "+channel.name;if(subtitle)subtitle.textContent=dcActiveGuild.name;if(input)input.disabled=!channel.can_send;if(send)send.disabled=!channel.can_send;if(hint)hint.textContent=channel.can_send?"Сообщение будет отправлено от имени бота.":"У бота нет права отправлять сообщения в этот канал.";if(card)card.textContent=dcActiveGuild.name+" · #"+channel.name;
   if(root&&!silent)root.innerHTML='<div class="dc-live-loading">Загружаем сообщения канала…</div>';
