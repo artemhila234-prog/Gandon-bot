@@ -1887,7 +1887,7 @@ function dcRenderServerSettings(data){
     use_external_emojis:"Использовать внешние эмодзи",use_external_stickers:"Использовать внешние стикеры",
     use_application_commands:"Использовать команды приложений",create_public_threads:"Создавать публичные ветки",
     create_private_threads:"Создавать приватные ветки",connect:"Подключаться к голосовым каналам",
-    speak:"Говорить",stream:"Передавать видео и экран",use_vad:"Использовать голосовую активацию",
+    speak:"Говорить",stream:"Передавать видео и экран",use_voice_activation:"Использовать голосовую активацию",
     priority_speaker:"Приоритетный участник",mute_members:"Отключать микрофон участников",
     deafen_members:"Отключать звук участникам",move_members:"Перемещать участников",
     request_to_speak:"Запрашивать выступление",use_soundboard:"Использовать звуковую панель",
@@ -2222,7 +2222,7 @@ function dcRenderServerSettings(data){
       use_external_emojis:"Внешние эмодзи",use_external_stickers:"Внешние стикеры",
       use_application_commands:"Команды приложений",create_public_threads:"Создание публичных веток",
       create_private_threads:"Создание приватных веток",send_messages_in_threads:"Сообщения в ветках",
-      connect:"Подключение к голосу",speak:"Говорить",stream:"Трансляция",use_vad:"Голосовая активация",
+      connect:"Подключение к голосу",speak:"Говорить",stream:"Трансляция",use_voice_activation:"Голосовая активация",
       mute_members:"Отключение микрофона",deafen_members:"Отключение звука",move_members:"Перемещение участников"
     };
     const loadChannelPermissions=async channel=>{
