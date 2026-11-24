@@ -2124,7 +2124,8 @@ function dcRenderServerSettings(data){
 
   const serverSettingsBase="/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/settings/";
   const serverSettingsRequest=async(section,method="GET",payload=null,itemId="")=>{
-    const url=serverSettingsBase+section+(itemId?"/"+encodeURIComponent(itemId):"");
+    const suffix=itemId?(section==="members"?"/"+encodeURIComponent(itemId)+"/action":"/"+encodeURIComponent(itemId)):"";
+    const url=serverSettingsBase+section+suffix;
     const options={method,credentials:"same-origin"};
     if(payload instanceof FormData)options.body=payload;
     else if(payload!==null){options.headers={"Content-Type":"application/json"};options.body=JSON.stringify(payload);}
@@ -2240,7 +2241,7 @@ function dcRenderServerSettings(data){
       if(!editId){
         payload.type=typeSelect.value;payload.category_id=categorySelect.value||null;payload.topic=topicInput.value.trim();payload.slowmode_delay=Number(slowInput.value)||0;
       }else{
-        payload.category_id=categorySelect.value||null;
+        if(typeSelect.value!=="category")payload.category_id=categorySelect.value||null;
         if(!typeSelect.disabled&&["text","announcement","forum"].includes(typeSelect.value))payload.topic=topicInput.value.trim();
         if(["text","announcement"].includes(typeSelect.value))payload.slowmode_delay=Number(slowInput.value)||0;
       }
@@ -2363,7 +2364,7 @@ function dcRenderServerSettings(data){
 
   const renderAudit=async()=>{
     settingsHeading("Журнал аудита","Последние действия администраторов и модераторов на сервере GastWorld.");
-    const refresh=settingsButton("Обновить",loadAudit);main.append(refresh);
+    const refresh=settingsButton("Обновить",()=>loadAudit());main.append(refresh);
     const list=settingsPanel("ПОСЛЕДНИЕ 100 ДЕЙСТВИЙ");list.classList.add("dc-settings-audit-list");list.textContent="Загрузка журнала…";main.append(list);
     const loadAudit=async()=>{
       list.textContent="Загрузка журнала аудита…";
@@ -2392,8 +2393,9 @@ function dcRenderServerSettings(data){
     fields.append(settingsLabel("Название",name),settingsLabel("Тип правила",type),settingsLabel("Ключевые слова",keywords,true),settingsLabel("Лимит упоминаний",mentionLimit),settingsLabel("Действие",action),settingsLabel("Канал для логов",alertChannel),settingsLabel("Тайм-аут (сек.)",timeout),settingsLabel("Сообщение пользователю",custom,true));
     const typeHint=document.createElement("p");typeHint.className="dc-settings-permission";typeHint.textContent="Ключевые слова и профили поддерживают список слов; пресеты используют встроенные наборы Discord; спам и массовые упоминания анализируются Discord.";
     createPanel.append(fields,typeHint);main.append(createPanel);
+    const rulesPanel=settingsPanel("ПРАВИЛА СЕРВЕРА");const list=document.createElement("div");list.className="dc-settings-data-list";list.textContent="Загрузка AutoMod…";rulesPanel.append(list);main.append(rulesPanel);
     const loadRules=async()=>{
-      const list=settingsPanel("ПРАВИЛА СЕРВЕРА");list.textContent="Загрузка AutoMod…";main.append(list);
+      list.textContent="Загрузка AutoMod…";
       try{
         const rules=await serverSettingsRequest("automod");list.replaceChildren();
         if(!rules.length){settingsEmpty(list,"Правила AutoMod ещё не созданы.");}
