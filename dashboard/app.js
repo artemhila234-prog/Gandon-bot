@@ -2849,9 +2849,10 @@ function dcRenderGuildChannels(data,list,title,guild){
     });
     list.append(heading,items);
     (grouped.get(category.id)||[]).forEach(channel=>{
+      const row=document.createElement("div");row.className="dc-channel-item-row";
       const button=document.createElement("button");button.type="button";button.className="dc-channel-item";button.dataset.channelId=channel.id;
       const hash=document.createElement("span");hash.className="dc-channel-symbol";
-      hash.textContent=channel.type==="announcement"?"▤":channel.type==="voice"?"♫":channel.type==="stage"?"◉":"#";
+      hash.textContent=channel.type==="announcement"?"▤":channel.type==="voice"?"♫":channel.type==="stage"?"◉":channel.type==="forum"?"▤":"#";
       const name=document.createElement("span");name.textContent=channel.name;
       button.classList.toggle("dc-channel-item-voice",channel.type==="voice"||channel.type==="stage");
       button.append(hash,name);
@@ -2863,7 +2864,14 @@ function dcRenderGuildChannels(data,list,title,guild){
         if(!channel.can_send){const lock=document.createElement("small");lock.textContent="Только чтение";button.append(lock);}
         button.addEventListener("click",()=>dcOpenGuildChannel(channel));
       }
-      items.append(button);
+      const settings=document.createElement("button");settings.type="button";settings.className="dc-channel-settings-button";
+      settings.textContent="⚙";settings.title="Настроить канал «"+channel.name+"»";
+      settings.setAttribute("aria-label","Настроить канал "+channel.name);
+      settings.addEventListener("click",event=>{
+        event.preventDefault();event.stopPropagation();
+        dcOpenServerSettings("channels",channel.id);
+      });
+      row.append(button,settings);items.append(row);
     });
   });
 }
