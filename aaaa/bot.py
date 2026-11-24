@@ -4119,11 +4119,13 @@ async def panel_settings_channel_create(guild_id, actor_id, payload):
         if not isinstance(parent, discord.CategoryChannel):
             raise ValueError("Выбранная категория не найдена.")
     reason = str(payload.get("reason") or "GastWorld Control Panel")[:400]
+    position = max(0, min(int(payload.get("position") or 0), 500))
     if kind == "category":
-        channel = await guild.create_category(name, reason=reason)
+        channel = await guild.create_category(name, position=position, reason=reason)
     elif kind in {"text", "announcement"}:
         channel = await guild.create_text_channel(
-            name, category=parent, topic=str(payload.get("topic") or "")[:1024] or None,
+            name, category=parent, position=position,
+            topic=str(payload.get("topic") or "")[:1024] or None,
             nsfw=bool(payload.get("nsfw", False)),
             slowmode_delay=max(0, min(int(payload.get("slowmode_delay") or 0), 21600)),
             news=(kind == "announcement"),
@@ -4131,15 +4133,23 @@ async def panel_settings_channel_create(guild_id, actor_id, payload):
         )
     elif kind == "voice":
         channel = await guild.create_voice_channel(
-            name, category=parent,
+            name, category=parent, position=position,
             bitrate=max(8000, min(int(payload.get("bitrate") or 64000), int(getattr(guild, "bitrate_limit", 96000)))),
             user_limit=max(0, min(int(payload.get("user_limit") or 0), 99)),
+            nsfw=bool(payload.get("nsfw", False)),
             reason=reason,
         )
     elif kind == "stage":
-        channel = await guild.create_stage_channel(name, category=parent, reason=reason)
+        channel = await guild.create_stage_channel(
+            name, category=parent, position=position, nsfw=bool(payload.get("nsfw", False)), reason=reason
+        )
     elif kind == "forum":
-        channel = await guild.create_forum(name, category=parent, topic=str(payload.get("topic") or "")[:1024], reason=reason)
+        channel = await guild.create_forum(
+            name, category=parent, position=position, topic=str(payload.get("topic") or "")[:1024] or None,
+            nsfw=bool(payload.get("nsfw", False)),
+            slowmode_delay=max(0, min(int(payload.get("slowmode_delay") or 0), 21600)),
+            reason=reason,
+        )
     else:
         raise ValueError("Неизвестный тип канала.")
     return {"ok": True, "channel_id": str(channel.id), "channels": await panel_guild_channels(guild_id)}
@@ -4174,9 +4184,9 @@ async def panel_settings_channel_update(guild_id, actor_id, channel_id, payload)
         changes["category"] = category
     if "position" in payload:
         changes["position"] = max(0, min(int(payload["position"]), 500))
-    if "nsfw" in payload and isinstance(channel, (discord.TextChannel, discord.ForumChannel)):
+    if "nsfw" in payload and isinstance(channel, (discord.TextChannel, discord.ForumChannel, discord.VoiceChannel, discord.StageChannel)):
         changes["nsfw"] = bool(payload["nsfw"])
-    if "slowmode_delay" in payload and isinstance(channel, discord.TextChannel):
+    if "slowmode_delay" in payload and isinstance(channel, (discord.TextChannel, discord.ForumChannel)):
         changes["slowmode_delay"] = max(0, min(int(payload["slowmode_delay"]), 21600))
     if "bitrate" in payload and isinstance(channel, discord.VoiceChannel):
         changes["bitrate"] = max(8000, min(int(payload["bitrate"]), int(getattr(guild, "bitrate_limit", 96000))))
