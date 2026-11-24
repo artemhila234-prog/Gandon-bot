@@ -1602,10 +1602,14 @@ async def api_discord_server_invite_create(guild_id: str, request: Request):
     channel_id = str(payload.get("channel_id") or "")
     if not channel_id.isdigit():
         raise HTTPException(status_code=400, detail="Выбери текстовый канал для приглашения.")
-    await require_guild_setting_permission(guild_id, actor, "create_instant_invite")
-    channel = await discord_request("GET", f"/channels/{channel_id}")
-    if str(channel.get("guild_id") or "") != guild_id:
-        raise HTTPException(status_code=400, detail="Канал не принадлежит выбранному серверу.")
+    try:
+        await get_dm_controller("settings_channel_action_permission")(
+            guild_id, str(actor.get("id", "")), channel_id, "create_instant_invite"
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
     try:
         max_age = int(payload.get("max_age", 86400))
         max_uses = int(payload.get("max_uses", 0))
