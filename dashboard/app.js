@@ -2209,6 +2209,7 @@ function dcRenderServerSettings(data){
     const submit=document.createElement("button");submit.type="submit";submit.className="dc-settings-save";submit.textContent="Создать";
     const reset=settingsButton("Очистить",()=>{createForm.dataset.editId="";createForm.reset();submit.textContent="Создать";typeSelect.disabled=false;categorySelect.disabled=false;typeSelect.dispatchEvent(new Event("change"));});
     createForm.append(fields);const foot=document.createElement("div");foot.className="dc-settings-footer";foot.append(reset,submit);createForm.append(foot);editor.append(createForm);
+    const permissionHint=document.createElement("p");permissionHint.className="dc-settings-permission";permissionHint.textContent="Проверка прав на сервере…";editor.append(permissionHint);
     const permissionLabels={
       view_channel:"Просмотр канала",send_messages:"Отправка сообщений",read_message_history:"Чтение истории",
       add_reactions:"Добавление реакций",embed_links:"Встраивание ссылок",attach_files:"Прикрепление файлов",
@@ -2288,6 +2289,16 @@ function dcRenderServerSettings(data){
       list.textContent="Загрузка каналов…";
       try{
         currentData=await serverSettingsRequest("channels");
+        const canEdit=!!currentData.can_edit;
+        const canManagePermissions=!!currentData.can_manage_permissions;
+        submit.disabled=!canEdit;
+        [typeSelect,nameInput,categorySelect,positionInput,slowInput,bitrateInput,userLimitInput,topicInput,nsfwInput].forEach(control=>control.disabled=!canEdit);
+        reset.disabled=!canEdit;
+        permissionHint.textContent=!currentData.actor_can_edit
+          ?"У твоего Discord-аккаунта нет права «Управлять каналами». Структура сервера доступна только для просмотра."
+          :!currentData.bot_can_edit
+            ?"У бота нет права «Управлять каналами». Выдай это право роли бота в Discord."
+            :"Можно создавать и редактировать каналы. Изменения выполняются ботом после повторной проверки Discord-прав.";
         const options=[["","Без категории"],...(currentData.categories||[]).map(c=>[c.id,c.name])];
         categorySelect.replaceChildren();options.forEach(item=>{const o=document.createElement("option");o.value=item[0];o.textContent=item[1];categorySelect.append(o);});
         list.replaceChildren();
@@ -2295,7 +2306,7 @@ function dcRenderServerSettings(data){
         if(!categories.length&&!channels.length){settingsEmpty(list,"На сервере пока нет каналов и категорий.");return;}
         const renderItem=(item,isCategory)=>{
           const actions=[];
-          actions.push(settingsButton("Изменить",()=>{
+          const editButton=settingsButton("Изменить",()=>{
             createForm.dataset.editId=String(item.id);nameInput.value=item.name||"";typeSelect.value=isCategory?"category":(item.type||"text");
             typeSelect.disabled=true;categorySelect.value=item.category_id||"";categorySelect.disabled=isCategory;
             topicInput.value=item.topic||"";topicInput.disabled=isCategory||!["text","announcement","forum"].includes(typeSelect.value);
@@ -2307,11 +2318,17 @@ function dcRenderServerSettings(data){
             submit.textContent="Сохранить";
             editor.scrollIntoView({behavior:"smooth",block:"nearest"});
           }));
-          actions.push(settingsButton("Права",()=>loadChannelPermissions(item)));
-          actions.push(settingsButton("Удалить",async()=>{
+          editButton.disabled=!currentData.can_edit;
+          actions.push(editButton);
+          const permsButton=settingsButton("Права",()=>loadChannelPermissions(item));
+          permsButton.disabled=!currentData.can_manage_permissions;
+          actions.push(permsButton);
+          const deleteButton=settingsButton("Удалить",async()=>{
             if(!confirm("Удалить "+(isCategory?"категорию ":"канал ")+"«"+item.name+"»? Это действие нельзя отменить."))return;
             try{await serverSettingsRequest("channels","DELETE",null,item.id);await loadChannels();showToast?.("Объект удалён.");}catch(error){settingsError(editor,error);}
           },"danger"));
+          deleteButton.disabled=!currentData.can_edit;
+          actions.push(deleteButton);
           const row=settingsRow(list,(isCategory?"▾ ":"# ")+item.name,isCategory?"Категория":"Тип: "+(item.type||"канал")+" · "+(item.category_name||"Без категории"),actions);
           if(!isCategory)row.style.marginLeft="16px";
         };
