@@ -2077,3 +2077,49 @@ body.discord-mode #pageContent.discord-fullscreen .dc-live-message{position:rela
 .dc-emoji-picker .dc-custom-emoji-choice{display:grid;place-items:center}
 .dc-emoji-picker .dc-custom-emoji-choice img{width:23px;height:23px;object-fit:contain}
 .dc-emoji-picker{grid-template-columns:repeat(8,minmax(0,1fr));max-height:min(430px,70vh);overflow:auto}
+
+
+/* Server settings management pages: channels, members, moderation, integrations and events. */
+.dc-settings-management-workspace{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(290px,.9fr);gap:14px;align-items:start}
+.dc-settings-data-panel{min-width:0;padding:14px;border:1px solid #383c47;border-radius:8px;background:#252830}
+.dc-settings-data-panel>h4{margin:0 0 12px;color:#bfc5d0;font-size:10px;letter-spacing:.8px}
+.dc-settings-toolbar{display:flex;justify-content:flex-end;gap:8px;margin:0 0 9px}
+.dc-settings-data-list{display:grid;gap:6px;min-width:0}
+.dc-settings-list-row{display:flex;align-items:center;gap:10px;min-width:0;padding:10px;border:1px solid #383d48;border-radius:6px;background:#1d2027}
+.dc-settings-list-copy{display:grid;gap:4px;min-width:0;flex:1}
+.dc-settings-list-copy>strong{overflow-wrap:anywhere;color:#e5e8ef;font-size:11px;font-weight:700}
+.dc-settings-list-copy>small{overflow-wrap:anywhere;color:#9da5b3;font-size:9px;line-height:1.45}
+.dc-settings-list-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:5px}
+.dc-settings-action{min-height:28px;padding:6px 9px;border:1px solid #414652;border-radius:5px;background:#303540;color:#e6e9ef;font-size:9px;font-weight:700;cursor:pointer}
+.dc-settings-action:hover{filter:brightness(1.15)}
+.dc-settings-action:disabled{opacity:.45;cursor:not-allowed}
+.dc-settings-action-primary{border-color:#6873e8;background:#5865f2;color:#fff}
+.dc-settings-action-danger{border-color:#75424b;background:#482c34;color:#ffb0b7}
+.dc-settings-form.dc-settings-compact-form{padding:0}
+.dc-settings-compact-form .dc-settings-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.dc-settings-compact-form .dc-settings-footer{justify-content:flex-end;align-items:center}
+.dc-settings-empty{padding:18px 12px;border:1px dashed #414652;border-radius:6px;color:#9da5b3;font-size:11px;text-align:center;line-height:1.5}
+.dc-settings-notice-error{border-color:#75424b;background:#34262d;color:#ffb0b7}
+.dc-settings-created-invite{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:10px;border:1px solid #405844;border-radius:6px;background:#202c26}
+.dc-settings-created-invite a{color:#a9e4b8;font-size:11px;overflow-wrap:anywhere}
+.dc-settings-member-list .dc-settings-list-row{align-items:center}
+.dc-settings-member-avatar{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;overflow:hidden;border-radius:50%;background:#343844;color:#e7eaf0;font-size:13px;font-weight:800}
+.dc-settings-member-avatar img{width:100%;height:100%;object-fit:cover}
+.dc-settings-audit-list .dc-settings-list-row{align-items:flex-start}
+.dc-settings-expression-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(105px,1fr));gap:8px;max-height:330px;overflow:auto;margin:0 0 14px}
+.dc-expression-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;min-width:0;padding:10px 6px;border:1px solid #3b404b;border-radius:6px;background:#1d2027;color:#dfe3eb;font-size:9px;overflow-wrap:anywhere}
+.dc-expression-card img{width:48px;height:48px;object-fit:contain}
+.dc-expression-card .dc-settings-action{align-self:stretch}
+.dc-settings-expression-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:0}
+.dc-settings-expression-form .dc-settings-save{grid-column:1/-1;justify-self:end}
+.dc-settings-nested-panel{margin-top:14px;padding:12px;border:1px solid #3d424e;border-radius:6px;background:#1e2128}
+.dc-settings-nested-panel>h4{margin:0 0 12px;color:#b9c0cc;font-size:9px;letter-spacing:.8px}
+.dc-settings-status{overflow-wrap:anywhere}
+@media(max-width:950px){.dc-settings-management-workspace{grid-template-columns:1fr}.dc-settings-member-list .dc-settings-list-actions{max-width:58%}}
+@media(max-width:650px){
+ .dc-settings-list-row{align-items:flex-start;flex-wrap:wrap}
+ .dc-settings-list-actions{width:100%;max-width:none!important;justify-content:flex-start}
+ .dc-settings-list-actions .dc-settings-action{flex:1 1 auto}
+ .dc-settings-expression-form,.dc-settings-compact-form .dc-settings-fields{grid-template-columns:1fr}
+ .dc-settings-expression-form .dc-settings-save{grid-column:auto}
+}
