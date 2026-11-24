@@ -3858,6 +3858,9 @@ async def panel_guild_members(guild_id, actor_id=None, after="0", limit=500):
         raise RuntimeError(
             f"Discord API вернул ошибку при загрузке участников (HTTP {error.status}): {str(error)[:180]}"
         )
+    # discord.py yields each API page in reverse response order; its first yielded
+    # member is the exact cursor used internally for the next "after" request.
+    next_after = str(members[0]["id"]) if members else str(after_id)
     members.sort(key=lambda item: (bool(item["bot"]), (item["global_name"] or item["username"]).casefold()))
     online_counts = {
         "online": sum(1 for item in members if item["status"] == "online"),
@@ -3865,7 +3868,6 @@ async def panel_guild_members(guild_id, actor_id=None, after="0", limit=500):
         "dnd": sum(1 for item in members if item["status"] == "dnd"),
         "offline": sum(1 for item in members if item["status"] == "offline"),
     }
-    next_after = str(min((int(member["id"]) for member in members), default=after_id))
     has_more = len(members) >= limit
     return {
         "guild": {"id": str(guild.id), "name": guild.name},
