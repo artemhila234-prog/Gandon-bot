@@ -1992,3 +1992,55 @@ body.discord-mode #pageContent.discord-fullscreen .dc-live-composer button[type=
 body.discord-mode #pageContent.discord-fullscreen .dc-topbar,
 body.discord-mode #pageContent.discord-fullscreen .dc-members-head,
 body.discord-mode #pageContent.discord-fullscreen .dc-dm-search{border-color:var(--gw-dc-border)}
+
+
+/* LIVE chat interactions: mentions, reply previews, emoji and reactions */
+body.discord-mode #pageContent.discord-fullscreen .dc-composer-wrap{position:relative}
+body.discord-mode #pageContent.discord-fullscreen .dc-mention-picker{
+  position:absolute;z-index:1000;left:24px;bottom:calc(100% - 2px);width:min(380px,calc(100% - 48px));
+  max-height:340px;overflow:auto;padding:7px;background:#202127;border:1px solid #111216;border-radius:8px;
+  box-shadow:0 14px 38px #0009
+}
+.dc-mention-picker[hidden],.dc-emoji-picker[hidden],.dc-reply-preview[hidden]{display:none!important}
+.dc-mention-picker-title{padding:6px 9px 8px;color:#9da3ad;font-size:9px;font-weight:800;letter-spacing:.09em}
+.dc-mention-option{display:flex;align-items:center;gap:10px;width:100%;min-height:42px;padding:6px 9px;border:0;border-radius:5px;background:transparent;color:#dbdee1;text-align:left;cursor:pointer}
+.dc-mention-option:hover,.dc-mention-option.is-active{background:#3b3d46}
+.dc-mention-option-avatar,.dc-mention-option-glyph{width:28px;height:28px;flex:0 0 28px;border-radius:50%;object-fit:cover;background:#343640;display:grid;place-items:center;font-size:14px;font-weight:800}
+.dc-mention-option-copy{display:grid;min-width:0;gap:2px}
+.dc-mention-option-copy strong{font-size:12px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dc-mention-option-copy small{font-size:10px;color:#989da7}
+body.discord-mode #pageContent.discord-fullscreen .dc-emoji-picker{
+  position:absolute;z-index:1001;right:28px;bottom:calc(100% - 2px);width:min(300px,calc(100% - 24px));
+  display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;padding:10px;background:#202127;
+  border:1px solid #111216;border-radius:8px;box-shadow:0 14px 38px #0009
+}
+.dc-emoji-picker button{height:32px;border:0;border-radius:5px;background:transparent;font-size:19px;cursor:pointer}
+.dc-emoji-picker button:hover{background:#3b3d46}
+.dc-emoji-button{flex:0 0 30px;width:30px;height:32px;border:0;border-radius:6px;background:transparent;color:#b5bac1;font-size:20px;cursor:pointer}
+.dc-emoji-button:hover{background:#454750;color:#fff}
+.dc-reply-preview{display:flex;align-items:center;gap:10px;max-width:1200px;margin:0 auto 8px;padding:7px 10px;border-left:3px solid #5865f2;border-radius:4px;background:#292b31;color:#c8cbd1;font-size:11px}
+.dc-reply-preview span{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dc-reply-preview button{border:0;background:transparent;color:#b5bac1;font-size:18px;cursor:pointer}
+.dc-mention{cursor:pointer}
+.dc-mention:hover{text-decoration:underline}
+.dc-user-mention{background:#5865f244;color:#c9cdfb}
+.dc-role-mention{background:color-mix(in srgb,var(--mention-color,#5865f2) 22%,transparent);color:var(--mention-color,#c9cdfb)}
+.dc-channel-mention{background:#3ba55d24;color:#8ad6a4}
+.dc-message-reply-preview{display:block;max-width:100%;margin:3px 0 5px;padding:3px 7px;border:0;border-left:2px solid #626a78;border-radius:0 4px 4px 0;background:#292b31;color:#aeb4be;font-size:10px;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.dc-message-reply-preview:hover{color:#fff;background:#343740}
+.dc-message-target{background:#45494f!important;box-shadow:inset 3px 0 #5865f2}
+.dc-message-reactions{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:7px}
+.dc-reaction{display:inline-flex;align-items:center;gap:5px;min-height:25px;padding:2px 7px;border:1px solid #454851;border-radius:8px;background:#2a2c33;color:#c9cbd1;font-size:11px;cursor:pointer}
+.dc-reaction:hover{border-color:#7b83f7;background:#343746}
+.dc-reaction.is-me{border-color:#5865f2;background:#343b65;color:#fff}
+.dc-reaction img{width:17px;height:17px;object-fit:contain}
+.dc-reaction-add{min-width:27px;justify-content:center;font-size:15px}
+.dc-message-pinned{display:inline-block;margin-top:6px;color:#d6b66d;font-size:9px}
+.dc-reaction-picker{display:grid;grid-template-columns:repeat(6,32px);min-width:0;gap:3px;padding:7px}
+.dc-reaction-picker .dc-reaction-choice{width:32px;height:32px;padding:3px;text-align:center;font-size:19px}
+.dc-reaction-picker .dc-reaction-choice:hover{background:#3b3d46}
+@media(max-width:700px){
+  body.discord-mode #pageContent.discord-fullscreen .dc-mention-picker{left:8px;width:calc(100% - 16px)}
+  body.discord-mode #pageContent.discord-fullscreen .dc-emoji-picker{right:8px;grid-template-columns:repeat(7,minmax(0,1fr))}
+  .dc-reply-preview{margin-inline:0}
+}
