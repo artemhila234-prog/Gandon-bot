@@ -2194,3 +2194,20 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Изменён файл: aaaa/bot.py. Commit: 112c2687dffbcd74c292837c87a6c83bb7195e20. Новый blob SHA: 6907e67637957d34dfaa3f5fc19ef4f1b65a2221.
 - Python-синтаксис вставленного блока проверен отдельно; проверка production/API в браузере не выполнялась. dashboard/app.js, dashboard/backend/main.py и CSS не менялись.
 - Следующий шаг: синхронизировать main на Bot-Hosting и перезапустить именно процесс, запускающий aaaa/bot.py. Открыть LIVE, выбрать сервер и посмотреть список участников. Если он всё ещё не грузится, прислать точный текст ошибки, который теперь появится в колонке участников; отдельно проверить Server Members Intent в Developer Portal.
+
+38. ПЕРЕРАБОТАНА ЗАГРУЗКА LIVE-УЧАСТНИКОВ ПО СТРАНИЦАМ ПОСЛЕ «FAILED TO FETCH» (2026-11-24)
+- Пользователь сообщил точную ошибку в списке участников: «Failed to fetch». В браузере это сетевой сбой Fetch без полученного HTTP-ответа; по одному сообщению нельзя однозначно установить, был ли обрыв вызван долгим/слишком крупным ответом, проблемой соединения с API или перезапуском сервиса.
+- Повторно проверена цепочка: LIVE frontend GET /api/discord/guilds/{guild_id}/members → FastAPI route → bot_controller[discord_members] → discord.py Guild.fetch_members.
+- Предыдущая реализация запрашивала limit=None и собирала всех участников в один ответ. Чтобы исключить большой долгий ответ, добавлена сквозная cursor pagination:
+  1) aaaa/bot.py: panel_guild_members(guild_id, actor_id, after, limit) получает одну страницу через guild.fetch_members(limit=limit, after=discord.Object(...)); limit ограничивается 1..1000; возвращает next_after и has_more.
+  2) dashboard/backend/main.py: endpoint принимает query after/limit, проверяет их и передаёт в bot controller.
+  3) dashboard/app.js: запрашивает страницы по 500 участников, постепенно отрисовывает уже полученные записи, при кратковременном браузерном Failed to fetch делает одну повторную попытку, при частичном обрыве сохраняет показанные записи и отображает предупреждение.
+  4) dashboard/index.html: обновлён cache-bust для app.js на 20261124-members-paging1.
+- Проверка сигнатуры discord.py: Guild.fetch_members поддерживает параметры limit и after; для вызова нужен Intents.members. Документация: https://discordpy.readthedocs.io/en/latest/api.html (Guild.fetch_members); https://discordpy.readthedocs.io/en/stable/intents.html (retrieving members). Следовательно, Server Members Intent в Developer Portal всё ещё обязателен.
+- Коммиты последней итерации:
+  - aaaa/bot.py: 0bb9fd59b1995b618029ab954a5ce5b3b21415df; blob d6244efc73ece453680c0050aa104223c4cda47b.
+  - dashboard/backend/main.py: d63109d5b72120c79ca18422c35a0beec14f977a; blob 4b4aadc1d907e3dccc43f08a46d7739d3a9256e3.
+  - dashboard/app.js: b21678716943df91c824b2920d9e66393ec0b8f7; blob 6af1a3020bb15e79166078b525c8e356bf344452.
+  - dashboard/index.html: 59da338278589c896a1816e78d1d465e9cd39d86; blob cd8fc3e4231b7f5a4957bc880f8ed08b7d38bdab.
+- Статическая проверка после коммитов: app.js успешно разбирается V8; подтверждены client-side paging, query parsing в backend, fetch_members с cursor, next_after/has_more и новая версия cache-bust. Реальные запросы к Discord из хостинга, браузерный e2e и deploy не выполнялись.
+- Следующий шаг: синхронизировать main на обоих сервисах, если панель и бот запущены отдельно; перезапустить их. Затем открыть LIVE и выбрать сервер. Если снова не загрузится, посмотреть Network → запрос /api/discord/guilds/{id}/members?limit=500&after=0: HTTP status/время ответа/response body; при Failed to fetch без статуса приложить логи панели и bot-host процесса по этому времени.
