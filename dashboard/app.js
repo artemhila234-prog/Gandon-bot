@@ -2199,11 +2199,15 @@ function dcRenderServerSettings(data){
     const categorySelect=settingsSelect([["","Без категории"]],"");
     const topicInput=settingsInput("","");
     const slowInput=settingsInput("0","number");
+    const positionInput=settingsInput("0","number");
+    const bitrateInput=settingsInput("64000","number");
+    const userLimitInput=settingsInput("0","number");
+    const nsfwInput=document.createElement("input");nsfwInput.type="checkbox";
     const createForm=document.createElement("form");createForm.className="dc-settings-form dc-settings-compact-form";
     const fields=document.createElement("div");fields.className="dc-settings-fields";
-    fields.append(settingsLabel("Тип",typeSelect),settingsLabel("Название",nameInput),settingsLabel("Категория",categorySelect),settingsLabel("Медленный режим (сек.)",slowInput),settingsLabel("Тема / описание",topicInput,true));
+    fields.append(settingsLabel("Тип",typeSelect),settingsLabel("Название",nameInput),settingsLabel("Категория",categorySelect),settingsLabel("Позиция",positionInput),settingsLabel("Медленный режим (сек.)",slowInput),settingsLabel("Битрейт (бит/с)",bitrateInput),settingsLabel("Лимит участников",userLimitInput),settingsLabel("Тема / описание",topicInput,true),settingsLabel("Канал для взрослых (NSFW)",nsfwInput));
     const submit=document.createElement("button");submit.type="submit";submit.className="dc-settings-save";submit.textContent="Создать";
-    const reset=settingsButton("Очистить",()=>{createForm.dataset.editId="";createForm.reset();submit.textContent="Создать";typeSelect.disabled=false;topicInput.disabled=false;slowInput.disabled=false;});
+    const reset=settingsButton("Очистить",()=>{createForm.dataset.editId="";createForm.reset();submit.textContent="Создать";typeSelect.disabled=false;categorySelect.disabled=false;typeSelect.dispatchEvent(new Event("change"));});
     createForm.append(fields);const foot=document.createElement("div");foot.className="dc-settings-footer";foot.append(reset,submit);createForm.append(foot);editor.append(createForm);
     const permissionLabels={
       view_channel:"Просмотр канала",send_messages:"Отправка сообщений",read_message_history:"Чтение истории",
@@ -2272,7 +2276,14 @@ function dcRenderServerSettings(data){
       }catch(error){permissionsEditor.replaceChildren();settingsError(permissionsEditor,error);}
       permissionsEditor.scrollIntoView({behavior:"smooth",block:"nearest"});
     };
-    typeSelect.addEventListener("change",()=>{const type=typeSelect.value;topicInput.disabled=!["text","announcement","forum"].includes(type);slowInput.disabled=!["text","announcement"].includes(type);categorySelect.disabled=type==="category";});
+    typeSelect.addEventListener("change",()=>{
+      const type=typeSelect.value;
+      topicInput.disabled=!["text","announcement","forum"].includes(type);
+      slowInput.disabled=!["text","announcement"].includes(type);
+      bitrateInput.disabled=type!=="voice";userLimitInput.disabled=type!=="voice";
+      nsfwInput.disabled=!["text","announcement","forum","voice","stage"].includes(type);
+      categorySelect.disabled=type==="category";
+    });
     const loadChannels=async()=>{
       list.textContent="Загрузка каналов…";
       try{
@@ -2289,6 +2300,10 @@ function dcRenderServerSettings(data){
             typeSelect.disabled=true;categorySelect.value=item.category_id||"";categorySelect.disabled=isCategory;
             topicInput.value=item.topic||"";topicInput.disabled=isCategory||!["text","announcement","forum"].includes(typeSelect.value);
             slowInput.value=String(item.slowmode_delay||0);slowInput.disabled=isCategory||!["text","announcement"].includes(typeSelect.value);
+            positionInput.value=String(item.position??0);
+            bitrateInput.value=String(item.bitrate||64000);bitrateInput.disabled=typeSelect.value!=="voice";
+            userLimitInput.value=String(item.user_limit||0);userLimitInput.disabled=typeSelect.value!=="voice";
+            nsfwInput.checked=!!item.nsfw;nsfwInput.disabled=isCategory||!["text","announcement","forum","voice","stage"].includes(typeSelect.value);
             submit.textContent="Сохранить";
             editor.scrollIntoView({behavior:"smooth",block:"nearest"});
           }));
@@ -2309,13 +2324,22 @@ function dcRenderServerSettings(data){
       const payload={name:nameInput.value.trim()};
       if(!payload.name){settingsError(editor,new Error("Укажи название."));submit.disabled=false;return;}
       if(!editId){
-        payload.type=typeSelect.value;payload.category_id=categorySelect.value||null;payload.topic=topicInput.value.trim();payload.slowmode_delay=Number(slowInput.value)||0;
-      }else{
+        payload.type=typeSelect.value;
+        payload.position=Math.max(0,Number(positionInput.value)||0);
         if(typeSelect.value!=="category")payload.category_id=categorySelect.value||null;
-        if(!typeSelect.disabled&&["text","announcement","forum"].includes(typeSelect.value))payload.topic=topicInput.value.trim();
+        if(["text","announcement","forum"].includes(typeSelect.value))payload.topic=topicInput.value.trim();
         if(["text","announcement"].includes(typeSelect.value))payload.slowmode_delay=Number(slowInput.value)||0;
+        if(typeSelect.value==="voice"){payload.bitrate=Number(bitrateInput.value)||64000;payload.user_limit=Number(userLimitInput.value)||0;}
+        if(["text","announcement","forum","voice","stage"].includes(typeSelect.value))payload.nsfw=!!nsfwInput.checked;
+      }else{
+        payload.position=Math.max(0,Number(positionInput.value)||0);
+        if(typeSelect.value!=="category")payload.category_id=categorySelect.value||null;
+        if(["text","announcement","forum"].includes(typeSelect.value))payload.topic=topicInput.value.trim();
+        if(["text","announcement"].includes(typeSelect.value))payload.slowmode_delay=Number(slowInput.value)||0;
+        if(typeSelect.value==="voice"){payload.bitrate=Number(bitrateInput.value)||64000;payload.user_limit=Number(userLimitInput.value)||0;}
+        if(["text","announcement","forum","voice","stage"].includes(typeSelect.value))payload.nsfw=!!nsfwInput.checked;
       }
-      try{await serverSettingsRequest("channels",editId?"PATCH":"POST",payload,editId);createForm.dataset.editId="";createForm.reset();typeSelect.disabled=false;categorySelect.disabled=false;topicInput.disabled=false;slowInput.disabled=false;submit.textContent="Создать";await loadChannels();showToast?.(editId?"Канал обновлён.":"Объект создан.");}
+      try{await serverSettingsRequest("channels",editId?"PATCH":"POST",payload,editId);createForm.dataset.editId="";createForm.reset();typeSelect.disabled=false;categorySelect.disabled=false;submit.textContent="Создать";typeSelect.dispatchEvent(new Event("change"));await loadChannels();showToast?.(editId?"Канал обновлён.":"Объект создан.");}
       catch(error){settingsError(editor,error);}
       finally{submit.disabled=false;}
     });
