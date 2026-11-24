@@ -4078,6 +4078,7 @@ async def panel_guild_channels(guild_id):
             "can_send": bool(permissions.send_messages),
             "can_history": bool(permissions.read_message_history),
             "can_manage_messages": bool(permissions.manage_messages),
+            "can_pin_messages": bool(permissions.pin_messages or permissions.manage_messages),
             "can_mention_everyone": bool(permissions.mention_everyone),
             "type": "announcement" if getattr(channel, "is_news", lambda: False)() else "text",
         })
@@ -4678,8 +4679,8 @@ async def panel_message_pin(channel_id, message_id, pinned):
     if not isinstance(channel, (discord.TextChannel, discord.Thread)):
         raise ValueError("Закреплять сообщения можно только на серверных каналах.")
     permissions = channel.permissions_for(channel.guild.me)
-    if not permissions.manage_messages:
-        raise PermissionError("У бота нет права Manage Messages для закрепления сообщений.")
+    if not (permissions.pin_messages or permissions.manage_messages):
+        raise PermissionError("У бота нет права Pin Messages для закрепления сообщений.")
     if bool(pinned) and not message.pinned:
         await message.pin(reason="GastWorld Control Panel")
     elif not bool(pinned) and message.pinned:
