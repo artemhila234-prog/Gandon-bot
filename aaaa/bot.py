@@ -3982,6 +3982,7 @@ async def panel_guild_channels(guild_id):
             "can_send": bool(permissions.send_messages),
             "can_history": bool(permissions.read_message_history),
             "can_manage_messages": bool(permissions.manage_messages),
+            "can_mention_everyone": bool(permissions.mention_everyone),
             "type": "announcement" if getattr(channel, "is_news", lambda: False)() else "text",
         })
     return {"guild": {"id": str(guild.id), "name": guild.name, "icon_url": str(guild.icon.url) if guild.icon else ""}, "categories": categories, "channels": channels}
@@ -4046,7 +4047,9 @@ async def panel_channel_send(channel_id, content, files=None, reply_to=None):
     from io import BytesIO
     discord_files = [discord.File(BytesIO(data), filename=name) for name, data in files]
     # Разрешаем только явные user/role mentions. @everyone и @here остаются выключены.
-    allowed = discord.AllowedMentions(users=True, roles=True, everyone=False, replied_user=False)
+    allowed = discord.AllowedMentions(
+        users=True, roles=True, everyone=bool(permissions.mention_everyone), replied_user=False
+    )
     message = await channel.send(
         content or None, files=discord_files, reference=reference,
         mention_author=False, allowed_mentions=allowed
@@ -4073,7 +4076,12 @@ async def panel_message_edit(channel_id, message_id, content):
     channel, message = await panel_message_action_target(channel_id, message_id)
     if message.author.id != bot.user.id:
         raise PermissionError("Через панель можно редактировать только сообщения самого бота.")
-    allowed = discord.AllowedMentions(users=True, roles=True, everyone=False, replied_user=False)
+    allow_everyone = False
+    if isinstance(channel, (discord.TextChannel, discord.Thread)):
+        allow_everyone = bool(channel.permissions_for(channel.guild.me).mention_everyone)
+    allowed = discord.AllowedMentions(
+        users=True, roles=True, everyone=allow_everyone, replied_user=False
+    )
     await message.edit(content=content or None, allowed_mentions=allowed)
     return {"ok": True, "message_id": str(message.id), "content": message.content, "edited_at": message.edited_at.isoformat() if message.edited_at else ""}
 
