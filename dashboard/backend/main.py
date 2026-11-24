@@ -1377,12 +1377,13 @@ async def api_discord_server_settings_section(guild_id: str, section: str, reque
         await require_guild_setting_permission(guild_id, actor, "manage_guild")
         return await discord_request("GET", f"/guilds/{guild_id}/integrations")
     if section == "emoji":
-        await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+        await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
         emojis = await discord_request("GET", f"/guilds/{guild_id}/emojis")
         stickers = await discord_request("GET", f"/guilds/{guild_id}/stickers")
         return {"emojis": emojis or [], "stickers": stickers or []}
     if section == "events":
-        await require_guild_setting_permission(guild_id, actor, "view_audit_log")
+        # Чтение событий разрешено участникам сервера; проверяем членство отдельно от права управления.
+        await get_dm_controller("discord_settings")(guild_id, str(actor.get("id", "")))
         return await discord_request("GET", f"/guilds/{guild_id}/scheduled-events?with_user_count=true")
     raise HTTPException(status_code=404, detail="Неизвестный раздел настроек сервера.")
 
@@ -1561,7 +1562,7 @@ async def api_discord_server_emoji_create(guild_id: str, request: Request):
     actor = await require_access(request, "adm")
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
     payload = await request.json()
     name = str(payload.get("name") or "").strip()
     image = str(payload.get("image") or "")
@@ -1577,7 +1578,7 @@ async def api_discord_server_emoji_update(guild_id: str, emoji_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not emoji_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID эмодзи.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
     payload = await request.json()
     return await discord_request("PATCH", f"/guilds/{guild_id}/emojis/{emoji_id}", payload=payload)
 
@@ -1587,7 +1588,7 @@ async def api_discord_server_emoji_delete(guild_id: str, emoji_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not emoji_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID эмодзи.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
     return await discord_request("DELETE", f"/guilds/{guild_id}/emojis/{emoji_id}")
 
 
@@ -1616,7 +1617,7 @@ async def api_discord_server_sticker_create(guild_id: str, request: Request):
     actor = await require_access(request, "adm")
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
     try:
         form = await request.form()
         upload = form.get("file")
@@ -1647,7 +1648,7 @@ async def api_discord_server_sticker_delete(guild_id: str, sticker_id: str, requ
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not sticker_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID стикера.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
     return await discord_request("DELETE", f"/guilds/{guild_id}/stickers/{sticker_id}")
 
 
@@ -1656,7 +1657,7 @@ async def api_discord_server_event_create(guild_id: str, request: Request):
     actor = await require_access(request, "adm")
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
-    await require_guild_setting_permission(guild_id, actor, "manage_events")
+    await require_guild_setting_permission(guild_id, actor, "manage_events|create_events")
     payload = await request.json()
     name = str(payload.get("name") or "").strip()
     if not 1 <= len(name) <= 100:
@@ -1694,7 +1695,7 @@ async def api_discord_server_event_update(guild_id: str, event_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not event_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID события.")
-    await require_guild_setting_permission(guild_id, actor, "manage_events")
+    await require_guild_setting_permission(guild_id, actor, "manage_events|create_events")
     payload = await request.json()
     allowed = {"name", "description", "scheduled_start_time", "scheduled_end_time", "status"}
     body = {key: payload[key] for key in allowed if key in payload}
@@ -1708,7 +1709,7 @@ async def api_discord_server_event_delete(guild_id: str, event_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not event_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID события.")
-    await require_guild_setting_permission(guild_id, actor, "manage_events")
+    await require_guild_setting_permission(guild_id, actor, "manage_events|create_events")
     return await discord_request("DELETE", f"/guilds/{guild_id}/scheduled-events/{event_id}")
 
 
