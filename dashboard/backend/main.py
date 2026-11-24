@@ -1266,6 +1266,23 @@ async def api_discord_guild_presence(guild_id: str, request: Request):
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось обновить статусы участников: {str(error)[:300]}")
 
+@app.get("/api/discord/guilds/{guild_id}/members/{member_id}")
+async def api_discord_guild_member_profile(guild_id: str, member_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not member_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или участника.")
+    try:
+        return await get_dm_controller("discord_member_profile")(
+            guild_id, member_id, str(actor.get("id", ""))
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=404, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить профиль участника: {str(error)[:300]}")
+
+
 @app.post("/api/discord/guilds/{guild_id}/members/{member_id}/roles")
 async def api_discord_member_role(guild_id: str, member_id: str, request: Request):
     actor = await require_access(request, "adm")
