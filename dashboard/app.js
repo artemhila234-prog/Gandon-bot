@@ -1110,7 +1110,7 @@ function dcShowMessageMenu(event,message){
     ?"https://discord.com/channels/"+dcActiveGuild.id+"/"+channelId+"/"+message.id
     :"https://discord.com/channels/@me/"+channelId+"/"+message.id;
   actions.push(["Копировать ссылку",()=>navigator.clipboard.writeText(messageLink)]);
-  if(dcActiveChannel?.can_manage_messages)actions.push([message.pinned?"Открепить сообщение":"Закрепить сообщение",async()=>{
+  if(dcActiveChannel?.can_pin_messages)actions.push([message.pinned?"Открепить сообщение":"Закрепить сообщение",async()=>{
     await dcMessageRequest("POST",channelId,message.id,{pinned:!message.pinned});
     await dcRefreshCurrentHistory();
   }]);
