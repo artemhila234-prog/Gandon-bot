@@ -2279,8 +2279,8 @@ function dcRenderServerSettings(data){
     typeSelect.addEventListener("change",()=>{
       const type=typeSelect.value;
       topicInput.disabled=!["text","announcement","forum"].includes(type);
-      slowInput.disabled=!["text","announcement"].includes(type);
-      bitrateInput.disabled=type!=="voice";userLimitInput.disabled=type!=="voice";
+      slowInput.disabled=!["text","announcement","forum"].includes(type);
+      bitrateInput.disabled=!["voice","stage"].includes(type);userLimitInput.disabled=!["voice","stage"].includes(type);
       nsfwInput.disabled=!["text","announcement","forum","voice","stage"].includes(type);
       categorySelect.disabled=type==="category";
     });
@@ -2301,8 +2301,8 @@ function dcRenderServerSettings(data){
             topicInput.value=item.topic||"";topicInput.disabled=isCategory||!["text","announcement","forum"].includes(typeSelect.value);
             slowInput.value=String(item.slowmode_delay||0);slowInput.disabled=isCategory||!["text","announcement"].includes(typeSelect.value);
             positionInput.value=String(item.position??0);
-            bitrateInput.value=String(item.bitrate||64000);bitrateInput.disabled=typeSelect.value!=="voice";
-            userLimitInput.value=String(item.user_limit||0);userLimitInput.disabled=typeSelect.value!=="voice";
+            bitrateInput.value=String(item.bitrate||64000);bitrateInput.disabled=!["voice","stage"].includes(typeSelect.value);
+            userLimitInput.value=String(item.user_limit||0);userLimitInput.disabled=!["voice","stage"].includes(typeSelect.value);
             nsfwInput.checked=!!item.nsfw;nsfwInput.disabled=isCategory||!["text","announcement","forum","voice","stage"].includes(typeSelect.value);
             submit.textContent="Сохранить";
             editor.scrollIntoView({behavior:"smooth",block:"nearest"});
@@ -2328,8 +2328,8 @@ function dcRenderServerSettings(data){
         payload.position=Math.max(0,Number(positionInput.value)||0);
         if(typeSelect.value!=="category")payload.category_id=categorySelect.value||null;
         if(["text","announcement","forum"].includes(typeSelect.value))payload.topic=topicInput.value.trim();
-        if(["text","announcement"].includes(typeSelect.value))payload.slowmode_delay=Number(slowInput.value)||0;
-        if(typeSelect.value==="voice"){payload.bitrate=Number(bitrateInput.value)||64000;payload.user_limit=Number(userLimitInput.value)||0;}
+        if(["text","announcement","forum"].includes(typeSelect.value))payload.slowmode_delay=Number(slowInput.value)||0;
+        if(["voice","stage"].includes(typeSelect.value)){payload.bitrate=Number(bitrateInput.value)||64000;payload.user_limit=Number(userLimitInput.value)||0;}
         if(["text","announcement","forum","voice","stage"].includes(typeSelect.value))payload.nsfw=!!nsfwInput.checked;
       }else{
         payload.position=Math.max(0,Number(positionInput.value)||0);
@@ -2489,7 +2489,7 @@ function dcRenderServerSettings(data){
         try{await serverSettingsRequest("safety","PATCH",{verification_level:Number(verification.value),explicit_content_filter:Number(filter.value),default_notifications:Number(notify.value),invites_disabled_until:expiryIso(inviteUntil.value),dms_disabled_until:expiryIso(dmUntil.value)});status.textContent="✓ Настройки безопасности сохранены.";showToast?.("Настройки безопасности сохранены.");}
         catch(error){status.textContent=error.message;}
         finally{save.disabled=false;}
-      },"primary");panel.append(save);
+      },"primary");save.disabled=!data.can_edit;panel.append(save);
     }catch(error){panel.replaceChildren();settingsError(panel,error);}
   };
 
@@ -2565,6 +2565,7 @@ function dcRenderServerSettings(data){
       if(triggerType===4)metadata.presets=[1,2,3];
       if(triggerType===5){metadata.mention_total_limit=Number(mentionLimit.value)||5;metadata.mention_raid_protection_enabled=true;}
       if(triggerType===6&&actionType===3){settingsError(createPanel,new Error("Для фильтра профилей нельзя использовать тайм-аут. Выбери блокировку взаимодействий или другое действие."));return;}
+      if(actionType===4&&triggerType!==6){settingsError(createPanel,new Error("Блокировка взаимодействий доступна для правил профиля участника."));return;}
       let actionPayload={type:actionType};
       if(actionType===1&&custom.value.trim())actionPayload.metadata={custom_message:custom.value.trim().slice(0,150)};
       if(actionType===2){if(!alertChannel.value){settingsError(createPanel,new Error("Для уведомлений выбери канал."));return;}actionPayload.metadata={channel_id:alertChannel.value};}
@@ -2604,7 +2605,7 @@ function dcRenderServerSettings(data){
     settingsHeading("Эмодзи и стикеры","Управляй пользовательскими эмодзи и стикерами сервера. Discord ограничивает размер и поддерживаемые форматы файлов.");
     const emojiPanel=settingsPanel("ЭМОДЗИ");const emojiList=document.createElement("div");emojiList.className="dc-settings-expression-grid";emojiList.textContent="Загрузка эмодзи…";emojiPanel.append(emojiList);main.append(emojiPanel);
     const emojiForm=document.createElement("form");emojiForm.className="dc-settings-form dc-settings-expression-form";
-    const emojiName=settingsInput("","text","имя_эмодзи");const emojiFile=settingsInput("");emojiFile.type="file";emojiFile.accept="image/png,image/jpeg,image/gif,image/webp";
+    const emojiName=settingsInput("","text","имя_эмодзи");const emojiFile=settingsInput("");emojiFile.type="file";emojiFile.accept="image/png,image/jpeg,image/gif";
     const addEmoji=document.createElement("button");addEmoji.type="submit";addEmoji.className="dc-settings-save";addEmoji.textContent="Загрузить эмодзи";
     emojiForm.append(settingsLabel("Имя (2–32, латиница/цифры/_)",emojiName),settingsLabel("Изображение (до 256 КБ)",emojiFile),addEmoji);emojiPanel.append(emojiForm);
     const stickerPanel=settingsPanel("СТИКЕРЫ");const stickerList=document.createElement("div");stickerList.className="dc-settings-expression-grid";stickerList.textContent="Загрузка стикеров…";stickerPanel.append(stickerList);main.append(stickerPanel);
@@ -2737,8 +2738,6 @@ function dcRenderServerSettings(data){
     else if(tab==="roles")renderRoles();
     else renderSection(tab).catch(error=>{settingsHeading("Ошибка загрузки раздела");settingsError(main,error);});
   };
-  navButtons.get("overview").addEventListener("click",()=>switchTab("overview"));
-  navButtons.get("roles").addEventListener("click",()=>switchTab("roles"));
   navButtons.forEach((button,key)=>button.addEventListener("click",()=>switchTab(key)));
   card.append(head,layout);modal.append(card);
   modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});
