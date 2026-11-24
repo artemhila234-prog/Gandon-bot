@@ -1234,23 +1234,56 @@ async function dcLoadGuilds(){
   }catch(error){const note=document.createElement("div");note.className="dc-guild-empty";note.textContent=error.message;rail.append(note);}
 }
 async function dcLoadGuildMembers(guild,force=false){
-  const root=document.getElementById("dcMemberList"),count=document.getElementById("dcMemberCount"),search=document.getElementById("dcMemberSearch");
+  const root=document.getElementById("dcMemberList"),count=document.getElementById("dcMemberCount");
   if(!root||!guild?.id)return;
   if(dcMemberCacheByGuild.has(guild.id)&&!force){dcMemberCache=dcMemberCacheByGuild.get(guild.id);dcMemberRoleCache=dcMemberRolesByGuild.get(guild.id)||[];dcRenderGuildMembers();return;}
   if(dcMembersLoading.has(guild.id))return;
   dcMembersLoading.add(guild.id);
   root.replaceChildren();const loading=document.createElement("div");loading.className="dc-live-empty";loading.textContent="Загружаем участников…";root.append(loading);
   if(count)count.textContent="…";
+  const pageSize=500;
+  const allMembers=[];
+  let roles=[],after="0",hasMore=true;
   try{
-    const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guild.id)+"/members");
+    while(hasMore){
+      const url="/api/discord/guilds/"+encodeURIComponent(guild.id)+"/members?limit="+pageSize+"&after="+encodeURIComponent(after);
+      let data;
+      try{data=await apiGet(url);}
+      catch(error){
+        if(error?.message==="Failed to fetch"){
+          await new Promise(resolve=>setTimeout(resolve,700));
+          data=await apiGet(url);
+        }else throw error;
+      }
+      if(dcActiveGuild?.id!==guild.id)return;
+      const page=Array.isArray(data.members)?data.members:[];
+      if(!roles.length)roles=Array.isArray(data.roles)?data.roles:[];
+      allMembers.push(...page);
+      dcMemberCache=allMembers.slice();dcMemberRoleCache=roles;
+      dcRenderGuildMembers();
+      const nextAfter=String(data.next_after||"");
+      hasMore=Boolean(data.has_more)&&page.length>0&&!!nextAfter&&nextAfter!==after;
+      if(hasMore){
+        after=nextAfter;
+        if(count)count.textContent=allMembers.length.toLocaleString("ru-RU")+" загружено…";
+      }
+    }
     if(dcActiveGuild?.id!==guild.id)return;
-    dcMemberCache=data.members||[];dcMemberCacheByGuild.set(guild.id,dcMemberCache);
-    dcMemberRoleCache=data.roles||[];dcMemberRolesByGuild.set(guild.id,dcMemberRoleCache);
-    if(count)count.textContent=String(data.count??dcMemberCache.length);
+    dcMemberCache=allMembers;dcMemberRoleCache=roles;
+    dcMemberCacheByGuild.set(guild.id,dcMemberCache);dcMemberRolesByGuild.set(guild.id,dcMemberRoleCache);
     dcRenderGuildMembers();
   }catch(error){
     if(dcActiveGuild?.id!==guild.id)return;
-    root.replaceChildren();const message=document.createElement("div");message.className="dc-live-empty dc-member-error";message.textContent=error.message;root.append(message);if(count)count.textContent="—";
+    dcMemberCacheByGuild.delete(guild.id);dcMemberRolesByGuild.delete(guild.id);
+    const detail=error?.message==="Failed to fetch"
+      ?"Не удалось получить ответ от API панели. Проверь соединение с сервером бота."
+      :(error.message||"Не удалось загрузить участников.");
+    const message=document.createElement("div");message.className="dc-live-empty dc-member-error";
+    message.textContent=allMembers.length
+      ?detail+" Загружено частично: "+allMembers.length.toLocaleString("ru-RU")+". Нажми ↻, чтобы повторить."
+      :detail+" Нажми ↻, чтобы повторить.";
+    if(allMembers.length)root.append(message);else{root.replaceChildren(message);}
+    if(count)count.textContent=allMembers.length?allMembers.length.toLocaleString("ru-RU")+" · частично":"—";
   }finally{dcMembersLoading.delete(guild.id);}
 }
 let dcMemberRoleCache=[];
