@@ -2317,7 +2317,7 @@ function dcRenderServerSettings(data){
             nsfwInput.checked=!!item.nsfw;nsfwInput.disabled=isCategory||!["text","announcement","forum","voice","stage"].includes(typeSelect.value);
             submit.textContent="Сохранить";
             editor.scrollIntoView({behavior:"smooth",block:"nearest"});
-          }));
+          });
           editButton.disabled=!currentData.can_edit;
           actions.push(editButton);
           const permsButton=settingsButton("Права",()=>loadChannelPermissions(item));
