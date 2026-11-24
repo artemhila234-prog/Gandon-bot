@@ -2458,7 +2458,7 @@ function dcRenderServerSettings(data){
     const createPanel=settingsPanel("НОВОЕ ПРАВИЛО");
     const fields=document.createElement("div");fields.className="dc-settings-fields";
     const name=settingsInput("Фильтр GastWorld");const type=settingsSelect([[1,"Ключевые слова"],[3,"Спам"],[4,"Слова из пресетов Discord"],[5,"Массовые упоминания"],[6,"Слова в профиле участника"]],1);
-    const keywords=settingsInput("","text","слово1, слово2");const mentionLimit=settingsInput("5","number");const action=settingsSelect([[1,"Блокировать сообщение"],[2,"Отправить предупреждение в канал"],[3,"Тайм-аут"]],1);
+    const keywords=settingsInput("","text","слово1, слово2");const mentionLimit=settingsInput("5","number");const action=settingsSelect([[1,"Блокировать сообщение"],[2,"Отправить предупреждение в канал"],[3,"Тайм-аут"],[4,"Блокировать взаимодействия"]],1);
     const alertChannel=settingsSelect([["","Выбери канал"]],"");const timeout=settingsInput("600","number");const custom=settingsInput("Сообщение заблокировано фильтром сервера");
     fields.append(settingsLabel("Название",name),settingsLabel("Тип правила",type),settingsLabel("Ключевые слова",keywords,true),settingsLabel("Лимит упоминаний",mentionLimit),settingsLabel("Действие",action),settingsLabel("Канал для логов",alertChannel),settingsLabel("Тайм-аут (сек.)",timeout),settingsLabel("Сообщение пользователю",custom,true));
     const typeHint=document.createElement("p");typeHint.className="dc-settings-permission";typeHint.textContent="Ключевые слова и профили поддерживают список слов; пресеты используют встроенные наборы Discord; спам и массовые упоминания анализируются Discord.";
@@ -2485,11 +2485,12 @@ function dcRenderServerSettings(data){
       if([1,6].includes(triggerType)){metadata.keyword_filter=keywords.value.split(",").map(x=>x.trim()).filter(Boolean);if(!metadata.keyword_filter.length){settingsError(createPanel,new Error("Введи хотя бы одно ключевое слово."));return;}}
       if(triggerType===4)metadata.presets=[1,2,3];
       if(triggerType===5){metadata.mention_total_limit=Number(mentionLimit.value)||5;metadata.mention_raid_protection_enabled=true;}
+      if(triggerType===6&&actionType===3){settingsError(createPanel,new Error("Для фильтра профилей нельзя использовать тайм-аут. Выбери блокировку взаимодействий или другое действие."));return;}
       let actionPayload={type:actionType};
       if(actionType===1&&custom.value.trim())actionPayload.metadata={custom_message:custom.value.trim().slice(0,150)};
       if(actionType===2){if(!alertChannel.value){settingsError(createPanel,new Error("Для уведомлений выбери канал."));return;}actionPayload.metadata={channel_id:alertChannel.value};}
-      if(actionType===3){if(![1,5].includes(triggerType)){settingsError(createPanel,new Error("Тайм-аут доступен для ключевых слов и массовых упоминаний."));return;}actionPayload.metadata={duration_seconds:Math.max(60,Math.min(2419200,Number(timeout.value)||600))};}
-      const body={name:name.value.trim(),event_type:1,trigger_type:triggerType,actions:[actionPayload],enabled:true};
+      if(actionType===3){if(![1,5].includes(triggerType)){settingsError(createPanel,new Error("Тайм-аут доступен для правил ключевых слов и массовых упоминаний."));return;}actionPayload.metadata={duration_seconds:Math.max(60,Math.min(2419200,Number(timeout.value)||600))};}
+      const body={name:name.value.trim(),event_type:triggerType===6?2:1,trigger_type:triggerType,actions:[actionPayload],enabled:true};
       if(Object.keys(metadata).length)body.trigger_metadata=metadata;
       if(!body.name){settingsError(createPanel,new Error("Укажи название правила."));return;}
       save.disabled=true;
