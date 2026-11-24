@@ -2354,7 +2354,8 @@ function dcRenderServerSettings(data){
     const bansButton=settingsButton("Заблокированные участники",()=>showingBans?returnToMembers():loadBans());memberToolbar.append(bansButton);main.append(memberToolbar);
     const status=document.createElement("p");status.className="dc-settings-status";status.textContent="Загрузка участников…";main.append(status);
     const list=document.createElement("div");list.className="dc-settings-data-list dc-settings-member-list";main.append(list);
-    let members=[];
+    const moreButton=settingsButton("Загрузить ещё участников",()=>loadMoreMembers(),"secondary");moreButton.hidden=true;main.append(moreButton);
+    let members=[];let memberCursor="0";let membersHaveMore=true;let membersLoading=false;
     const draw=()=>{
       const term=search.value.trim().toLocaleLowerCase("ru");
       const filtered=members.filter(m=>[m.global_name,m.username,m.id].join(" ").toLocaleLowerCase("ru").includes(term));
@@ -2412,16 +2413,19 @@ function dcRenderServerSettings(data){
       }catch(error){settingsError(list,error);status.textContent="Не удалось загрузить список блокировок.";}
       finally{bansButton.disabled=false;}
     };
-    try{
-      let after="0",hasMore=true;
-      while(hasMore&&members.length<10000){
-        const page=await apiGet(serverSettingsBase+"members?after="+encodeURIComponent(after)+"&limit=500");
-        const batch=page.members||[];members.push(...batch);status.textContent="Загружено участников: "+members.length;
-        hasMore=!!page.has_more;after=String(page.next_after||"");
-        if(!hasMore||!after||!batch.length)break;
-      }
-      draw();status.textContent="Всего загружено: "+members.length+" участников"+(members.length>=10000?" · показана первая часть списка":"");
-    }catch(error){status.textContent="Ошибка загрузки участников: "+error.message;}
+    const loadMoreMembers=async(initial=false)=>{
+      if(membersLoading||!membersHaveMore)return;
+      membersLoading=true;moreButton.disabled=true;status.textContent=initial?"Загрузка участников…":"Загружаем следующую страницу…";
+      try{
+        const page=await apiGet(serverSettingsBase+"members?after="+encodeURIComponent(memberCursor)+"&limit=500");
+        const batch=page.members||[];members.push(...batch);
+        memberCursor=String(page.next_after||memberCursor);membersHaveMore=!!page.has_more&&batch.length>0;
+        draw();status.textContent="Загружено участников: "+members.length+(membersHaveMore?" · есть ещё участники":" · список завершён");
+        moreButton.hidden=!membersHaveMore;
+      }catch(error){status.textContent="Ошибка загрузки участников: "+error.message;}
+      finally{membersLoading=false;moreButton.disabled=false;}
+    };
+    await loadMoreMembers(true);
   };
 
   const renderInvites=async()=>{
