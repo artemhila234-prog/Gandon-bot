@@ -1441,6 +1441,62 @@ async def api_discord_server_channel_delete(guild_id: str, channel_id: str, requ
         raise HTTPException(status_code=502, detail=f"Не удалось удалить канал: {str(error)[:300]}")
 
 
+@app.get("/api/discord/guilds/{guild_id}/settings/channels/{channel_id}/permissions")
+async def api_discord_server_channel_permissions(guild_id: str, channel_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not guild_id.isdigit() or not channel_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID сервера или канала.")
+    try:
+        return await get_dm_controller("settings_channel_permissions")(guild_id, str(actor.get("id", "")), channel_id)
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить права канала: {str(error)[:300]}")
+
+
+@app.patch("/api/discord/guilds/{guild_id}/settings/channels/{channel_id}/permissions/{target_id}")
+async def api_discord_server_channel_permission_update(guild_id: str, channel_id: str, target_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not all(value.isdigit() for value in (guild_id, channel_id, target_id)):
+        raise HTTPException(status_code=400, detail="Некорректные ID.")
+    try:
+        payload = await request.json()
+        return await get_dm_controller("settings_channel_permission_update")(
+            guild_id, str(actor.get("id", "")), channel_id, target_id, payload
+        )
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось сохранить права канала: {str(error)[:300]}")
+
+
+@app.delete("/api/discord/guilds/{guild_id}/settings/channels/{channel_id}/permissions/{target_id}")
+async def api_discord_server_channel_permission_delete(guild_id: str, channel_id: str, target_id: str, request: Request):
+    actor = await require_access(request, "adm")
+    if not all(value.isdigit() for value in (guild_id, channel_id, target_id)):
+        raise HTTPException(status_code=400, detail="Некорректные ID.")
+    try:
+        return await get_dm_controller("settings_channel_permission_delete")(
+            guild_id, str(actor.get("id", "")), channel_id, target_id
+        )
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось сбросить переопределение прав: {str(error)[:300]}")
+
+
 @app.post("/api/discord/guilds/{guild_id}/settings/members/{member_id}/action")
 async def api_discord_server_member_action(guild_id: str, member_id: str, request: Request):
     actor = await require_access(request, "adm")
