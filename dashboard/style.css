@@ -2161,3 +2161,15 @@ body.discord-mode #pageContent.discord-fullscreen .dc-live-message{position:rela
 .dc-voice-room-note{color:#8f96a1;font-size:10px;line-height:1.5}
 .dc-channel-item-voice .dc-channel-symbol{color:#a7a0d1}
 @media(max-width:700px){.dc-voice-room{padding:20px 12px}.dc-voice-room-copy h2{font-size:19px}.dc-voice-room-members{grid-template-columns:1fr}}
+
+
+/* Per-channel quick settings: available for text, announcements, forums and voice rooms. */
+.dc-channel-item-row{display:flex;align-items:stretch;gap:3px;min-width:0}
+.dc-channel-item-row>.dc-channel-item{flex:1 1 auto;width:auto;min-width:0}
+.dc-channel-settings-button{width:29px;min-width:29px;flex:0 0 29px;display:grid;place-items:center;border:0;border-radius:5px;background:transparent;color:#9298a2;font-size:13px;cursor:pointer;opacity:.45;transition:background .12s,color .12s,opacity .12s}
+.dc-channel-item-row:hover .dc-channel-settings-button,
+.dc-channel-item-row:focus-within .dc-channel-settings-button{opacity:1}
+.dc-channel-settings-button:hover,.dc-channel-settings-button:focus-visible{outline:none;background:#404249;color:#fff;opacity:1}
+body.discord-mode #pageContent.discord-fullscreen .dc-channel-item-row>.dc-channel-item{min-height:34px;padding:6px 8px}
+body.discord-mode #pageContent.discord-fullscreen .dc-channel-settings-button{min-height:34px}
+@media(max-width:620px){.dc-channel-settings-button{opacity:.9}}
