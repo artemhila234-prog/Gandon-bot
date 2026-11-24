@@ -3783,11 +3783,18 @@ async def panel_guild_settings_update(guild_id, actor_id, payload):
     return await panel_guild_settings_payload(guild, refreshed_actor)
 
 
-async def panel_guild_members(guild_id, actor_id=None):
+async def panel_guild_members(guild_id, actor_id=None, after="0", limit=500):
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
     if not str(guild_id).isdigit():
         raise ValueError("Некорректный ID сервера.")
+    if not str(after).isdigit():
+        raise ValueError("Некорректный курсор списка участников.")
+    try:
+        after_id = int(after or 0)
+        limit = max(1, min(int(limit), 1000))
+    except (TypeError, ValueError):
+        raise ValueError("Некорректные параметры списка участников.")
     guild = bot.get_guild(int(guild_id))
     if guild is None:
         raise ValueError("Сервер не найден среди серверов, где состоит бот.")
@@ -3818,10 +3825,10 @@ async def panel_guild_members(guild_id, actor_id=None):
     } for role in sorted(guild.roles, key=lambda item: item.position, reverse=True) if role.id != guild.default_role.id]
     members = []
     try:
-        # Берём полный список через HTTP API, а не полагаемся только на Gateway cache.
-        # Присутствие и activity сохраняем из кэша, если участник уже есть в нём.
+        # Возвращаем одну страницу, чтобы большой сервер не обрывал длинный HTTP-ответ.
         cached_members = {member.id: member for member in guild.members}
-        async for fetched_member in guild.fetch_members(limit=None):
+        cursor = discord.Object(id=after_id) if after_id else None
+        async for fetched_member in guild.fetch_members(limit=limit, after=cursor):
             cached_member = cached_members.get(fetched_member.id)
             presence_member = cached_member or fetched_member
             activity = getattr(presence_member, "activity", None)
@@ -3858,7 +3865,13 @@ async def panel_guild_members(guild_id, actor_id=None):
         "dnd": sum(1 for item in members if item["status"] == "dnd"),
         "offline": sum(1 for item in members if item["status"] == "offline"),
     }
-    return {"guild": {"id": str(guild.id), "name": guild.name}, "members": members, "roles": roles, "count": len(members), "online_counts": online_counts}
+    next_after = str(min((int(member["id"]) for member in members), default=after_id))
+    has_more = len(members) >= limit
+    return {
+        "guild": {"id": str(guild.id), "name": guild.name},
+        "members": members, "roles": roles, "count": len(members),
+        "online_counts": online_counts, "next_after": next_after, "has_more": has_more,
+    }
 
 
 async def panel_guild_presence(guild_id):
