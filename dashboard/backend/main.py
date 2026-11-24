@@ -1315,6 +1315,7 @@ async def api_discord_channel_send(channel_id: str, request: Request):
     try:
         form = await request.form()
         content = str(form.get("content") or "").strip()
+        reply_to = str(form.get("reply_to") or "").strip()
         uploads = form.getlist("files")
         if len(uploads) > 10:
             raise HTTPException(status_code=400, detail="Можно прикрепить не больше 10 файлов.")
@@ -1334,9 +1335,87 @@ async def api_discord_channel_send(channel_id: str, request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Не удалось прочитать отправляемые файлы.")
     try:
-        return await get_dm_controller("discord_channel_send")(channel_id, content, files)
+        return await get_dm_controller("discord_channel_send")(channel_id, content, files, reply_to or None)
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось отправить сообщение: {str(error)[:300]}")
+
+
+@app.patch("/api/discord/channels/{channel_id}/messages/{message_id}")
+async def api_discord_message_edit(channel_id: str, message_id: str, request: Request):
+    await require_access(request, "adm")
+    if not channel_id.isdigit() or not message_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID канала или сообщения.")
+    try:
+        payload = await request.json()
+        content = str(payload.get("content") or "")
+        if len(content) > 2000:
+            raise HTTPException(status_code=400, detail="Максимальная длина сообщения — 2000 символов.")
+        return await get_dm_controller("discord_message_edit")(channel_id, message_id, content)
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось изменить сообщение: {str(error)[:300]}")
+
+
+@app.delete("/api/discord/channels/{channel_id}/messages/{message_id}")
+async def api_discord_message_delete(channel_id: str, message_id: str, request: Request):
+    await require_access(request, "adm")
+    if not channel_id.isdigit() or not message_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID канала или сообщения.")
+    try:
+        return await get_dm_controller("discord_message_delete")(channel_id, message_id)
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось удалить сообщение: {str(error)[:300]}")
+
+
+@app.post("/api/discord/channels/{channel_id}/messages/{message_id}/reactions")
+async def api_discord_message_react(channel_id: str, message_id: str, request: Request):
+    await require_access(request, "adm")
+    if not channel_id.isdigit() or not message_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID канала или сообщения.")
+    try:
+        payload = await request.json()
+        emoji = str(payload.get("emoji") or "").strip()
+        return await get_dm_controller("discord_message_react")(channel_id, message_id, emoji)
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось добавить реакцию: {str(error)[:300]}")
+
+
+@app.post("/api/discord/channels/{channel_id}/messages/{message_id}/pin")
+async def api_discord_message_pin(channel_id: str, message_id: str, request: Request):
+    await require_access(request, "adm")
+    if not channel_id.isdigit() or not message_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный ID канала или сообщения.")
+    try:
+        payload = await request.json()
+        pinned = payload.get("pinned")
+        if not isinstance(pinned, bool):
+            raise HTTPException(status_code=400, detail="Укажи состояние pinned true/false.")
+        return await get_dm_controller("discord_message_pin")(channel_id, message_id, pinned)
+    except HTTPException:
+        raise
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось закрепить сообщение: {str(error)[:300]}")
 
 
 # ================== DISCORD BOT DIRECT MESSAGES ==================
@@ -1379,6 +1458,7 @@ async def api_discord_dm_send(user_id: str, request: Request):
     try:
         form=await request.form()
         content=str(form.get('content') or '').strip()
+        reply_to=str(form.get('reply_to') or '').strip()
         uploads=form.getlist('files')
         if len(uploads)>10: raise HTTPException(status_code=400, detail='Можно прикрепить не больше 10 файлов.')
         files=[];total=0
@@ -1397,7 +1477,7 @@ async def api_discord_dm_send(user_id: str, request: Request):
     if now-last_sent < 2.0: raise HTTPException(status_code=429, detail='Подожди пару секунд перед следующим сообщением этому пользователю.')
     DM_SEND_LAST_AT[rate_key]=now
     try:
-        result=await get_dm_controller('dm_send')(user_id, content, files)
+        result=await get_dm_controller('dm_send')(user_id, content, files, reply_to or None)
         print(f'[PANEL DM] Администратор {actor.get("id")} отправил DM пользователю {user_id}.', flush=True)
         return result
     except Exception as error:
