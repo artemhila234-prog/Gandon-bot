@@ -4310,6 +4310,19 @@ async def panel_settings_channel_permission_update(guild_id, actor_id, channel_i
         raise ValueError("Тип цели должен быть role или member.")
     if target is None:
         raise ValueError("Роль или участник не найдены на этом сервере.")
+    actor_is_owner = actor.id == guild.owner_id
+    if isinstance(target, discord.Role):
+        if not actor_is_owner and target >= actor.top_role:
+            raise PermissionError("Нельзя менять переопределения роли, равной или выше твоей высшей роли.")
+        if target >= me.top_role:
+            raise PermissionError("Нельзя менять переопределения роли, равной или выше высшей роли бота.")
+    elif isinstance(target, discord.Member):
+        if target.id in {guild.owner_id, me.id}:
+            raise PermissionError("Нельзя менять переопределения владельца сервера или самого бота.")
+        if not actor_is_owner and target.top_role >= actor.top_role:
+            raise PermissionError("Нельзя менять переопределения участника с равной или более высокой ролью.")
+        if target.top_role >= me.top_role:
+            raise PermissionError("Нельзя менять переопределения участника с равной или более высокой ролью бота.")
     permissions = payload.get("permissions") or {}
     if not isinstance(permissions, dict):
         raise ValueError("Список разрешений должен быть объектом.")
@@ -4342,9 +4355,22 @@ async def panel_settings_channel_permission_delete(guild_id, actor_id, channel_i
     channel = guild.get_channel(int(channel_id))
     if channel is None:
         raise ValueError("Канал не найден.")
-    target = guild.get_role(int(target_id)) or guild.get_member(int(target_id))
+    target = guild.get_role(int(target_id))
     if target is None:
-        raise ValueError("Роль или участник не найдены.")
+        target = await panel_fetch_guild_member(guild, target_id)
+    actor_is_owner = actor.id == guild.owner_id
+    if isinstance(target, discord.Role):
+        if not actor_is_owner and target >= actor.top_role:
+            raise PermissionError("Нельзя сбросить переопределения роли, равной или выше твоей высшей роли.")
+        if target >= me.top_role:
+            raise PermissionError("Нельзя сбросить переопределения роли, равной или выше высшей роли бота.")
+    elif isinstance(target, discord.Member):
+        if target.id in {guild.owner_id, me.id}:
+            raise PermissionError("Нельзя менять переопределения владельца сервера или самого бота.")
+        if not actor_is_owner and target.top_role >= actor.top_role:
+            raise PermissionError("Нельзя сбросить переопределения участника с равной или более высокой ролью.")
+        if target.top_role >= me.top_role:
+            raise PermissionError("Нельзя сбросить переопределения участника с равной или более высокой ролью бота.")
     await channel.set_permissions(target, overwrite=None, reason="GastWorld Control Panel: remove channel overwrite")
     return {"ok": True, "channel_id": str(channel_id), "target_id": str(target_id)}
 
