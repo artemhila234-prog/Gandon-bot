@@ -2190,7 +2190,9 @@ function dcRenderServerSettings(data){
     addBar.append(refresh);listPane.append(addBar);
     const list=document.createElement("div");list.className="dc-settings-data-list";list.textContent="Загрузка каналов…";listPane.append(list);
     const editor=settingsPanel("СОЗДАТЬ / ИЗМЕНИТЬ");
-    workspace.append(listPane,editor);main.append(workspace);
+    const permissionsEditor=settingsPanel("ПРАВА КАНАЛА");
+    permissionsEditor.textContent="Выбери «Права» у канала, чтобы настроить разрешения ролей и участников.";
+    workspace.append(listPane,editor,permissionsEditor);main.append(workspace);
     let currentData={channels:[],categories:[]};
     const typeSelect=settingsSelect([["text","Текстовый канал"],["announcement","Канал объявлений"],["voice","Голосовой канал"],["stage","Stage-канал"],["forum","Форум"],["category","Категория"]],"text");
     const nameInput=settingsInput("","");
@@ -2203,6 +2205,73 @@ function dcRenderServerSettings(data){
     const submit=document.createElement("button");submit.type="submit";submit.className="dc-settings-save";submit.textContent="Создать";
     const reset=settingsButton("Очистить",()=>{createForm.dataset.editId="";createForm.reset();submit.textContent="Создать";typeSelect.disabled=false;topicInput.disabled=false;slowInput.disabled=false;});
     createForm.append(fields);const foot=document.createElement("div");foot.className="dc-settings-footer";foot.append(reset,submit);createForm.append(foot);editor.append(createForm);
+    const permissionLabels={
+      view_channel:"Просмотр канала",send_messages:"Отправка сообщений",read_message_history:"Чтение истории",
+      add_reactions:"Добавление реакций",embed_links:"Встраивание ссылок",attach_files:"Прикрепление файлов",
+      mention_everyone:"Упоминание @everyone",manage_messages:"Управление сообщениями",
+      use_external_emojis:"Внешние эмодзи",use_external_stickers:"Внешние стикеры",
+      use_application_commands:"Команды приложений",create_public_threads:"Создание публичных веток",
+      create_private_threads:"Создание приватных веток",send_messages_in_threads:"Сообщения в ветках",
+      connect:"Подключение к голосу",speak:"Говорить",stream:"Трансляция",use_vad:"Голосовая активация",
+      mute_members:"Отключение микрофона",deafen_members:"Отключение звука",move_members:"Перемещение участников"
+    };
+    const loadChannelPermissions=async channel=>{
+      permissionsEditor.replaceChildren();
+      const loading=document.createElement("p");loading.className="dc-settings-permission";loading.textContent="Загрузка переопределений прав…";permissionsEditor.append(loading);
+      const endpoint=serverSettingsBase+"channels/"+encodeURIComponent(channel.id)+"/permissions";
+      const request=async(method="GET",payload=null,targetId="")=>{
+        const url=endpoint+(targetId?"/"+encodeURIComponent(targetId):"");
+        const options={method,credentials:"same-origin"};
+        if(payload){options.headers={"Content-Type":"application/json"};options.body=JSON.stringify(payload);}
+        const response=await fetch(url,options);const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{}
+        if(!response.ok)throw new Error(result.detail||"Не удалось изменить права канала.");return result;
+      };
+      try{
+        const data=await request();permissionsEditor.replaceChildren();
+        const intro=document.createElement("p");intro.className="dc-settings-permission";intro.textContent="Канал: #"+(channel.name||channel.id)+". Для каждой настройки выбери «Наследовать», «Разрешить» или «Запретить».";
+        permissionsEditor.append(intro);
+        const targetType=settingsSelect([["role","Роль"],["member","Участник"]],"role");
+        const roleSelect=settingsSelect((data.roles||[]).map(role=>[role.id,role.name]),data.roles?.[0]?.id||"");
+        const memberId=settingsInput("","text","Discord ID участника");memberId.inputMode="numeric";memberId.hidden=true;
+        const controls=document.createElement("div");controls.className="dc-settings-fields";
+        controls.append(settingsLabel("Тип цели",targetType),settingsLabel("Роль",roleSelect),settingsLabel("ID участника",memberId));permissionsEditor.append(controls);
+        const overwriteTargets=new Map((data.targets||[]).map(item=>[item.type+":"+item.id,item]));
+        const permissionControls=document.createElement("div");permissionControls.className="dc-channel-permission-grid";permissionsEditor.append(permissionControls);
+        const currentTarget=()=>{
+          if(targetType.value==="role")return {id:roleSelect.value,type:"role"};
+          return {id:memberId.value.trim(),type:"member"};
+        };
+        const renderPermissionControls=()=>{
+          const target=currentTarget();const current=overwriteTargets.get(target.type+":"+target.id);
+          permissionControls.replaceChildren();
+          (data.permission_keys||[]).forEach(key=>{
+            const value=current?.permissions?.[key];
+            const select=settingsSelect([["","Наследовать"],["true","Разрешить"],["false","Запретить"]],value===true?"true":value===false?"false":"");
+            permissionControls.append(settingsLabel(permissionLabels[key]||key,select));
+          });
+        };
+        targetType.addEventListener("change",()=>{
+          const isMember=targetType.value==="member";roleSelect.hidden=isMember;memberId.hidden=!isMember;
+          renderPermissionControls();
+        });
+        roleSelect.addEventListener("change",renderPermissionControls);memberId.addEventListener("input",renderPermissionControls);
+        renderPermissionControls();
+        const actions=document.createElement("div");actions.className="dc-settings-footer";
+        const clear=settingsButton("Сбросить переопределение",async()=>{
+          const target=currentTarget();if(!target.id||!confirm("Сбросить индивидуальные права этой роли/участника?"))return;
+          try{await request("DELETE",null,target.id);await loadChannelPermissions(channel);showToast?.("Переопределение удалено.");}catch(error){settingsError(permissionsEditor,error);}
+        },"danger");
+        const save=settingsButton("Сохранить права",async()=>{
+          const target=currentTarget();if(!target.id||!/^\\d+$/.test(target.id)){settingsError(permissionsEditor,new Error("Выбери роль или введи корректный Discord ID участника."));return;}
+          const values={};Array.from(permissionControls.querySelectorAll("select")).forEach((select,index)=>{const key=(data.permission_keys||[])[index];values[key]=select.value===""?null:select.value==="true";});
+          save.disabled=true;
+          try{await request("PATCH",{target_type:target.type,permissions:values},target.id);showToast?.("Права канала сохранены.");await loadChannelPermissions(channel);}
+          catch(error){settingsError(permissionsEditor,error);}finally{save.disabled=false;}
+        },"primary");
+        actions.append(clear,save);permissionsEditor.append(actions);
+      }catch(error){permissionsEditor.replaceChildren();settingsError(permissionsEditor,error);}
+      permissionsEditor.scrollIntoView({behavior:"smooth",block:"nearest"});
+    };
     typeSelect.addEventListener("change",()=>{const type=typeSelect.value;topicInput.disabled=!["text","announcement","forum"].includes(type);slowInput.disabled=!["text","announcement"].includes(type);categorySelect.disabled=type==="category";});
     const loadChannels=async()=>{
       list.textContent="Загрузка каналов…";
@@ -2223,6 +2292,7 @@ function dcRenderServerSettings(data){
             submit.textContent="Сохранить";
             editor.scrollIntoView({behavior:"smooth",block:"nearest"});
           }));
+          if(!isCategory)actions.push(settingsButton("Права",()=>loadChannelPermissions(item)));
           actions.push(settingsButton("Удалить",async()=>{
             if(!confirm("Удалить "+(isCategory?"категорию ":"канал ")+"«"+item.name+"»? Это действие нельзя отменить."))return;
             try{await serverSettingsRequest("channels","DELETE",null,item.id);await loadChannels();showToast?.("Объект удалён.");}catch(error){settingsError(editor,error);}
