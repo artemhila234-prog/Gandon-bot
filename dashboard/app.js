@@ -2326,7 +2326,7 @@ function dcRenderServerSettings(data){
           const deleteButton=settingsButton("Удалить",async()=>{
             if(!confirm("Удалить "+(isCategory?"категорию ":"канал ")+"«"+item.name+"»? Это действие нельзя отменить."))return;
             try{await serverSettingsRequest("channels","DELETE",null,item.id);await loadChannels();showToast?.("Объект удалён.");}catch(error){settingsError(editor,error);}
-          },"danger"));
+          },"danger");
           deleteButton.disabled=!currentData.can_edit;
           actions.push(deleteButton);
           const row=settingsRow(list,(isCategory?"▾ ":"# ")+item.name,isCategory?"Категория":"Тип: "+(item.type||"канал")+" · "+(item.category_name||"Без категории"),actions);
