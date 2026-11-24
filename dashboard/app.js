@@ -2299,7 +2299,7 @@ function dcRenderServerSettings(data){
             createForm.dataset.editId=String(item.id);nameInput.value=item.name||"";typeSelect.value=isCategory?"category":(item.type||"text");
             typeSelect.disabled=true;categorySelect.value=item.category_id||"";categorySelect.disabled=isCategory;
             topicInput.value=item.topic||"";topicInput.disabled=isCategory||!["text","announcement","forum"].includes(typeSelect.value);
-            slowInput.value=String(item.slowmode_delay||0);slowInput.disabled=isCategory||!["text","announcement"].includes(typeSelect.value);
+            slowInput.value=String(item.slowmode_delay||0);slowInput.disabled=isCategory||!["text","announcement","forum"].includes(typeSelect.value);
             positionInput.value=String(item.position??0);
             bitrateInput.value=String(item.bitrate||64000);bitrateInput.disabled=!["voice","stage"].includes(typeSelect.value);
             userLimitInput.value=String(item.user_limit||0);userLimitInput.disabled=!["voice","stage"].includes(typeSelect.value);
@@ -2335,8 +2335,8 @@ function dcRenderServerSettings(data){
         payload.position=Math.max(0,Number(positionInput.value)||0);
         if(typeSelect.value!=="category")payload.category_id=categorySelect.value||null;
         if(["text","announcement","forum"].includes(typeSelect.value))payload.topic=topicInput.value.trim();
-        if(["text","announcement"].includes(typeSelect.value))payload.slowmode_delay=Number(slowInput.value)||0;
-        if(typeSelect.value==="voice"){payload.bitrate=Number(bitrateInput.value)||64000;payload.user_limit=Number(userLimitInput.value)||0;}
+        if(["text","announcement","forum"].includes(typeSelect.value))payload.slowmode_delay=Number(slowInput.value)||0;
+        if(["voice","stage"].includes(typeSelect.value)){payload.bitrate=Number(bitrateInput.value)||64000;payload.user_limit=Number(userLimitInput.value)||0;}
         if(["text","announcement","forum","voice","stage"].includes(typeSelect.value))payload.nsfw=!!nsfwInput.checked;
       }
       try{await serverSettingsRequest("channels",editId?"PATCH":"POST",payload,editId);createForm.dataset.editId="";createForm.reset();typeSelect.disabled=false;categorySelect.disabled=false;submit.textContent="Создать";typeSelect.dispatchEvent(new Event("change"));await loadChannels();showToast?.(editId?"Канал обновлён.":"Объект создан.");}
