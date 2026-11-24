@@ -4050,6 +4050,40 @@ async def panel_settings_permission_context(guild_id, actor_id, permission):
     return guild, actor, me
 
 
+async def panel_settings_channel_action_permission(guild_id, actor_id, channel_id, permission):
+    """Check effective actor and bot permissions after channel overwrites."""
+    if not bot.is_ready() or not all(str(value).isdigit() for value in (guild_id, actor_id, channel_id)):
+        raise ValueError("Некорректный ID сервера, пользователя или канала.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден среди серверов, где состоит бот.")
+    actor = await panel_fetch_guild_member(guild, actor_id)
+    me = guild.me or guild.get_member(bot.user.id)
+    if me is None:
+        raise RuntimeError("Не удалось определить участника-бота на сервере.")
+    channel = guild.get_channel(int(channel_id))
+    if not isinstance(channel, discord.TextChannel):
+        raise ValueError("Выбранный канал не является текстовым каналом этого сервера.")
+    actor_permissions = channel.permissions_for(actor)
+    bot_permissions = channel.permissions_for(me)
+    permission_options = [item.strip() for item in str(permission).split("|") if item.strip()]
+    actor_allowed = (
+        actor.id == guild.owner_id
+        or actor.guild_permissions.administrator
+        or any(bool(getattr(actor_permissions, item, False)) for item in permission_options)
+    )
+    bot_allowed = (
+        me.guild_permissions.administrator
+        or any(bool(getattr(bot_permissions, item, False)) for item in permission_options)
+    )
+    permission_label = " или ".join(item.replace("_", " ") for item in permission_options)
+    if not actor_allowed:
+        raise PermissionError("В выбранном канале тебе не хватает права: «" + permission_label + "».")
+    if not bot_allowed:
+        raise PermissionError("У бота нет права «" + permission_label + "» в выбранном канале.")
+    return {"ok": True, "guild_id": str(guild.id), "channel_id": str(channel.id)}
+
+
 async def panel_guild_channels(guild_id):
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
@@ -4723,6 +4757,7 @@ async def run_services():
         "discord_channels": panel_guild_channels,
         "settings_guild_channels": panel_settings_guild_channels,
         "settings_permission": panel_settings_permission_context,
+        "settings_channel_action_permission": panel_settings_channel_action_permission,
         "settings_channel_create": panel_settings_channel_create,
         "settings_channel_update": panel_settings_channel_update,
         "settings_channel_delete": panel_settings_channel_delete,
