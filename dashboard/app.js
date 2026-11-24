@@ -1535,7 +1535,7 @@ async function dcOpenMentionProfile(user){
     dcOpenBasicProfile(user,"Показаны доступные данные. Не удалось загрузить сведения участника сервера: "+error.message);
   }
 }
-function dcOpenProfile(member,roleList=dcMemberRoleCache){
+function dcOpenProfile(member,roleDefinitions=dcMemberRoleCache){
   if(!member?.id||!dcActiveGuild)return;
   let modal=document.getElementById("dcProfileModal");
   if(!modal){modal=document.createElement("div");modal.id="dcProfileModal";modal.className="dc-profile-backdrop";modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});document.body.append(modal);}
@@ -1551,7 +1551,7 @@ function dcOpenProfile(member,roleList=dcMemberRoleCache){
   const rolesSection=document.createElement("div");rolesSection.className="dc-profile-section";const rolesTitle=document.createElement("h3");rolesTitle.textContent="РОЛИ · УПРАВЛЕНИЕ";rolesSection.append(rolesTitle);
   const roleList=document.createElement("div");roleList.className="dc-profile-roles";
   const assigned=new Set((member.role_ids||[]).map(String));
-  const sortedProfileRoles=[...(roleList||dcMemberRoleCache||[])].sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
+  const sortedProfileRoles=[...(roleDefinitions||dcMemberRoleCache||[])].sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
   sortedProfileRoles.forEach(role=>{
     const manageable=role.manageable===true;
     const label=document.createElement("label");label.className="dc-profile-role"+(manageable?"":" dc-profile-role-unmanageable");
