@@ -4200,7 +4200,7 @@ async def panel_settings_channel_delete(guild_id, actor_id, channel_id):
 
 
 async def panel_settings_channel_permissions(guild_id, actor_id, channel_id):
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
+    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_roles")
     if not str(channel_id).isdigit():
         raise ValueError("Некорректный ID канала.")
     channel = guild.get_channel(int(channel_id))
@@ -4229,11 +4229,18 @@ async def panel_settings_channel_permissions(guild_id, actor_id, channel_id):
             "permissions": {key: getattr(overwrite, key, None) for key in allowed_keys},
         })
     roles = [{"id": str(role.id), "name": role.name} for role in sorted(guild.roles, key=lambda item: item.position, reverse=True)]
-    return {"channel_id": str(channel.id), "channel_name": channel.name, "targets": targets, "roles": roles, "permission_keys": allowed_keys}
+    channel_permissions = channel.permissions_for(me)
+    manageable_keys = [
+        key for key in allowed_keys
+        if me.guild_permissions.administrator
+        or bool(getattr(me.guild_permissions, key, False))
+        or bool(getattr(channel_permissions, key, False))
+    ]
+    return {"channel_id": str(channel.id), "channel_name": channel.name, "targets": targets, "roles": roles, "permission_keys": manageable_keys}
 
 
 async def panel_settings_channel_permission_update(guild_id, actor_id, channel_id, target_id, payload):
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
+    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_roles")
     if not str(channel_id).isdigit() or not str(target_id).isdigit() or not isinstance(payload, dict):
         raise ValueError("Некорректные параметры переопределения прав.")
     channel = guild.get_channel(int(channel_id))
@@ -4274,7 +4281,7 @@ async def panel_settings_channel_permission_update(guild_id, actor_id, channel_i
 
 
 async def panel_settings_channel_permission_delete(guild_id, actor_id, channel_id, target_id):
-    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
+    guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_roles")
     if not str(channel_id).isdigit() or not str(target_id).isdigit():
         raise ValueError("Некорректные ID канала или цели.")
     channel = guild.get_channel(int(channel_id))
