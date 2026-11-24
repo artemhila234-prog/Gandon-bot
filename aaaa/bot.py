@@ -4309,6 +4309,56 @@ async def panel_settings_channel_permission_delete(guild_id, actor_id, channel_i
     return {"ok": True, "channel_id": str(channel_id), "target_id": str(target_id)}
 
 
+async def panel_settings_event_permission_context(guild_id, actor_id, channel_id=None, entity_type=3):
+    if not bot.is_ready() or not str(guild_id).isdigit() or not str(actor_id).isdigit():
+        raise ValueError("Некорректный ID сервера или пользователя.")
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        raise ValueError("Сервер не найден среди серверов, где состоит бот.")
+    actor = await panel_fetch_guild_member(guild, actor_id)
+    me = guild.me or guild.get_member(bot.user.id)
+    if me is None:
+        raise RuntimeError("Не удалось определить права бота на сервере.")
+    try:
+        entity_type = int(entity_type)
+    except (TypeError, ValueError):
+        raise ValueError("Некорректный тип события.")
+    if entity_type == 3:
+        actor_perms = actor.guild_permissions
+        bot_perms = me.guild_permissions
+    else:
+        if not str(channel_id or "").isdigit():
+            raise ValueError("Не выбран канал для события.")
+        channel = guild.get_channel(int(channel_id))
+        if entity_type == 1 and not isinstance(channel, discord.StageChannel):
+            raise ValueError("Для Stage-события выбери Stage-канал.")
+        if entity_type == 2 and not isinstance(channel, discord.VoiceChannel):
+            raise ValueError("Для голосового события выбери голосовой канал.")
+        if entity_type not in {1, 2}:
+            raise ValueError("Неизвестный тип события.")
+        actor_perms = channel.permissions_for(actor)
+        bot_perms = channel.permissions_for(me)
+    actor_owner = actor.id == guild.owner_id
+    actor_has_create = actor_owner or actor_perms.administrator or actor_perms.manage_events or actor_perms.create_events
+    bot_has_create = me.guild_permissions.administrator or bot_perms.administrator or bot_perms.manage_events or bot_perms.create_events
+    if not actor_has_create:
+        raise PermissionError("Тебе нужно право «Создавать события» или «Управлять событиями» в выбранном месте.")
+    if not bot_has_create:
+        raise PermissionError("Боту нужно право «Создавать события» или «Управлять событиями» в выбранном месте.")
+    if entity_type == 2:
+        required = ("view_channel", "connect")
+    elif entity_type == 1:
+        required = ("manage_channels", "mute_members", "move_members")
+    else:
+        required = ()
+    for key in required:
+        if not (actor_owner or actor_perms.administrator or bool(getattr(actor_perms, key, False))):
+            raise PermissionError("Для этого события тебе также нужно право «" + key.replace("_", " ") + "» в канале.")
+        if not (me.guild_permissions.administrator or bool(getattr(bot_perms, key, False))):
+            raise PermissionError("Боту также нужно право «" + key.replace("_", " ") + "» в канале.")
+    return {"ok": True, "guild_id": str(guild.id), "channel_id": str(channel_id or ""), "entity_type": entity_type}
+
+
 async def panel_settings_member_action(guild_id, actor_id, member_id, payload):
     if not isinstance(payload, dict) or not str(member_id).isdigit():
         raise ValueError("Некорректные данные участника.")
@@ -4557,6 +4607,7 @@ async def run_services():
         "settings_channel_permission_update": panel_settings_channel_permission_update,
         "settings_channel_permission_delete": panel_settings_channel_permission_delete,
         "settings_member_action": panel_settings_member_action,
+        "settings_event_permission": panel_settings_event_permission_context,
         "discord_emojis": panel_guild_emojis,
         "discord_channel_history": panel_channel_history,
         "discord_channel_send": panel_channel_send,
