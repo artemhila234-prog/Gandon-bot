@@ -2332,3 +2332,14 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Проверки: app.js прошёл V8 new Function; статически подтверждены parser :ID:, удаление raw token при наличии message.stickers, CDN png/gif fallback, существующая сериализация message.stickers, CSS и cache-bust. Не выполнялись browser test с реальными сообщениями и live Discord API.
 - Следующий шаг: синхронизировать main на Bot-Hosting, перезапустить bot/panel, обновить страницу Ctrl+F5 и проверить три примера стикеров. Если CDN не отдаёт изображение конкретного формата, посмотреть format/URL объекта message.stickers и адаптировать формат (PNG/APNG/GIF/Lottie) без показа ID вместо картинки.
 
+46. ИСПРАВЛЕНИЕ ИНДЕКСОВ ТОКЕНОВ СТИКЕРОВ (2026-11-24)
+- Повторное сообщение пользователя подтвердило, что на сайте по-прежнему показывается строка `тест стикеров :1507995893482393630::1507995895080161391::1507995896871129189:`, а в Discord видны изображения; то же поведение наблюдается для стикеров с других серверов.
+- Найдена конкретная первопричина предыдущей неработающей правки: в regex dcRenderMessageContent (dashboard/app.js) группы захвата имеют индексы 1=user, 2=role, 3=channel, 4/5=timestamp/style, 6/7/8=custom emoji animated/name/id, 9=url, 10=sticker ID. Код проверял match[7] как animated flag, match[10] как URL и match[11] как sticker ID. В результате :ID: попадал в URL branch, sticker branch никогда не срабатывал; это было одинаково для любого сервера.
+- Исправлено: custom emoji renderer использует match[6]/[7]/[8], URL — match[9], sticker ID — match[10]. Проверяются и обычные, и анимированные custom emoji.
+- Sticker fallback пытается загрузить ресурс по ID с cdn.discordapp.com и media.discordapp.net в вариантах PNG и GIF. Если message.stickers metadata присутствует, исходный :ID: marker удаляется, а отдельный renderer показывает metadata URL, чтобы не было дублирования.
+- dashboard/index.html cache-bust обновлён на 20261124-stickers2.
+- Коммиты: dashboard/app.js e5637e69fb101d4bc24dfdafcf8a5febbd5289d3; dashboard/index.html 1bcd1c283450a2e5a18f1c378591a1f2dccc1d18.
+- Статическая проверка прошла: app.js успешно разбирается V8; sample-строка разбирается ровно на три stickerId (1507995893482393630, 1507995895080161391, 1507995896871129189); отдельно проверены capture indices обычного custom emoji, анимированного custom emoji, URL и sticker ID; подтверждены fallback hosts, metadata deduplication и новый cache-bust.
+- Не выполнялись browser E2E и live Discord/CDN-проверки. Не утверждать, что изображения уже появились на live сайте до синхронизации GitHub main на Bot-Hosting и Ctrl+F5.
+- Следующий шаг: синхронизировать main и перезапустить frontend/backend при необходимости; Ctrl+F5. Проверить сообщения со стикерами с нескольких серверов. Если конкретный ID не даёт изображение, посмотреть network response CDN для URL и sticker format metadata.
+
