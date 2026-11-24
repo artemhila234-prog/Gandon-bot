@@ -2044,3 +2044,24 @@ body.discord-mode #pageContent.discord-fullscreen .dc-emoji-picker{
   body.discord-mode #pageContent.discord-fullscreen .dc-emoji-picker{right:8px;grid-template-columns:repeat(7,minmax(0,1fr))}
   .dc-reply-preview{margin-inline:0}
 }
+
+
+body.discord-mode #pageContent.discord-fullscreen .dc-live-message{position:relative}
+.dc-message-toolbar{
+  position:absolute;z-index:5;top:-12px;right:18px;display:flex;align-items:center;gap:2px;
+  padding:3px;background:#202127;border:1px solid #111216;border-radius:7px;
+  box-shadow:0 5px 16px #0007;opacity:0;pointer-events:none;transform:translateY(3px);
+  transition:opacity .12s ease,transform .12s ease
+}
+.dc-live-message:hover .dc-message-toolbar,.dc-live-message:focus-within .dc-message-toolbar{
+  opacity:1;pointer-events:auto;transform:translateY(0)
+}
+.dc-message-toolbar button{
+  width:28px;height:27px;border:0;border-radius:4px;background:transparent;color:#b5bac1;
+  font:600 15px system-ui;cursor:pointer
+}
+.dc-message-toolbar button:hover{background:#3b3d46;color:#fff}
+@media(hover:none){
+  .dc-message-toolbar{position:static;opacity:1;pointer-events:auto;transform:none;box-shadow:none;background:transparent;border:0;padding:0;margin-top:5px}
+  .dc-message-toolbar button{width:32px;height:28px;background:#292b31}
+}
