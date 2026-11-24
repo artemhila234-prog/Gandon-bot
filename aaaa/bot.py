@@ -4124,14 +4124,9 @@ async def panel_settings_channel_create(guild_id, actor_id, payload):
             name, category=parent, topic=str(payload.get("topic") or "")[:1024] or None,
             nsfw=bool(payload.get("nsfw", False)),
             slowmode_delay=max(0, min(int(payload.get("slowmode_delay") or 0), 21600)),
+            news=(kind == "announcement"),
             reason=reason,
         )
-        if kind == "announcement" and not getattr(channel, "is_news", lambda: False)():
-            try:
-                await channel.edit(type=discord.ChannelType.news, reason=reason)
-            except Exception:
-                await channel.delete(reason="Rollback: announcement channel type unsupported")
-                raise ValueError("Discord не разрешил создать канал объявлений. Проверь Community на сервере.")
     elif kind == "voice":
         channel = await guild.create_voice_channel(
             name, category=parent,
