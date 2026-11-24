@@ -1282,7 +1282,7 @@ function dcSetMode(mode){
   if(search)search.hidden=!dm;if(searchResults)searchResults.hidden=true;if(dmList)dmList.hidden=!dm;if(channelList)channelList.hidden=dm;
   const membersPanel=document.getElementById("dcMembersPanel"),profilePanel=document.getElementById("dcDmProfilePanel"),membersHead=membersPanel?.querySelector(".dc-members-head"),memberSearch=document.getElementById("dcMemberSearch"),memberList=document.getElementById("dcMemberList");
   if(membersPanel)membersPanel.hidden=false;if(profilePanel)profilePanel.hidden=!dm;if(membersHead)membersHead.hidden=dm;if(memberSearch)memberSearch.hidden=dm;if(memberList)memberList.hidden=dm;const settingsButton=document.getElementById("dcServerSettingsButton");if(settingsButton)settingsButton.hidden=dm||!dcActiveGuild;
-  if(title)title.textContent=dm?"ЛИЧНЫЕ СООБЩЕНИЯ":"ТЕКСТОВЫЕ КАНАЛЫ";if(refresh)refresh.title=dm?"Обновить диалоги":"Обновить каналы";
+  if(title)title.textContent=dm?"ЛИЧНЫЕ СООБЩЕНИЯ":"КАНАЛЫ";if(refresh)refresh.title=dm?"Обновить диалоги":"Обновить каналы";
   document.querySelectorAll(".dc-guild-icon").forEach(x=>x.classList.toggle("selected",dm?x.id==="dcHomeButton":x.dataset.guildId===dcActiveGuild?.id));
 }
 
@@ -2867,6 +2867,20 @@ function dcRenderGuildChannels(data,list,title,guild){
     });
   });
 }
+async function dcRefreshVoiceChannel(){
+  if(!dcActiveGuild?.id||!dcActiveVoiceChannel?.id)return;
+  const guildId=String(dcActiveGuild.id),channelId=String(dcActiveVoiceChannel.id);
+  const refresh=document.getElementById("dcRefreshChat");if(refresh)refresh.disabled=true;
+  try{
+    const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(guildId)+"/channels");
+    if(String(dcActiveGuild?.id||"")!==guildId||String(dcActiveVoiceChannel?.id||"")!==channelId)return;
+    dcChannelsCacheByGuild.set(guildId,data);
+    const fresh=(data.channels||[]).find(item=>String(item.id)===channelId);
+    if(!fresh)throw new Error("Голосовой канал больше не доступен боту.");
+    dcOpenVoiceChannel(fresh);
+  }catch(error){if(typeof showToast==="function")showToast(error.message);}
+  finally{if(refresh)refresh.disabled=false;}
+}
 async function dcOpenVoiceChannel(channel){
   if(!channel?.id||!dcActiveGuild)return;
   dcActiveChannel=null;dcActiveVoiceChannel=channel;dcActiveUser=null;dcActiveDmChannelId=null;dcClearReplyTarget();
@@ -2928,7 +2942,7 @@ async function dcOpenGuild(guild){
   if(!guild?.id)return;dcActiveGuild=guild;dcActiveChannel=null;dcActiveVoiceChannel=null;dcActiveUser=null;dcActiveDmChannelId=null;dcClearReplyTarget();dcSetMode("guild");
   const composerWrap=document.querySelector(".dc-composer-wrap");if(composerWrap)composerWrap.hidden=false;
   const list=document.getElementById("dcChannelList"),title=document.getElementById("dcChatTitle"),subtitle=document.getElementById("dcChatSubtitle"),input=document.getElementById("dcMessageInput"),send=document.getElementById("dcSendButton"),hint=document.getElementById("dcComposerHint"),card=document.getElementById("dcRecipientCard");
-  if(title)title.textContent=guild.name;if(subtitle)subtitle.textContent="Выбери текстовый канал";if(input){input.value="";input.disabled=true;}if(send)send.disabled=true;if(hint)hint.textContent="Сообщения будут отправляться от имени Discord-бота.";if(card)card.textContent="Выбран сервер: "+guild.name;
+  if(title)title.textContent=guild.name;if(subtitle)subtitle.textContent="Выбери канал";if(input){input.value="";input.disabled=true;}if(send)send.disabled=true;if(hint)hint.textContent="Сообщения будут отправляться от имени Discord-бота.";if(card)card.textContent="Выбран сервер: "+guild.name;
   dcLoadGuildMembers(guild);
   const root=document.getElementById("dcChatMessages");if(root){root.innerHTML="";const welcome=document.createElement("div");welcome.className="dc-live-welcome";welcome.innerHTML='<div class="dc-live-welcome-icon">#</div><h1>'+dcEscape(guild.name)+'</h1><p>Выбери канал слева, чтобы читать историю и отправлять сообщения.</p>';root.append(welcome);}
   const cachedChannels=dcChannelsCacheByGuild.get(guild.id);
@@ -2974,7 +2988,7 @@ function loadBotDiscord(){
   searchButton?.addEventListener("click",dcSearchUsers);search?.addEventListener("keydown",event=>{if(event.key==="Enter"){event.preventDefault();dcSearchUsers();}});
   document.getElementById("dcMemberSearch")?.addEventListener("input",dcRenderGuildMembers);
   refresh?.addEventListener("click",()=>{if(dcActiveGuild)dcOpenGuild(dcActiveGuild);else dcLoadConversationList();});
-  refreshChat?.addEventListener("click",()=>{if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel);else if(dcActiveUser)dcOpenConversation(dcActiveUser);});
+  refreshChat?.addEventListener("click",()=>{if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel);else if(dcActiveVoiceChannel)dcRefreshVoiceChannel();else if(dcActiveUser)dcOpenConversation(dcActiveUser);});
   document.getElementById("dcHomeButton")?.addEventListener("click",()=>{dcActiveGuild=null;dcActiveChannel=null;dcActiveUser=null;dcActiveDmChannelId=null;dcClearReplyTarget();dcSetMode("dm");dcLoadConversationList();});
   form?.addEventListener("submit",dcSendMessage);
   dcApplyAccessibilityPreferences();
