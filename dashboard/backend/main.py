@@ -1327,6 +1327,22 @@ async def api_discord_guild_emojis(guild_id: str, request: Request):
 
 
 
+async def require_event_manage_permission(guild_id: str, actor: dict[str, Any], event: dict[str, Any]):
+    try:
+        return await get_dm_controller("settings_event_manage_permission")(
+            guild_id,
+            str(actor.get("id", "")),
+            str(event.get("channel_id") or ""),
+            int(event.get("entity_type") or 3),
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:300])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:300])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось проверить права на событие: {str(error)[:250]}")
+
+
 async def require_guild_setting_permission(guild_id: str, actor: dict[str, Any], permission: str):
     try:
         return await get_dm_controller("settings_permission")(guild_id, str(actor.get("id", "")), permission)
@@ -1873,7 +1889,8 @@ async def api_discord_server_event_update(guild_id: str, event_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not event_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID события.")
-    await require_guild_setting_permission(guild_id, actor, "manage_events")
+    event = await discord_request("GET", f"/guilds/{guild_id}/scheduled-events/{event_id}")
+    await require_event_manage_permission(guild_id, actor, event)
     payload = await request.json()
     allowed = {"name", "description", "scheduled_start_time", "scheduled_end_time", "status", "entity_metadata"}
     body = {key: payload[key] for key in allowed if key in payload}
@@ -1896,7 +1913,8 @@ async def api_discord_server_event_delete(guild_id: str, event_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not event_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID события.")
-    await require_guild_setting_permission(guild_id, actor, "manage_events")
+    event = await discord_request("GET", f"/guilds/{guild_id}/scheduled-events/{event_id}")
+    await require_event_manage_permission(guild_id, actor, event)
     return await discord_request("DELETE", f"/guilds/{guild_id}/scheduled-events/{event_id}")
 
 
