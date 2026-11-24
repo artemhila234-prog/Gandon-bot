@@ -1536,10 +1536,23 @@ async def api_discord_server_safety_update(guild_id: str, request: Request):
         payload = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Некорректные настройки безопасности.")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Некорректные настройки безопасности.")
     incident_payload = {}
     for key in ("invites_disabled_until", "dms_disabled_until"):
         if key in payload:
-            incident_payload[key] = payload[key]
+            value = payload[key]
+            if value is not None:
+                try:
+                    target_time = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+                    if target_time.tzinfo is None:
+                        raise ValueError()
+                    remaining = (target_time - datetime.now(timezone.utc)).total_seconds()
+                    if remaining < 0 or remaining > 24 * 60 * 60:
+                        raise ValueError()
+                except (TypeError, ValueError):
+                    raise HTTPException(status_code=400, detail="Временная защита от рейдов может быть включена максимум на следующие 24 часа.")
+            incident_payload[key] = value
     regular = {key: value for key, value in payload.items() if key not in incident_payload}
     result = None
     if regular:
@@ -1605,6 +1618,8 @@ async def api_discord_server_automod_create(guild_id: str, request: Request):
         raise HTTPException(status_code=400, detail="Добавь хотя бы одно действие AutoMod.")
     if any(not isinstance(item, dict) or int(item.get("type") or 0) not in {1, 2, 3, 4} for item in actions):
         raise HTTPException(status_code=400, detail="Неизвестное действие AutoMod.")
+    if any(int(item.get("type") or 0) == 4 for item in actions) and trigger_type != 6:
+        raise HTTPException(status_code=400, detail="Блокировка взаимодействий предназначена для фильтра профиля участника.")
     if any(int(item.get("type") or 0) == 3 for item in actions):
         if trigger_type not in {1, 5}:
             raise HTTPException(status_code=400, detail="Discord разрешает тайм-аут только для ключевых слов и массовых упоминаний.")
