@@ -4106,10 +4106,11 @@ async def panel_settings_channel_create(guild_id, actor_id, payload):
     guild, actor, me = await panel_settings_permission_context(guild_id, actor_id, "manage_channels")
     if not isinstance(payload, dict):
         raise ValueError("Некорректные параметры нового канала.")
-    name = str(payload.get("name") or "").strip().lower().replace(" ", "-")
+    raw_name = str(payload.get("name") or "").strip()
+    kind = str(payload.get("type") or "text").lower()
+    name = raw_name if kind == "category" else raw_name.lower().replace(" ", "-")
     if not name or len(name) > 100:
         raise ValueError("Название должно содержать от 1 до 100 символов.")
-    kind = str(payload.get("type") or "text").lower()
     parent = None
     parent_id = str(payload.get("category_id") or "").strip()
     if parent_id:
@@ -4141,7 +4142,10 @@ async def panel_settings_channel_create(guild_id, actor_id, payload):
         )
     elif kind == "stage":
         channel = await guild.create_stage_channel(
-            name, category=parent, position=position, nsfw=bool(payload.get("nsfw", False)), reason=reason
+            name, category=parent, position=position,
+            bitrate=max(8000, min(int(payload.get("bitrate") or 64000), int(getattr(guild, "bitrate_limit", 96000)))),
+            user_limit=max(0, min(int(payload.get("user_limit") or 0), 99)),
+            nsfw=bool(payload.get("nsfw", False)), reason=reason
         )
     elif kind == "forum":
         channel = await guild.create_forum(
@@ -4167,7 +4171,8 @@ async def panel_settings_channel_update(guild_id, actor_id, channel_id, payload)
         raise ValueError("Переданы неизвестные параметры канала.")
     changes = {}
     if "name" in payload:
-        name = str(payload.get("name") or "").strip().lower().replace(" ", "-")
+        raw_name = str(payload.get("name") or "").strip()
+        name = raw_name if isinstance(channel, discord.CategoryChannel) else raw_name.lower().replace(" ", "-")
         if not name or len(name) > 100:
             raise ValueError("Название канала должно содержать от 1 до 100 символов.")
         changes["name"] = name
@@ -4188,9 +4193,9 @@ async def panel_settings_channel_update(guild_id, actor_id, channel_id, payload)
         changes["nsfw"] = bool(payload["nsfw"])
     if "slowmode_delay" in payload and isinstance(channel, (discord.TextChannel, discord.ForumChannel)):
         changes["slowmode_delay"] = max(0, min(int(payload["slowmode_delay"]), 21600))
-    if "bitrate" in payload and isinstance(channel, discord.VoiceChannel):
+    if "bitrate" in payload and isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
         changes["bitrate"] = max(8000, min(int(payload["bitrate"]), int(getattr(guild, "bitrate_limit", 96000))))
-    if "user_limit" in payload and isinstance(channel, discord.VoiceChannel):
+    if "user_limit" in payload and isinstance(channel, (discord.VoiceChannel, discord.StageChannel)):
         changes["user_limit"] = max(0, min(int(payload["user_limit"]), 99))
     if not changes:
         raise ValueError("Нет изменений для сохранения или параметры неприменимы к этому типу канала.")
