@@ -2266,3 +2266,22 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Статические проверки: app.js успешно разобран V8; проверены click/keyboard mention handlers, endpoint, controller mapping, server profile data + roles, separate DM action, обновление профиля после role edit, cache bust и отсутствие прежнего прямого перехода в dcOpenConversation(user) от клика по mention.
 - Не выполнялись browser E2E или live запросы к Discord/хостингу; изменения отправлены в main, но не развернуты автоматически.
 - Следующий шаг: синхронизировать main на Bot-Hosting, перезапустить бота/панель, выполнить Ctrl+F5, открыть серверный канал, нажать на `<@USER_ID>` в сообщении. Должна открыться карточка участника поверх чата; кнопка «Открыть ЛС» внутри неё делает отдельный переход в DM.
+
+
+41. ДОБАВЛЕНЫ КАСТОМНЫЕ ЭМОДЗИ СЕРВЕРА В LIVE-РЕАКЦИИ И ВЫБОР ЭМОДЗИ (2026-11-24)
+- Пользователь заметил, что в LIVE-чате доступны только базовые стандартные Unicode-эмодзи. Подтверждено: прежний reaction picker содержал фиксированный набор из 12 Unicode-реакций, а composer emoji picker — встроенный Unicode-массив; кастомные эмодзи сервера не загружались.
+- Добавлен backend controller panel_guild_emojis(guild_id) в aaaa/bot.py: возвращает доступные эмодзи выбранного сервера (id, name, animated, url, reaction token и markup); недоступные эмодзи пропускаются.
+- Зарегистрирован controller discord_emojis и добавлен GET endpoint /api/discord/guilds/{guild_id}/emojis в dashboard/backend/main.py с проверкой adm-доступа.
+- Reaction picker в dashboard/app.js теперь сохраняет обычные реакции и дополнительно загружает кастомные эмодзи текущего сервера, отображает их картинками, включая анимированные, с подсказкой имени; список кешируется по guild ID.
+- Composer emoji picker тоже показывает эмодзи сервера; выбор вставляет корректный Discord markup <:name:id> или <a:name:id> в поле сообщения.
+- Для реакций frontend отправляет маркер custom:<emoji_id>; backend проверяет ID в guild.emojis и добавляет/снимает реальную реакцию объектом Emoji. Для toggle сравнивается custom emoji ID, чтобы повторный клик удалял реакцию бота.
+- dashboard/style.css: стили раздела эмодзи сервера, сетки custom emoji и состояний загрузки/пустого списка.
+- dashboard/index.html: cache-bust CSS/JS обновлён на 20261124-server-emojis1.
+- Коммиты:
+  - aaaa/bot.py: 31c1e0a51cf5554576590dfff66e6ce316f109f5; blob fb2c6502cd543ba38985271b973f1288d0b7b5ab.
+  - dashboard/backend/main.py: bb2a6063780b3e47f01a0ddafbc782f641f0e2ef; blob 31691c385f15284c76e92fb7b831dba8f592b25a.
+  - dashboard/app.js: b672ec8e1814f5681951661aa9085f685417d92d; blob 6b08e49ed763aae7f2e1b3fcfdddbf4d73cfa9a2.
+  - dashboard/style.css: d788d7676990477e3ced7903a0cd69821a835489; blob a3f250f60b5f47ec976fe256ab8246eada94a129.
+  - dashboard/index.html: af38513882fbd7f123831080c2c6186ec313eafd; blob 18aafc730e89e6c6cc68e21eb0a42c8f1dcf1e98.
+- Проверки: dashboard/app.js успешно разобран через V8 new Function; статически проверено наличие controller registration, route, frontend fetch, custom reaction resolver, custom emoji picker, CSS и cache-bust. Не выполнялись Python runtime/browser E2E/реальный Discord API/deploy; GitHub commits не означают автоматического обновления Bot-Hosting.
+- Следующий шаг: синхронизировать main на Bot-Hosting (процесс aaaa/bot.py и сервис панели используют одну ревизию), перезапустить; открыть LIVE на сервере, нажать «Добавить реакцию» и проверить обычные + кастомные эмодзи, включая анимированные. Также проверить composer emoji picker в канале сервера. Если серверные эмодзи не видны, проверить, что выбран именно серверный канал, бот находится на сервере, эмодзи доступны боту и API GET /api/discord/guilds/{guild_id}/emojis возвращает список.
