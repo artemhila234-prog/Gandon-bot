@@ -993,7 +993,7 @@ function dcRenderMessageContent(parent,message){
     let node;
     if(match[1]){
       const user=users.get(match[1]);node=document.createElement("span");node.className="dc-mention dc-user-mention";node.textContent="@"+(user?.global_name||user?.display_name||user?.username||"пользователь");node.title=user?("@"+user.username+" · "+user.id):"Участник Discord";
-      if(user){node.tabIndex=0;node.setAttribute("role","button");node.addEventListener("click",()=>dcOpenConversation(user));node.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();dcOpenConversation(user);}});}
+      if(user){node.tabIndex=0;node.setAttribute("role","button");node.setAttribute("aria-label","Открыть профиль "+(user.global_name||user.username||"участника"));node.addEventListener("click",()=>dcOpenMentionProfile(user));node.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();dcOpenMentionProfile(user);}});}
     }else if(match[2]){
       const role=roles.get(match[2]);node=document.createElement("span");node.className="dc-mention dc-role-mention";node.textContent="@"+(role?.name||"роль");if(role?.color_hex)node.style.setProperty("--mention-color",role.color_hex);node.title=role?.name||"Роль Discord";
     }else if(match[3]){
@@ -1492,7 +1492,50 @@ function dcToggleEmojiPicker(){
 }
 const dcStatusLabels={online:"В сети",idle:"Не активен",dnd:"Не беспокоить",offline:"Не в сети"};
 function dcStatusClass(status){return ["online","idle","dnd"].includes(status)?status:"offline";}
-function dcOpenProfile(member){
+function dcEnsureProfileModal(){
+  let modal=document.getElementById("dcProfileModal");
+  if(!modal){
+    modal=document.createElement("div");modal.id="dcProfileModal";modal.className="dc-profile-backdrop";
+    modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});
+    document.body.append(modal);
+  }
+  return modal;
+}
+function dcOpenBasicProfile(user,notice=""){
+  if(!user?.id)return;
+  const modal=dcEnsureProfileModal();modal.replaceChildren();
+  const card=document.createElement("section");card.className="dc-profile-card dc-basic-profile-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
+  const close=document.createElement("button");close.className="dc-profile-close";close.type="button";close.textContent="×";close.setAttribute("aria-label","Закрыть профиль");close.addEventListener("click",()=>modal.remove());card.append(close);
+  const banner=document.createElement("div");banner.className="dc-profile-banner";card.append(banner);
+  const avatar=document.createElement("div");avatar.className="dc-profile-avatar";avatar.innerHTML=dcAvatar(user);
+  const status=document.createElement("i");status.className="dc-status-dot "+dcStatusClass(user.status);avatar.append(status);card.append(avatar);
+  const name=document.createElement("h2");name.textContent=user.global_name||user.display_name||user.username||"Пользователь Discord";card.append(name);
+  const tag=document.createElement("p");tag.className="dc-profile-tag";tag.textContent="@"+(user.username||"unknown")+" · "+user.id;card.append(tag);
+  const statusLine=document.createElement("div");statusLine.className="dc-profile-status";const dot=document.createElement("i");dot.className="dc-status-dot "+dcStatusClass(user.status);const statusText=document.createElement("span");statusText.textContent=dcStatusLabels[dcStatusClass(user.status)]||"Не в сети";if(user.bot)statusText.textContent+=" · Бот";statusLine.append(dot,statusText);card.append(statusLine);
+  const about=document.createElement("div");about.className="dc-profile-section";const aboutTitle=document.createElement("h3");aboutTitle.textContent="ПРОФИЛЬ DISCORD";const aboutText=document.createElement("p");aboutText.textContent=user.bot?"Бот Discord":"Пользователь Discord";about.append(aboutTitle,aboutText);
+  if(notice){const note=document.createElement("p");note.className="dc-profile-role-hint";note.textContent=notice;about.append(note);}
+  card.append(about);
+  const details=document.createElement("div");details.className="dc-profile-section";const detailsTitle=document.createElement("h3");detailsTitle.textContent="ИНФОРМАЦИЯ";const id=document.createElement("p");id.textContent="ID: "+user.id;details.append(detailsTitle,id);card.append(details);
+  const footer=document.createElement("div");footer.className="dc-profile-actions";
+  const copy=document.createElement("button");copy.type="button";copy.textContent="Копировать ID";copy.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(String(user.id));copy.textContent="Скопировано";}catch{copy.textContent="Не удалось скопировать";}});
+  const dm=document.createElement("button");dm.type="button";dm.textContent="Открыть ЛС";dm.addEventListener("click",()=>{modal.remove();dcActiveChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcSetMode("dm");dcOpenConversation(user);});
+  footer.append(copy,dm);card.append(footer);modal.append(card);
+  document.addEventListener("keydown",function esc(event){if(event.key==="Escape"){modal.remove();document.removeEventListener("keydown",esc);}});
+}
+async function dcOpenMentionProfile(user){
+  if(!user?.id)return;
+  if(!dcActiveGuild){dcOpenBasicProfile(user);return;}
+  const cached=dcMemberCache.find(member=>String(member.id)===String(user.id));
+  if(cached){dcOpenProfile({...user,...cached});return;}
+  try{
+    const data=await apiGet("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(user.id));
+    if(!dcActiveGuild){dcOpenBasicProfile(user);return;}
+    dcOpenProfile({...user,...(data.member||{})},data.roles||dcMemberRoleCache);
+  }catch(error){
+    dcOpenBasicProfile(user,"Показаны доступные данные. Не удалось загрузить сведения участника сервера: "+error.message);
+  }
+}
+function dcOpenProfile(member,roleList=dcMemberRoleCache){
   if(!member?.id||!dcActiveGuild)return;
   let modal=document.getElementById("dcProfileModal");
   if(!modal){modal=document.createElement("div");modal.id="dcProfileModal";modal.className="dc-profile-backdrop";modal.addEventListener("click",event=>{if(event.target===modal)modal.remove();});document.body.append(modal);}
@@ -1508,7 +1551,7 @@ function dcOpenProfile(member){
   const rolesSection=document.createElement("div");rolesSection.className="dc-profile-section";const rolesTitle=document.createElement("h3");rolesTitle.textContent="РОЛИ · УПРАВЛЕНИЕ";rolesSection.append(rolesTitle);
   const roleList=document.createElement("div");roleList.className="dc-profile-roles";
   const assigned=new Set((member.role_ids||[]).map(String));
-  const sortedProfileRoles=[...(dcMemberRoleCache||[])].sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
+  const sortedProfileRoles=[...(roleList||dcMemberRoleCache||[])].sort((a,b)=>(Number(b.position)||0)-(Number(a.position)||0));
   sortedProfileRoles.forEach(role=>{
     const manageable=role.manageable===true;
     const label=document.createElement("label");label.className="dc-profile-role"+(manageable?"":" dc-profile-role-unmanageable");
@@ -1516,7 +1559,7 @@ function dcOpenProfile(member){
     if(!manageable)checkbox.title=role.managed?"Роль управляется интеграцией Discord.":"Бот не может управлять этой ролью: проверь Manage Roles и иерархию ролей.";
     checkbox.addEventListener("change",async()=>{
       checkbox.disabled=true;
-      try{await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id)+"/roles",{role_id:String(role.id),action:checkbox.checked?"add":"remove"});await dcLoadGuildMembers(dcActiveGuild,true);const updated=dcMemberCache.find(x=>String(x.id)===String(member.id));if(updated){modal.remove();dcOpenProfile(updated);}}
+      try{await apiPost("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id)+"/roles",{role_id:String(role.id),action:checkbox.checked?"add":"remove"});const fresh=await apiGet("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members/"+encodeURIComponent(member.id));dcMemberCache=dcMemberCache.map(item=>String(item.id)===String(member.id)?fresh.member:item);dcMemberCacheByGuild.set(dcActiveGuild.id,dcMemberCache);modal.remove();dcOpenProfile(fresh.member,fresh.roles||roleList);}
       catch(error){checkbox.checked=!checkbox.checked;alert(error.message);}
       finally{checkbox.disabled=!manageable;}
     });
