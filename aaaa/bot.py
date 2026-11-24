@@ -3835,6 +3835,7 @@ async def panel_guild_members(guild_id, actor_id=None, after="0", limit=500):
         "name": role.name,
         "position": int(role.position),
         "hoist": bool(role.hoist),
+        "mentionable": bool(role.mentionable),
         "managed": bool(role.managed),
         "manageable": bool(
             me and (me.guild_permissions.administrator or me.guild_permissions.manage_roles)
