@@ -2292,7 +2292,7 @@ function dcRenderServerSettings(data){
             submit.textContent="Сохранить";
             editor.scrollIntoView({behavior:"smooth",block:"nearest"});
           }));
-          if(!isCategory)actions.push(settingsButton("Права",()=>loadChannelPermissions(item)));
+          actions.push(settingsButton("Права",()=>loadChannelPermissions(item)));
           actions.push(settingsButton("Удалить",async()=>{
             if(!confirm("Удалить "+(isCategory?"категорию ":"канал ")+"«"+item.name+"»? Это действие нельзя отменить."))return;
             try{await serverSettingsRequest("channels","DELETE",null,item.id);await loadChannels();showToast?.("Объект удалён.");}catch(error){settingsError(editor,error);}
@@ -2325,6 +2325,8 @@ function dcRenderServerSettings(data){
   const renderMembers=async()=>{
     settingsHeading("Участники","Список участников сервера, быстрый поиск и инструменты модерации. Все действия учитывают права и иерархию Discord.");
     const search=settingsInput("","search","Поиск по имени, нику или ID");search.className="dc-role-member-search";main.append(search);
+    const memberToolbar=document.createElement("div");memberToolbar.className="dc-settings-toolbar";
+    const bansButton=settingsButton("Заблокированные участники",()=>loadBans());memberToolbar.append(bansButton);main.append(memberToolbar);
     const status=document.createElement("p");status.className="dc-settings-status";status.textContent="Загрузка участников…";main.append(status);
     const list=document.createElement("div");list.className="dc-settings-data-list dc-settings-member-list";main.append(list);
     let members=[];
@@ -2360,6 +2362,27 @@ function dcRenderServerSettings(data){
       });
     };
     search.addEventListener("input",draw);
+    const loadBans=async()=>{
+      bansButton.disabled=true;status.textContent="Загрузка списка блокировок…";list.replaceChildren();
+      try{
+        const bans=await serverSettingsRequest("bans");
+        status.textContent="Заблокировано пользователей: "+(bans||[]).length;
+        if(!bans?.length){settingsEmpty(list,"Заблокированных пользователей нет.");return;}
+        bans.forEach(entry=>{
+          const user=entry.user||{};const id=String(user.id||"");
+          const name=user.global_name||user.username||id||"Неизвестный пользователь";
+          const unban=settingsButton("Разблокировать",async()=>{
+            if(!confirm("Снять блокировку с "+name+"?"))return;
+            unban.disabled=true;
+            try{await serverSettingsRequest("bans","DELETE",null,id);entry._removed=true;row.remove();showToast?.("Пользователь разблокирован.");status.textContent="Заблокировано пользователей: "+bans.filter(x=>!x._removed).length;}
+            catch(error){settingsError(list,error);unban.disabled=false;}
+          },"primary");
+          const row=settingsRow(list,name,"@"+(user.username||"unknown")+" · ID "+id+(entry.reason?" · "+entry.reason:"")+" · "+(entry.timestamp?new Date(entry.timestamp).toLocaleString("ru-RU"):""),[unban]);
+          const avatar=document.createElement("span");avatar.className="dc-settings-member-avatar";if(user.avatar){const img=document.createElement("img");img.src="https://cdn.discordapp.com/avatars/"+id+"/"+user.avatar+".png?size=64";img.alt="";avatar.append(img);}else avatar.textContent=name.slice(0,1).toUpperCase();row.prepend(avatar);
+        });
+      }catch(error){settingsError(list,error);status.textContent="Не удалось загрузить список блокировок.";}
+      finally{bansButton.disabled=false;}
+    };
     try{
       let after="0",hasMore=true;
       while(hasMore&&members.length<10000){
@@ -2530,23 +2553,33 @@ function dcRenderServerSettings(data){
     emojiForm.append(settingsLabel("Имя (2–32, латиница/цифры/_)",emojiName),settingsLabel("Изображение (до 256 КБ)",emojiFile),addEmoji);emojiPanel.append(emojiForm);
     const stickerPanel=settingsPanel("СТИКЕРЫ");const stickerList=document.createElement("div");stickerList.className="dc-settings-expression-grid";stickerList.textContent="Загрузка стикеров…";stickerPanel.append(stickerList);main.append(stickerPanel);
     const stickerForm=document.createElement("form");stickerForm.className="dc-settings-form dc-settings-expression-form";
-    const stickerName=settingsInput("","text","Название");const stickerTags=settingsInput("gastworld","text","теги");const stickerDesc=settingsInput("","text","Описание");const stickerFile=settingsInput("");stickerFile.type="file";stickerFile.accept="image/png,image/apng,image/gif,application/json";
+    const stickerName=settingsInput("","text","Название");const stickerTags=settingsInput("🔥","text","например 🔥");const stickerDesc=settingsInput("","text","Описание");const stickerFile=settingsInput("");stickerFile.type="file";stickerFile.accept="image/png,image/apng,image/gif,application/json";
     const addSticker=document.createElement("button");addSticker.type="submit";addSticker.className="dc-settings-save";addSticker.textContent="Загрузить стикер";
-    stickerForm.append(settingsLabel("Название",stickerName),settingsLabel("Теги (обязательны)",stickerTags),settingsLabel("Описание",stickerDesc),settingsLabel("Файл (до 512 КБ)",stickerFile),addSticker);stickerPanel.append(stickerForm);
+    stickerForm.append(settingsLabel("Название",stickerName),settingsLabel("Эмодзи-тег (Unicode)",stickerTags),settingsLabel("Описание",stickerDesc),settingsLabel("Файл (до 512 КБ)",stickerFile),addSticker);stickerPanel.append(stickerForm);
     try{
       const data=await serverSettingsRequest("emoji");emojiList.replaceChildren();stickerList.replaceChildren();
       (data.emojis||[]).forEach(item=>{
         const card=document.createElement("div");card.className="dc-expression-card";const img=document.createElement("img");img.src=item.url||("https://cdn.discordapp.com/emojis/"+item.id+".png");img.alt=item.name;
         const label=document.createElement("span");label.textContent=":"+item.name+":";
-        const del=settingsButton("×",async()=>{if(!confirm("Удалить эмодзи :"+item.name+":?"))return;try{await serverSettingsRequest("emoji","DELETE",null,item.id);await renderEmoji();}catch(error){settingsError(emojiPanel,error);}},"danger");
-        card.append(img,label,del);emojiList.append(card);
+        const edit=settingsButton("Переименовать",async()=>{
+          const next=prompt("Новое имя эмодзи (2–32 символа):",item.name);if(next===null)return;
+          try{await serverSettingsRequest("emoji","PATCH",{name:next.trim()},item.id);await renderEmoji();showToast?.("Имя эмодзи изменено.");}catch(error){settingsError(emojiPanel,error);}
+        });
+        const del=settingsButton("Удалить",async()=>{if(!confirm("Удалить эмодзи :"+item.name+":?"))return;try{await serverSettingsRequest("emoji","DELETE",null,item.id);await renderEmoji();}catch(error){settingsError(emojiPanel,error);}},"danger");
+        card.append(img,label,edit,del);emojiList.append(card);
       });
       if(!(data.emojis||[]).length)settingsEmpty(emojiList,"Эмодзи отсутствуют.");
       (data.stickers||[]).forEach(item=>{
         const card=document.createElement("div");card.className="dc-expression-card";const img=document.createElement("img");img.src="https://cdn.discordapp.com/stickers/"+item.id+".png?size=128";img.alt=item.name;
         const label=document.createElement("span");label.textContent=item.name;
-        const del=settingsButton("×",async()=>{if(!confirm("Удалить стикер «"+item.name+"»?"))return;try{await serverSettingsRequest("stickers","DELETE",null,item.id);await renderEmoji();}catch(error){settingsError(stickerPanel,error);}},"danger");
-        card.append(img,label,del);stickerList.append(card);
+        const edit=settingsButton("Изменить",async()=>{
+          const nextName=prompt("Название стикера:",item.name);if(nextName===null)return;
+          const nextTags=prompt("Эмодзи-тег (например 🔥):",item.tags||"🔥");if(nextTags===null)return;
+          const nextDescription=prompt("Описание (можно оставить пустым):",item.description||"");if(nextDescription===null)return;
+          try{await serverSettingsRequest("stickers","PATCH",{name:nextName.trim(),tags:nextTags.trim(),description:nextDescription.trim()},item.id);await renderEmoji();showToast?.("Стикер обновлён.");}catch(error){settingsError(stickerPanel,error);}
+        });
+        const del=settingsButton("Удалить",async()=>{if(!confirm("Удалить стикер «"+item.name+"»?"))return;try{await serverSettingsRequest("stickers","DELETE",null,item.id);await renderEmoji();}catch(error){settingsError(stickerPanel,error);}},"danger");
+        card.append(img,label,edit,del);stickerList.append(card);
       });
       if(!(data.stickers||[]).length)settingsEmpty(stickerList,"Стикеры отсутствуют.");
     }catch(error){emojiList.replaceChildren();stickerList.replaceChildren();settingsError(emojiList,error);}
