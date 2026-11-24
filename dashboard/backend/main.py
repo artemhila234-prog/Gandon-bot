@@ -1400,7 +1400,7 @@ async def api_discord_server_settings_section(guild_id: str, section: str, reque
         await require_guild_setting_permission(guild_id, actor, "manage_guild")
         return await discord_request("GET", f"/guilds/{guild_id}/integrations")
     if section == "emoji":
-        await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
+        await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_expressions")
         emojis = await discord_request("GET", f"/guilds/{guild_id}/emojis")
         stickers = await discord_request("GET", f"/guilds/{guild_id}/stickers")
         return {"emojis": emojis or [], "stickers": stickers or []}
@@ -1718,7 +1718,7 @@ async def api_discord_server_emoji_create(guild_id: str, request: Request):
     actor = await require_access(request, "adm")
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_expressions")
     payload = await request.json()
     name = str(payload.get("name") or "").strip()
     image = str(payload.get("image") or "")
@@ -1734,7 +1734,7 @@ async def api_discord_server_emoji_update(guild_id: str, emoji_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not emoji_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID эмодзи.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_expressions")
     payload = await request.json()
     if not isinstance(payload, dict) or set(payload) - {"name", "roles"}:
         raise HTTPException(status_code=400, detail="Некорректные параметры эмодзи.")
@@ -1750,7 +1750,7 @@ async def api_discord_server_emoji_delete(guild_id: str, emoji_id: str, request:
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not emoji_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID эмодзи.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_expressions")
     return await discord_request("DELETE", f"/guilds/{guild_id}/emojis/{emoji_id}")
 
 
@@ -1779,7 +1779,7 @@ async def api_discord_server_sticker_create(guild_id: str, request: Request):
     actor = await require_access(request, "adm")
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID сервера.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_expressions")
     try:
         form = await request.form()
         upload = form.get("file")
@@ -1810,7 +1810,7 @@ async def api_discord_server_sticker_update(guild_id: str, sticker_id: str, requ
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not sticker_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID стикера.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_expressions")
     payload = await request.json()
     if not isinstance(payload, dict) or set(payload) - {"name", "description", "tags"}:
         raise HTTPException(status_code=400, detail="Некорректные параметры стикера.")
@@ -1828,7 +1828,7 @@ async def api_discord_server_sticker_delete(guild_id: str, sticker_id: str, requ
     actor = await require_access(request, "adm")
     if not guild_id.isdigit() or not sticker_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный ID стикера.")
-    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_guild_expressions")
+    await require_guild_setting_permission(guild_id, actor, "manage_expressions|create_expressions")
     return await discord_request("DELETE", f"/guilds/{guild_id}/stickers/{sticker_id}")
 
 
