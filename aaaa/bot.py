@@ -3981,6 +3981,7 @@ async def panel_guild_channels(guild_id):
             "position": channel.position,
             "can_send": bool(permissions.send_messages),
             "can_history": bool(permissions.read_message_history),
+            "can_manage_messages": bool(permissions.manage_messages),
             "type": "announcement" if getattr(channel, "is_news", lambda: False)() else "text",
         })
     return {"guild": {"id": str(guild.id), "name": guild.name, "icon_url": str(guild.icon.url) if guild.icon else ""}, "categories": categories, "channels": channels}
@@ -4078,9 +4079,13 @@ async def panel_message_edit(channel_id, message_id, content):
 
 
 async def panel_message_delete(channel_id, message_id):
-    _, message = await panel_message_action_target(channel_id, message_id)
+    channel, message = await panel_message_action_target(channel_id, message_id)
     if message.author.id != bot.user.id:
-        raise PermissionError("Через панель можно удалять только сообщения самого бота.")
+        if not isinstance(channel, (discord.TextChannel, discord.Thread)):
+            raise PermissionError("Бот может удалять чужие сообщения только в каналах сервера с правом Manage Messages.")
+        permissions = channel.permissions_for(channel.guild.me)
+        if not permissions.manage_messages:
+            raise PermissionError("Для удаления чужих сообщений боту нужно право Manage Messages.")
     await message.delete()
     return {"ok": True, "message_id": str(message_id)}
 
