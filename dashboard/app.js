@@ -1923,7 +1923,7 @@ function dcRenderServerSettings(data){
     {title:"ОБЩИЕ ПРАВА СЕРВЕРА",keys:["administrator","manage_guild","view_audit_log","manage_roles","manage_channels","manage_webhooks","manage_expressions","manage_events","manage_threads"]},
     {title:"УПРАВЛЕНИЕ УЧАСТНИКАМИ",keys:["create_instant_invite","change_nickname","manage_nicknames","kick_members","ban_members","moderate_members"]},
     {title:"ТЕКСТОВЫЕ КАНАЛЫ",keys:["view_channel","send_messages","send_messages_in_threads","read_message_history","embed_links","attach_files","add_reactions","mention_everyone","manage_messages","send_tts_messages","use_external_emojis","use_external_stickers","use_application_commands","create_public_threads","create_private_threads","pin_messages","send_polls","bypass_slowmode"]},
-    {title:"ГОЛОСОВЫЕ КАНАЛЫ",keys:["connect","speak","stream","use_vad","priority_speaker","mute_members","deafen_members","move_members","request_to_speak","use_soundboard","use_external_sounds","send_voice_messages"]}
+    {title:"ГОЛОСОВЫЕ КАНАЛЫ",keys:["connect","speak","stream","use_voice_activation","priority_speaker","mute_members","deafen_members","move_members","request_to_speak","use_soundboard","use_external_sounds","send_voice_messages"]}
   ];
 
   const renderRoles=async()=>{
@@ -2112,15 +2112,18 @@ function dcRenderServerSettings(data){
           if(rest.length)renderPermissionGroup({title:"ДОПОЛНИТЕЛЬНЫЕ ПРАВА",keys:rest});
           const note=document.createElement("div");note.className="dc-settings-permission";note.textContent="Права, которых нет у твоей роли или у бота, нельзя включить. Уже существующие ограничения сохраняются; недоступные права можно снять.";panel.append(note);
         }else{
-          const search=document.createElement("input");search.type="search";search.className="dc-role-member-search";search.placeholder="Поиск участника по имени или ID";
-          const membersRoot=document.createElement("div");membersRoot.className="dc-role-member-list";membersRoot.textContent="Загружаем участников…";panel.append(search,membersRoot);
-          let members=[];
+          const search=document.createElement("input");search.type="search";search.className="dc-role-member-search";search.placeholder="Поиск по загруженным участникам";
+          const membersStatus=document.createElement("p");membersStatus.className="dc-settings-status";
+          const membersRoot=document.createElement("div");membersRoot.className="dc-role-member-list";membersRoot.textContent="Загружаем участников…";
+          const moreMembers=document.createElement("button");moreMembers.type="button";moreMembers.className="dc-settings-action";moreMembers.textContent="Загрузить ещё участников";moreMembers.hidden=true;
+          panel.append(search,membersStatus,membersRoot,moreMembers);
+          let members=[];let memberCursor="0";let membersHaveMore=true;let membersLoading=false;
           const renderMembers=()=>{
             const query=search.value.trim().toLocaleLowerCase("ru");
             const filtered=members.filter(member=>((member.global_name||"")+" "+(member.username||"")+" "+member.id).toLocaleLowerCase("ru").includes(query));
             membersRoot.replaceChildren();
-            if(!filtered.length){membersRoot.textContent="Участники не найдены.";return;}
-            filtered.slice(0,500).forEach(member=>{
+            if(!filtered.length){membersRoot.textContent=members.length?"Участники не найдены.":"Список пока пуст.";return;}
+            filtered.forEach(member=>{
               const row=document.createElement("label");row.className="dc-role-member-row";
               const avatar=document.createElement("span");avatar.className="dc-role-member-avatar";avatar.innerHTML=dcAvatar(member,"");
               const name=document.createElement("span");name.className="dc-role-member-name";name.textContent=member.global_name||member.username;
@@ -2140,8 +2143,23 @@ function dcRenderServerSettings(data){
               row.append(avatar,name,checkbox);membersRoot.append(row);
             });
           };
+          const loadMoreMembers=async()=>{
+            if(membersLoading||!membersHaveMore)return;
+            membersLoading=true;moreMembers.disabled=true;moreMembers.textContent="Загружаем…";
+            try{
+              const result=await apiGet("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members?after="+encodeURIComponent(memberCursor)+"&limit=500");
+              const batch=result.members||[];members.push(...batch);
+              const next=String(result.next_after||memberCursor);
+              membersHaveMore=!!result.has_more&&batch.length>0&&next!==memberCursor;
+              memberCursor=next;renderMembers();
+              membersStatus.textContent="Загружено участников: "+members.length+(membersHaveMore?" · список можно продолжить":" · все участники загружены");
+              moreMembers.hidden=!membersHaveMore;
+            }catch(error){membersStatus.textContent="Ошибка загрузки: "+error.message;moreMembers.hidden=false;}
+            finally{membersLoading=false;moreMembers.disabled=false;moreMembers.textContent="Загрузить ещё участников";}
+          };
+          moreMembers.addEventListener("click",loadMoreMembers);
           search.addEventListener("input",renderMembers);
-          apiGet("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/members").then(result=>{members=result.members||[];renderMembers();}).catch(error=>{membersRoot.textContent="Не удалось загрузить участников: "+error.message;});
+          loadMoreMembers();
         }
       };
       editor.append(roleTabs,panel,saveStatus,footer);
