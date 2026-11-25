@@ -602,12 +602,14 @@ async def api_ticketbot_panel_delete(guild_id: str, panel_id: int, request: Requ
 
 
 @app.get("/api/ticketbot/guilds/{guild_id}/tickets")
-async def api_ticketbot_tickets(guild_id: str, request: Request, status: str = "all", limit: int = 100):
+async def api_ticketbot_tickets(guild_id: str, request: Request, status: str = "all",
+                              limit: int = 100, before_id: int | None = None):
     await require_ticketbot_admin(request)
     if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
-    return await ticketbot_api_request(
-        "GET", f"guilds/{guild_id}/tickets", params={"status": status, "limit": max(1, min(limit, 200))}
-    )
+    params = {"status": status, "limit": max(1, min(limit, 200))}
+    if before_id is not None:
+        params["before_id"] = max(1, int(before_id))
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/tickets", params=params)
 
 
 @app.get("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}")
