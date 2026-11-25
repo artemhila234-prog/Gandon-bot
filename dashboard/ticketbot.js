@@ -40,7 +40,8 @@ window.loadTicketBot = async function(section) {
   const tabs = [
     ["overview","Обзор"],["tickets","Тикеты"],["panels","Панели"],["staff","Персонал"],
     ["settings","Настройки"],["schedules","Часы поддержки"],["replies","Сохранённые ответы"],
-    ["tags","Теги"],["knowledge","База знаний"],["analytics","Аналитика"],["audit","Аудит"]
+    ["tags","Теги"],["knowledge","База знаний"],["analytics","Аналитика"],["audit","Аудит"],
+    ["botProfile","Профиль бота"]
   ];
   let guildId = "";
   let activeTab = "overview";
@@ -109,7 +110,9 @@ window.loadTicketBot = async function(section) {
   };
   const request = async (path, method="GET", payload=null) => {
     if (!guildId && !path.startsWith("@guilds")) throw new Error("Сначала выбери сервер.");
-    const url = path.startsWith("@guilds") ? "/api/ticketbot/guilds" : "/api/ticketbot/guilds/" + encodeURIComponent(guildId) + path;
+    const url = path.startsWith("@guilds") ? "/api/ticketbot/guilds"
+      : path.startsWith("@profile") ? "/api/ticketbot/profile"
+      : "/api/ticketbot/guilds/" + encodeURIComponent(guildId) + path;
     const response = await fetch(url, {
       method,
       credentials:"same-origin",
@@ -495,6 +498,94 @@ window.loadTicketBot = async function(section) {
     view.append(list);contentEl.replaceChildren(view);
   };
 
+  const renderBotProfile = async () => {
+    const data=await request("@profile");
+    const view=make("div","tb-view");
+    view.append(heading("Профиль Discord-бота","Глобальные параметры отдельного Ticket Bot. Имя, аватар и статус изменятся сразу на всех серверах."));
+    const form=make("form","tb-editor-card");
+    const username=input("text",data.username||"","Имя Ticket Bot");
+    username.maxLength=32;
+    const status=select([
+      {label:"Online",value:"online"},{label:"Idle",value:"idle"},
+      {label:"Do Not Disturb",value:"dnd"},{label:"Invisible",value:"invisible"}
+    ],data.status||"online");
+    const activityType=select([
+      {label:"Играет",value:"playing"},{label:"Смотрит",value:"watching"},
+      {label:"Слушает",value:"listening"},{label:"Соревнуется",value:"competing"},
+      {label:"Стримит",value:"streaming"},{label:"Без активности",value:"none"}
+    ],data.activity_type||"playing");
+    const activityText=input("text",data.activity_text||"Support tickets","Например: tickets.bot");
+    activityText.maxLength=128;
+    const activityUrl=input("url",data.activity_url||"","https://www.twitch.tv/...");
+    const avatar=input("file","");
+    avatar.accept="image/png,image/jpeg,image/gif,image/webp";
+    const preview=make("img","tb-bot-avatar-preview");
+    preview.alt="Текущий аватар бота";
+    if(data.avatar_url) preview.src=data.avatar_url;
+    const identity=make("div","tb-bot-profile-identity");
+    identity.append(preview,make("div","tb-bot-profile-copy"),
+      make("strong","","Текущий аватар"),
+      make("small","","Загрузка нового аватара изменит его на всём Discord-аккаунте."));
+    const actions=make("div","tb-form-actions");
+    const save=make("button","tb-primary","Сохранить профиль бота");save.type="submit";
+    actions.append(save);
+    form.append(
+      field("Имя бота (2–32 символа)",username),
+      field("Статус",status),
+      field("Тип активности",activityType),
+      field("Текст активности",activityText),
+      field("Ссылка на стрим · нужна только для Streaming",activityUrl),
+      field("Новый аватар · PNG/JPEG/GIF/WEBP, до 8 МБ",avatar),
+      identity,actions
+    );
+    activityType.addEventListener("change",()=>{activityUrl.disabled=activityType.value!=="streaming";});
+    activityUrl.disabled=activityType.value!=="streaming";
+    avatar.addEventListener("change",()=>{
+      const file=avatar.files?.[0];
+      if(!file)return;
+      if(file.size>8*1024*1024){showNotice("Аватар должен быть не больше 8 МБ.","error");avatar.value="";return;}
+      if(!["image/png","image/jpeg","image/gif","image/webp"].includes(file.type)){
+        showNotice("Поддерживаются только PNG, JPEG, GIF и WEBP.","error");avatar.value="";return;
+      }
+      const url=URL.createObjectURL(file);
+      preview.src=url;
+    });
+    form.addEventListener("submit",async event=>{
+      event.preventDefault();
+      const payload={
+        username:username.value.trim(),
+        status:status.value,
+        activity_type:activityType.value,
+        activity_text:activityText.value,
+        activity_url:activityUrl.value.trim()
+      };
+      const file=avatar.files?.[0];
+      if(file){
+        if(file.size>8*1024*1024){showNotice("Аватар должен быть не больше 8 МБ.","error");return;}
+        try{
+          const dataUrl=await new Promise((resolve,reject)=>{
+            const reader=new FileReader();
+            reader.onerror=()=>reject(new Error("Не удалось прочитать файл аватара."));
+            reader.onload=()=>resolve(String(reader.result||""));
+            reader.readAsDataURL(file);
+          });
+          payload.avatar_data=dataUrl.split(",")[1]||"";
+        }catch(error){showError(error);return;}
+      }
+      save.disabled=true;
+      try{
+        const result=await request("@profile","PATCH",payload);
+        showNotice("Профиль Ticket Bot обновлён в Discord.","success");
+        await renderBotProfile();
+      }catch(error){showError(error);}
+      finally{save.disabled=false;}
+    });
+    const note=make("p","tb-profile-note",
+      "Важно: Discord изменяет имя и аватар самого bot user глобально. Discord может ограничивать частоту изменения имени/аватара. Статус и активность также общие для всех серверов.");
+    view.append(form,note);
+    contentEl.replaceChildren(view);
+  };
+
   const renderSettings = async () => {
     const data=overviewCache||await request("/overview");
     const [channels,roles]=await Promise.all([request("/channels"),request("/roles")]);
@@ -734,6 +825,7 @@ window.loadTicketBot = async function(section) {
       else if(activeTab==="panels") await renderPanels();
       else if(activeTab==="staff") await renderStaff();
       else if(activeTab==="settings") await renderSettings();
+      else if(activeTab==="botProfile") await renderBotProfile();
       else if(activeTab==="schedules") await renderSchedules();
       else if(activeTab==="replies") await renderReplies();
       else if(activeTab==="tags") await renderTags();
