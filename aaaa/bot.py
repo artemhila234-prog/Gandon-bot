@@ -3103,6 +3103,62 @@ async def panel_dm_user_payload(user):
     avatar = getattr(user, 'display_avatar', None)
     return {'id': str(user.id), 'username': str(getattr(user, 'name', 'Unknown')), 'global_name': str(getattr(user, 'global_name', None) or getattr(user, 'display_name', None) or getattr(user, 'name', 'Unknown')), 'avatar_url': str(avatar.url) if avatar else '', 'bot': bool(getattr(user, 'bot', False))}
 
+def panel_discord_embed_payload(embed):
+    """Serialize the visible parts of a Discord rich/link/media embed for the web client."""
+    try:
+        raw = embed.to_dict()
+    except Exception:
+        raw = {}
+    def asset_url(key):
+        item = raw.get(key)
+        return str(item.get("url") or item.get("proxy_url") or "") if isinstance(item, dict) else ""
+    author = raw.get("author") if isinstance(raw.get("author"), dict) else {}
+    footer = raw.get("footer") if isinstance(raw.get("footer"), dict) else {}
+    provider = raw.get("provider") if isinstance(raw.get("provider"), dict) else {}
+    video = raw.get("video") if isinstance(raw.get("video"), dict) else {}
+    fields = raw.get("fields") if isinstance(raw.get("fields"), list) else []
+    return {
+        "type": str(raw.get("type") or "rich"),
+        "title": str(raw.get("title") or "")[:256],
+        "description": str(raw.get("description") or "")[:4000],
+        "url": str(raw.get("url") or "")[:2048],
+        "color": int(raw.get("color") or 0) if str(raw.get("color") or "0").isdigit() else 0,
+        "author": {
+            "name": str(author.get("name") or "")[:256],
+            "url": str(author.get("url") or "")[:2048],
+            "icon_url": str(author.get("icon_url") or author.get("proxy_icon_url") or "")[:2048],
+        },
+        "provider": {
+            "name": str(provider.get("name") or "")[:128],
+            "url": str(provider.get("url") or "")[:2048],
+        },
+        "footer": {
+            "text": str(footer.get("text") or "")[:2048],
+            "icon_url": str(footer.get("icon_url") or footer.get("proxy_icon_url") or "")[:2048],
+        },
+        "timestamp": str(raw.get("timestamp") or "")[:64],
+        "image_url": asset_url("image"),
+        "thumbnail_url": asset_url("thumbnail"),
+        "video_url": str(video.get("url") or "")[:2048],
+        "fields": [
+            {"name": str(item.get("name") or "")[:256], "value": str(item.get("value") or "")[:1024], "inline": bool(item.get("inline", False))}
+            for item in fields[:25] if isinstance(item, dict)
+        ],
+    }
+
+
+async def panel_creator_profile(user_id):
+    """Return the public Discord profile for the single configured GastWorld creator."""
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    if str(user_id) != "1479848906106863796":
+        raise ValueError("Профиль не включён в список создателей.")
+    user = bot.get_user(int(user_id))
+    if user is None:
+        user = await bot.fetch_user(int(user_id))
+    return {"user": await panel_dm_user_payload(user)}
+
+
 async def panel_dm_list():
     if not bot.is_ready(): raise RuntimeError('Discord-бот ещё подключается.')
     items=[]; seen=set()
@@ -3232,7 +3288,7 @@ async def panel_dm_history(user_id, limit=60):
             "author": await panel_dm_user_payload(message.author),
             **(await panel_message_mentions(message)),
             "attachments": [{"filename": item.filename, "url": item.url, "content_type": item.content_type or ""} for item in message.attachments[:10]],
-            "embeds": [{"title": item.title or "", "description": (item.description or "")[:1000], "url": item.url or "", "image_url": item.image.url if item.image else ""} for item in message.embeds[:5]],
+            "embeds": [panel_discord_embed_payload(item) for item in message.embeds[:5]],
         })
     messages.reverse()
     return {"user": await panel_dm_user_payload(user), "channel_id": str(channel.id), "messages": messages}
@@ -4642,12 +4698,7 @@ async def panel_channel_history(channel_id, limit=100):
             "author": await panel_dm_user_payload(message.author),
             **(await panel_message_mentions(message)),
             "attachments": [{"filename": item.filename, "url": item.url, "content_type": item.content_type or ""} for item in message.attachments[:10]],
-            "embeds": [{
-                "title": item.title or "",
-                "description": (item.description or "")[:1000],
-                "url": item.url or "",
-                "image_url": item.image.url if item.image else "",
-            } for item in message.embeds[:5]],
+            "embeds": [panel_discord_embed_payload(item) for item in message.embeds[:5]],
         })
     messages.reverse()
     return {
@@ -4789,6 +4840,7 @@ async def run_services():
         "dm_list": panel_dm_list,
         "dm_search": panel_dm_search,
         "dm_history": panel_dm_history,
+        "creator_profile": panel_creator_profile,
         "dm_send": panel_dm_send,
         "bot_profile": panel_bot_profile,
         "bot_profile_update": panel_bot_profile_update,
