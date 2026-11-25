@@ -2535,3 +2535,19 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Important: Codespaces is a temporary test/manual-run option only, not 24/7. Port 25920 stays private by default. To connect GastWorld dashboard, user must explicitly make the forwarded port public and set TICKETBOT_API_URL to its HTTPS forwarding URL plus same TICKETBOT_API_KEY on GastWorld backend; when Codespace stops, this API and dashboard integration become unavailable.
 - User preference to launch via GitHub acknowledged. If user expects nonstop 24/7 bot, explain that Codespaces cannot guarantee it; keep GitHub as source/CI and use a persistent host for production.
 - Секреты/токены в Git не добавлялись.
+
+59. ПЕРВЫЙ УСПЕШНЫЙ ЗАПУСК TICKET BOT НА BOT-HOSTING (2026-11-25)
+- Пользователь настроил отдельный Ticket Bot на Bot-Hosting. По предоставленному startup log подтверждено, что зависимости Python установлены (discord.py 2.7.1, FastAPI 0.165.0, Uvicorn 0.54.0, python-dotenv 1.2.4, cryptography 45.0.7), FastAPI успешно стартовал и слушает 0.0.0.0:25920.
+- Discord Gateway успешно подключился; runtime авторизовался как «GastWorld » Поддержка» (bot user ID 1575129307615993866). Это подтверждает реальный вход отдельного Ticket Bot в Discord, а не только успешную компиляцию/CI.
+- В логах присутствовали предупреждения о том, что PyNaCl и davey не установлены, поэтому голосовые функции discord.py недоступны. Для текущих ticket/support функций это не требуется.
+- Предыдущие ошибки запуска и их решения:
+  1. OSError: [Errno 30] Read-only file system: '/data' — путь /data недоступен на выбранном Bot-Hosting. Пользователю предложено использовать writable/persistent path под /home/container/data, если каталог сохраняется хостингом, и проверить реальный persistent volume. Важно: сам факт writable каталога ещё не доказывает, что он persistent после переустановки/пересборки.
+  2. Хостинг запускал python3 -u ticketbot.py, но такого файла в корне нет. Проект имеет package entrypoint ticketbot/__main__.py; корректный STARTUP_FILE для существующей команды python3 -u ${STARTUP_FILE} — -m ticketbot, что даёт python3 -u -m ticketbot.
+- Текущая конфигурация запуска по успешному логу: процесс Ticket Bot поднял API на порту 25920 и подключил Discord Gateway. Не добавлять в памятку реальные токены, API keys или encryption keys.
+- Ещё НЕ подтверждено: открытие публичного HTTPS /health снаружи, точная настройка persistent volume для SQLite и transcript key, соединение GastWorld backend → Ticket Bot API, настройка TICKETBOT_API_URL на GastWorld и фактическая работа вкладки Ticket Bot с ADM-сессией.
+- Следующие шаги:
+  1. Проверить внешний HTTPS URL Ticket Bot + /health; ожидается ok=true, service=ticket-bot, discord_ready=true.
+  2. На GastWorld backend задать TICKETBOT_API_URL (внешний HTTPS адрес Ticket Bot без /health) и тот же TICKETBOT_API_KEY, что настроен на Ticket Bot. Ключ не отправлять в чат и не коммитить.
+  3. Перезапустить GastWorld backend и проверить вкладку Ticket Bot; если есть ошибка, сохранить её текст/логи без секретов.
+  4. Отдельно проверить в панели Bot-Hosting, что каталог с SQLite и ключом транскриптов находится на persistent volume и переживает рестарт/пересоздание контейнера. Не менять уже используемый encryption key после создания зашифрованных транскриптов.
+- Секреты и токены в GitHub не добавлялись.
