@@ -275,22 +275,37 @@ class GastWorldCommandTree(app_commands.CommandTree):
                     pass
             return False
 
-        command = interaction.command
-        if command is not None:
-            command_name = (
-                getattr(command, "qualified_name", None)
-                or getattr(command, "name", "")
+        # CommandTree.interaction_check вызывается до того, как discord.py
+        # заполняет interaction.command, поэтому читаем корневую команду и
+        # вложенную subcommand/subcommand-group из исходного interaction payload.
+        command_data = interaction.data or {}
+        command_name = str(command_data.get("name") or "").strip()
+        options = command_data.get("options") or []
+        while isinstance(options, list):
+            nested_command = next(
+                (
+                    option for option in options
+                    if isinstance(option, dict) and option.get("type") in (1, 2)
+                ),
+                None,
             )
-            if is_guild_command_disabled(interaction.guild_id, "slash", command_name):
-                if not interaction.response.is_done():
-                    try:
-                        await interaction.response.send_message(
-                            f"🚫 Команда /{command_name} отключена администратором GastWorld на этом сервере.",
-                            ephemeral=True,
-                        )
-                    except discord.HTTPException:
-                        pass
-                return False
+            if nested_command is None:
+                break
+            nested_name = str(nested_command.get("name") or "").strip()
+            if nested_name:
+                command_name = f"{command_name} {nested_name}".strip()
+            options = nested_command.get("options") or []
+
+        if command_name and is_guild_command_disabled(interaction.guild_id, "slash", command_name):
+            if not interaction.response.is_done():
+                try:
+                    await interaction.response.send_message(
+                        f"🚫 Команда /{command_name} отключена администратором GastWorld на этом сервере.",
+                        ephemeral=True,
+                    )
+                except discord.HTTPException:
+                    pass
+            return False
 
         return True
 
