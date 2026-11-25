@@ -29,6 +29,8 @@ AUDIT_LOG_CHANNEL_ID = os.getenv("AUDIT_LOG_CHANNEL_ID", "1573032052666663032")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "")
 BOT_SYNC_SECRET = os.getenv("BOT_SYNC_SECRET", "")
 BOT_API_URL = os.getenv("BOT_API_URL", "").rstrip("/")
+TICKETBOT_API_URL = os.getenv("TICKETBOT_API_URL", "").rstrip("/")
+TICKETBOT_API_KEY = os.getenv("TICKETBOT_API_KEY", "")
 BOT_DATA_API_SECRET = os.getenv("BOT_DATA_API_SECRET", "")
 TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY", "")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET", "")
@@ -452,6 +454,355 @@ async def api_allowed_guild_command_update(guild_id: str, request: Request):
         raise
     except Exception as error:
         raise HTTPException(status_code=502, detail=f"Не удалось изменить доступ команды: {str(error)[:250]}")
+
+
+
+async def ticketbot_api_request(method: str, path: str, *, payload: Any = None, params: dict[str, Any] | None = None):
+    if not TICKETBOT_API_URL or not TICKETBOT_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="Ticket Bot API не подключён. Настрой TICKETBOT_API_URL и TICKETBOT_API_KEY на backend GastWorld."
+        )
+    url = f"{TICKETBOT_API_URL}/api/v1/{path.lstrip('/')}"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(25.0, connect=8.0)) as client:
+            response = await client.request(
+                method.upper(), url, json=payload, params=params,
+                headers={"X-TicketBot-Key": TICKETBOT_API_KEY, "Accept": "application/json"},
+            )
+    except httpx.RequestError as error:
+        raise HTTPException(status_code=503, detail=f"Ticket Bot сейчас недоступен: {type(error).__name__}.")
+    if response.status_code == 401:
+        raise HTTPException(status_code=502, detail="Ticket Bot отклонил внутренний ключ API. Проверь ключи на обоих хостингах.")
+    if response.status_code == 404:
+        raise HTTPException(status_code=404, detail="Объект Ticket Bot не найден.")
+    if response.status_code == 400:
+        try: detail = response.json().get("detail", "Некорректные данные.")
+        except Exception: detail = "Некорректные данные."
+        raise HTTPException(status_code=400, detail=str(detail)[:350])
+    if response.status_code == 403:
+        raise HTTPException(status_code=403, detail="Ticket Bot отклонил действие по правам доступа.")
+    if response.status_code >= 500:
+        raise HTTPException(status_code=502, detail="Ticket Bot вернул внутреннюю ошибку.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=response.status_code, detail="Ticket Bot API request failed.")
+    try:
+        return response.json()
+    except ValueError:
+        raise HTTPException(status_code=502, detail="Ticket Bot вернул некорректный JSON.")
+
+
+def ticketbot_actor_payload(request: Request, payload: Any) -> dict[str, Any]:
+    data = dict(payload) if isinstance(payload, dict) else {}
+    user = request.session.get("user") or {}
+    data["actor_id"] = str(user.get("id", ""))
+    return data
+
+
+async def require_ticketbot_admin(request: Request):
+    return await require_access(request, "adm")
+
+
+@app.get("/api/ticketbot/guilds")
+async def api_ticketbot_guilds(request: Request):
+    await require_ticketbot_admin(request)
+    return await ticketbot_api_request("GET", "guilds")
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/overview")
+async def api_ticketbot_overview(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный Discord Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/overview")
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/channels")
+async def api_ticketbot_channels(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный Discord Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/channels")
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/roles")
+async def api_ticketbot_roles(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный Discord Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/roles")
+
+
+@app.patch("/api/ticketbot/guilds/{guild_id}/settings")
+async def api_ticketbot_settings(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit():
+        raise HTTPException(status_code=400, detail="Некорректный Discord Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "PATCH", f"guilds/{guild_id}/settings", payload=ticketbot_actor_payload(request, payload)
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/panels")
+async def api_ticketbot_panels(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/panels")
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/panels")
+async def api_ticketbot_panel_save(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/panels", payload=ticketbot_actor_payload(request, payload)
+    )
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/panels/{panel_id}/publish")
+async def api_ticketbot_panel_publish(guild_id: str, panel_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/panels/{panel_id}/publish",
+        payload=ticketbot_actor_payload(request, {}),
+    )
+
+
+@app.delete("/api/ticketbot/guilds/{guild_id}/panels/{panel_id}")
+async def api_ticketbot_panel_delete(guild_id: str, panel_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request(
+        "DELETE", f"guilds/{guild_id}/panels/{panel_id}",
+        payload=ticketbot_actor_payload(request, {}),
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/tickets")
+async def api_ticketbot_tickets(guild_id: str, request: Request, status: str = "all", limit: int = 100):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request(
+        "GET", f"guilds/{guild_id}/tickets", params={"status": status, "limit": max(1, min(limit, 200))}
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}")
+async def api_ticketbot_ticket(guild_id: str, ticket_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/tickets/{ticket_id}")
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/reply")
+async def api_ticketbot_ticket_reply(guild_id: str, ticket_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/tickets/{ticket_id}/reply",
+        payload=ticketbot_actor_payload(request, payload),
+    )
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/claim")
+async def api_ticketbot_ticket_claim(guild_id: str, ticket_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/tickets/{ticket_id}/claim",
+        payload=ticketbot_actor_payload(request, {}),
+    )
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/close")
+async def api_ticketbot_ticket_close(guild_id: str, ticket_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: payload = {}
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/tickets/{ticket_id}/close",
+        payload=ticketbot_actor_payload(request, payload),
+    )
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/reopen")
+async def api_ticketbot_ticket_reopen(guild_id: str, ticket_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/tickets/{ticket_id}/reopen",
+        payload=ticketbot_actor_payload(request, {}),
+    )
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/members")
+async def api_ticketbot_ticket_member(guild_id: str, ticket_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/tickets/{ticket_id}/members",
+        payload=ticketbot_actor_payload(request, payload),
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/tags")
+async def api_ticketbot_ticket_tags(guild_id: str, ticket_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/tickets/{ticket_id}/tags")
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/tags")
+async def api_ticketbot_ticket_tag_update(guild_id: str, ticket_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/tickets/{ticket_id}/tags",
+        payload=ticketbot_actor_payload(request, payload),
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/transcript/{ticket_id}")
+async def api_ticketbot_transcript(guild_id: str, ticket_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    if not TICKETBOT_API_URL or not TICKETBOT_API_KEY:
+        raise HTTPException(status_code=503, detail="Ticket Bot API не подключён.")
+    url = f"{TICKETBOT_API_URL}/api/v1/guilds/{guild_id}/tickets/{ticket_id}/transcript"
+    try:
+        async with httpx.AsyncClient(timeout=25) as client:
+            response = await client.get(url, headers={"X-TicketBot-Key": TICKETBOT_API_KEY})
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Ticket Bot сейчас недоступен.")
+    if response.status_code == 404: raise HTTPException(status_code=404, detail="Транскрипт не найден.")
+    if response.status_code != 200: raise HTTPException(status_code=502, detail="Не удалось получить транскрипт.")
+    return HTMLResponse(response.text, headers={"Content-Disposition": f'inline; filename="ticket-{ticket_id}.html"'})
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/staff")
+async def api_ticketbot_staff(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/staff")
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/staff")
+async def api_ticketbot_staff_update(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/staff", payload=ticketbot_actor_payload(request, payload)
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/schedules")
+async def api_ticketbot_schedules(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/schedules")
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/schedules")
+async def api_ticketbot_schedule_save(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/schedules", payload=ticketbot_actor_payload(request, payload)
+    )
+
+
+@app.delete("/api/ticketbot/guilds/{guild_id}/schedules/{schedule_id}")
+async def api_ticketbot_schedule_delete(guild_id: str, schedule_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request(
+        "DELETE", f"guilds/{guild_id}/schedules/{schedule_id}",
+        payload=ticketbot_actor_payload(request, {}),
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/replies")
+async def api_ticketbot_replies(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/replies")
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/replies")
+async def api_ticketbot_reply_save(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/replies", payload=ticketbot_actor_payload(request, payload)
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/tags")
+async def api_ticketbot_tags(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/tags")
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/tags")
+async def api_ticketbot_tag_save(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/tags", payload=ticketbot_actor_payload(request, payload)
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/knowledge")
+async def api_ticketbot_knowledge(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/knowledge")
+
+
+@app.post("/api/ticketbot/guilds/{guild_id}/knowledge")
+async def api_ticketbot_knowledge_save(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    try: payload = await request.json()
+    except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "POST", f"guilds/{guild_id}/knowledge", payload=ticketbot_actor_payload(request, payload)
+    )
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/analytics")
+async def api_ticketbot_analytics(guild_id: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/analytics")
+
+
+@app.get("/api/ticketbot/guilds/{guild_id}/audit")
+async def api_ticketbot_audit(guild_id: str, request: Request, limit: int = 100):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request("GET", f"guilds/{guild_id}/audit", params={"limit": max(1,min(limit,500))})
 
 
 @app.post("/auth/logout")
