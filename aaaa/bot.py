@@ -208,7 +208,37 @@ intents.message_content = True
 intents.members = True
 intents.presences = True
 
-bot = commands.Bot(command_prefix='!', intents=intents)
+class GastWorldCommandTree(app_commands.CommandTree):
+    """Processes slash commands only on GastWorld's configured command guilds."""
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.guild_id in ALLOWED_GUILDS:
+            return True
+
+        # Acknowledge slash/context-menu commands privately so Discord does not
+        # show the generic "application did not respond" warning. The command
+        # itself is never dispatched on an unapproved guild.
+        if (
+            interaction.type == discord.InteractionType.application_command
+            and not interaction.response.is_done()
+        ):
+            try:
+                await interaction.response.send_message(
+                    "Команды GastWorld доступны только на официальном сервере.",
+                    ephemeral=True,
+                )
+            except discord.HTTPException:
+                pass
+        return False
+
+
+bot = commands.Bot(command_prefix='!', intents=intents, tree_cls=GastWorldCommandTree)
+
+@bot.check
+async def gastworld_prefix_command_check(ctx: commands.Context) -> bool:
+    """Reject every prefix command outside the configured GastWorld server."""
+    return ctx.guild is not None and ctx.guild.id in ALLOWED_GUILDS
+
 
 # ================== ФУНКЦИИ ==================
 def get_user_data(user_id):
@@ -1923,11 +1953,15 @@ async def register_pending_verification_views():
 # ================== ON_MESSAGE ==================
 @bot.event
 async def on_message(message):
+    # Не обрабатываем сообщения и префикс-команды на серверах, куда бот
+    # приглашён посторонними пользователями. Список ALLOWED_GUILDS — allowlist.
+    if message.guild is not None and message.guild.id not in ALLOWED_GUILDS:
+        return
+
     if message.author.bot:
         return
 
-    # Глобальные текстовые пасхалки: работают на всех серверах,
-    # включая сервер, для которого отключена основная функциональность.
+    # Текстовые пасхалки остаются только в разрешённых серверах и личных сообщениях.
     easter_eggs = {
         "иди нахуй": "**Сам пошёл нахуй сын хуйни**",
         "ты": "**Жопой нюхаешь цветы🧨**",
@@ -1941,9 +1975,8 @@ async def on_message(message):
         await message.channel.send(reply_text)
         return
 
-    # На этом сервере отключена основная функциональность бота.
-    # Глобальные пасхалки выше продолжают работать.
-    if message.guild is None or message.guild.id == 1454858971084230822:
+    # Личные сообщения не запускают серверную обработку и команды.
+    if message.guild is None:
         return
 
     # Красивый потоковый просмотр обычных текстовых сообщений в консоли Bot-Hosting.
