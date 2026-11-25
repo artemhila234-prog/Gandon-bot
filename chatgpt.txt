@@ -2551,3 +2551,11 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
   3. Перезапустить GastWorld backend и проверить вкладку Ticket Bot; если есть ошибка, сохранить её текст/логи без секретов.
   4. Отдельно проверить в панели Bot-Hosting, что каталог с SQLite и ключом транскриптов находится на persistent volume и переживает рестарт/пересоздание контейнера. Не менять уже используемый encryption key после создания зашифрованных транскриптов.
 - Секреты и токены в GitHub не добавлялись.
+
+60. ПРЕДПРОВЕРКА API TICKET BOT ПЕРЕД ПОДКЛЮЧЕНИЕМ GASTWORLD (2026-11-25)
+- По актуальному исходнику Ticket-Bot/ticketbot/api.py подтверждено: GET /health существует и не требует API key; возвращает JSON {ok:true, service:'ticket-bot', discord_ready: bot.is_ready(), guild_count: len(bot.guilds)}.
+- Защищённые методы расположены под /api/v1/... и требуют заголовок X-TicketBot-Key. В частности, GET /api/v1/guilds — правильная проверка защищённого API; без ключа ожидается HTTP 401, с правильным ключом после Discord-ready — список guilds.
+- По актуальному dashboard/backend/main.py GastWorld строит запросы как TICKETBOT_API_URL + /api/v1/{path}, передаёт TICKETBOT_API_KEY только серверным заголовком X-TicketBot-Key. Поэтому TICKETBOT_API_URL должен быть базовым внешним HTTPS URL без завершающего /health и без /api/v1.
+- Исходники подтверждены на main: Ticket-Bot/ticketbot/api.py blob caeee0b848efba5854e2487d8d29166b5e91b379; Ticket-Bot/ticketbot/config.py blob d18bdeb8ecfe71f715def6feef0ed1cf933481d6; Gandon-bot/dashboard/backend/main.py blob f27635195b26dc8b8ed6f43a08da8ae02c468297.
+- Фактический внешний HTTP check пока не выполнен: пользователь ещё не предоставил публичный hostname/IP и порт, назначенные Bot-Hosting для Ticket Bot. Внутренний лог подтверждает bind Uvicorn на 0.0.0.0:25920, но не подтверждает наличие внешнего port allocation, HTTPS или доступность из GastWorld.
+- Следующий шаг: запросить только публичный базовый URL или публичный host:port Ticket Bot (без секретов), выполнить внешний GET /health, затем проверить GastWorld → Ticket Bot через настроенный proxy/API. Не просить и не сохранять значения TICKET_DISCORD_TOKEN, TICKETBOT_API_KEY или encryption key.
