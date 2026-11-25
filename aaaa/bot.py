@@ -198,7 +198,30 @@ try:
     cursor.execute("ALTER TABLE support_ticket_config ADD COLUMN accepting INTEGER NOT NULL DEFAULT 1")
 except sqlite3.OperationalError:
     pass
+
+# Разрешённые серверы сохраняются в БД бота, а не теряются при перезапуске.
+# Основной сервер GastWorld всегда остаётся включённым и не удаляется из панели.
+CORE_ALLOWED_GUILD_IDS = {VERIFICATION_GUILD_ID}
+conn.execute("""CREATE TABLE IF NOT EXISTS bot_allowed_guilds (
+    guild_id TEXT PRIMARY KEY,
+    added_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    added_by TEXT NOT NULL DEFAULT ''
+)""")
+conn.executemany(
+    "INSERT OR IGNORE INTO bot_allowed_guilds (guild_id) VALUES (?)",
+    [(str(guild_id),) for guild_id in ALLOWED_GUILDS],
+)
+conn.execute(
+    "INSERT OR IGNORE INTO bot_allowed_guilds (guild_id) VALUES (?)",
+    (str(VERIFICATION_GUILD_ID),),
+)
 conn.commit()
+ALLOWED_GUILDS[:] = [
+    int(row[0])
+    for row in conn.execute("SELECT guild_id FROM bot_allowed_guilds ORDER BY added_at, guild_id").fetchall()
+]
+if VERIFICATION_GUILD_ID not in ALLOWED_GUILDS:
+    ALLOWED_GUILDS.insert(0, VERIFICATION_GUILD_ID)
 
 print(f"🗄️ База GastWorld: {os.path.abspath(DB_PATH)}", flush=True)
 
@@ -3435,6 +3458,140 @@ async def panel_bot_profile_update(payload):
     return await panel_bot_profile(updated_user)
 
 
+def panel_allowed_guild_payload(guild_id):
+    guild = bot.get_guild(int(guild_id))
+    if guild is None:
+        return {
+            "id": str(guild_id),
+            "name": "Бот не находится на сервере",
+            "icon_url": "",
+            "member_count": 0,
+            "is_current_member": False,
+            "is_core": int(guild_id) in CORE_ALLOWED_GUILD_IDS,
+        }
+    return {
+        "id": str(guild.id),
+        "name": guild.name,
+        "icon_url": str(guild.icon.url) if guild.icon else "",
+        "member_count": int(guild.member_count or 0),
+        "is_current_member": True,
+        "is_core": guild.id in CORE_ALLOWED_GUILD_IDS,
+    }
+
+
+async def sync_allowed_guild_commands(guild):
+    """Publish current application commands to one explicitly allowed guild."""
+    bot.tree.clear_commands(guild=guild)
+    await bot.tree.sync(guild=guild)
+    bot.tree.copy_global_to(guild=guild)
+    synced = await bot.tree.sync(guild=guild)
+    return len(synced)
+
+
+async def panel_allowed_guilds_list():
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    rows = conn.execute(
+        "SELECT guild_id FROM bot_allowed_guilds ORDER BY added_at, guild_id"
+    ).fetchall()
+    allowed_ids = [int(row[0]) for row in rows]
+    # Repair an outdated DB entry defensively; the primary GastWorld guild is permanent.
+    if VERIFICATION_GUILD_ID not in allowed_ids:
+        conn.execute(
+            "INSERT OR IGNORE INTO bot_allowed_guilds (guild_id) VALUES (?)",
+            (str(VERIFICATION_GUILD_ID),),
+        )
+        conn.commit()
+        allowed_ids.insert(0, VERIFICATION_GUILD_ID)
+    ALLOWED_GUILDS[:] = allowed_ids
+    allowed = [panel_allowed_guild_payload(guild_id) for guild_id in allowed_ids]
+    available = [
+        panel_allowed_guild_payload(guild.id)
+        for guild in sorted(bot.guilds, key=lambda item: item.name.casefold())
+        if guild.id not in set(allowed_ids)
+    ]
+    return {
+        "allowed_guilds": allowed,
+        "available_guilds": available,
+        "core_guild_id": str(VERIFICATION_GUILD_ID),
+    }
+
+
+async def panel_allowed_guild_add(guild_id, added_by=""):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    raw_id = str(guild_id or "").strip()
+    if not raw_id.isdigit() or not 17 <= len(raw_id) <= 20:
+        raise ValueError("Укажи корректный Discord Server ID (17–20 цифр).")
+    numeric_id = int(raw_id)
+    if numeric_id <= 0:
+        raise ValueError("Некорректный Discord Server ID.")
+    if numeric_id in ALLOWED_GUILDS:
+        raise ValueError("Этот сервер уже находится в списке разрешённых.")
+    guild = bot.get_guild(numeric_id)
+    if guild is None:
+        raise ValueError("Бот ещё не находится на этом сервере. Сначала пригласи бота, затем добавь сервер.")
+    if guild.me is None and bot.user is not None and guild.get_member(bot.user.id) is None:
+        raise ValueError("Не удалось подтвердить присутствие бота на этом сервере.")
+    ALLOWED_GUILDS.append(numeric_id)
+    try:
+        synced_count = await sync_allowed_guild_commands(guild)
+        conn.execute(
+            "INSERT INTO bot_allowed_guilds (guild_id, added_by) VALUES (?, ?)",
+            (str(numeric_id), str(added_by or "")[:32]),
+        )
+        conn.commit()
+    except Exception as error:
+        ALLOWED_GUILDS[:] = [value for value in ALLOWED_GUILDS if value != numeric_id]
+        try:
+            bot.tree.clear_commands(guild=guild)
+            await bot.tree.sync(guild=guild)
+        except Exception:
+            pass
+        raise RuntimeError(f"Не удалось включить сервер; список не изменён. Детали: {str(error)[:220]}")
+    print(
+        f"✅ [ДОСТУП СЕРВЕРОВ] {guild.name} ({guild.id}) добавлен в ALLOWED_GUILDS; "
+        f"синхронизировано slash-команд: {synced_count}.",
+        flush=True,
+    )
+    return {
+        "ok": True,
+        "guild": panel_allowed_guild_payload(numeric_id),
+        "commands_synced": synced_count,
+    }
+
+
+async def panel_allowed_guild_remove(guild_id):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    raw_id = str(guild_id or "").strip()
+    if not raw_id.isdigit():
+        raise ValueError("Некорректный Discord Server ID.")
+    numeric_id = int(raw_id)
+    if numeric_id in CORE_ALLOWED_GUILD_IDS:
+        raise PermissionError("Основной сервер GastWorld нельзя удалить из списка разрешённых.")
+    if numeric_id not in ALLOWED_GUILDS:
+        raise ValueError("Этот сервер уже отсутствует в списке разрешённых.")
+    conn.execute("DELETE FROM bot_allowed_guilds WHERE guild_id = ?", (str(numeric_id),))
+    conn.commit()
+    ALLOWED_GUILDS[:] = [value for value in ALLOWED_GUILDS if value != numeric_id]
+    commands_cleared = True
+    guild = bot.get_guild(numeric_id)
+    if guild is not None:
+        try:
+            bot.tree.clear_commands(guild=guild)
+            await bot.tree.sync(guild=guild)
+        except Exception as error:
+            commands_cleared = False
+            print(
+                f"⚠️ [ДОСТУП СЕРВЕРОВ] Slash-команды {numeric_id} не удалось удалить сразу: {error}. "
+                "Выполнение уже блокируется проверкой ALLOWED_GUILDS.",
+                flush=True,
+            )
+    print(f"🔒 [ДОСТУП СЕРВЕРОВ] Сервер {numeric_id} удалён из ALLOWED_GUILDS.", flush=True)
+    return {"ok": True, "guild_id": str(numeric_id), "commands_cleared": commands_cleared}
+
+
 async def panel_guild_list():
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
@@ -4874,6 +5031,9 @@ async def run_services():
         "dm_search": panel_dm_search,
         "dm_history": panel_dm_history,
         "creator_profile": panel_creator_profile,
+        "allowed_guilds_list": panel_allowed_guilds_list,
+        "allowed_guilds_add": panel_allowed_guild_add,
+        "allowed_guilds_remove": panel_allowed_guild_remove,
         "dm_send": panel_dm_send,
         "bot_profile": panel_bot_profile,
         "bot_profile_update": panel_bot_profile_update,
