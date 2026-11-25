@@ -51,6 +51,8 @@ window.loadTicketBot = async function(section) {
   let overviewCache = null;
   let currentTicket = null;
   let ticketFilter = "open";
+  let ticketCursor = null;
+  let ticketItems = [];
   let ticketRefreshTimer = null;
   let ticketRefreshBusy = false;
 
@@ -237,17 +239,23 @@ window.loadTicketBot = async function(section) {
     contentEl.replaceChildren(view);
   };
 
-  const renderTickets = async () => {
+  const renderTickets = async (append=false) => {
     if(currentTicket) return renderTicketDetail(currentTicket);
+    if(!append) { ticketCursor=null; ticketItems=[]; }
     const view=make("div","tb-view");
     const filter=select([{label:"Открытые",value:"open"},{label:"Закрытые",value:"closed"},{label:"Все",value:"all"}],ticketFilter);
-    filter.addEventListener("change",()=>{ticketFilter=filter.value;renderTickets().catch(showError);});
+    filter.addEventListener("change",()=>{ticketFilter=filter.value;ticketCursor=null;ticketItems=[];renderTickets().catch(showError);});
     const refresh=button("↻ Обновить","tb-button",()=>renderTickets().catch(showError));
     const actions=make("div","tb-actions");actions.append(filter,refresh);
-    view.append(heading("Тикеты","Все обращения, история сообщений, участники и управление статусом.",actions));
-    const result=await request("/tickets?status="+encodeURIComponent(ticketFilter)+"&limit=200");
+    view.append(heading("Тикеты","Все обращения, история сообщений, участники и управление статусом. История загружается страницами без лимита на количество тикетов.",actions));
+    let url="/tickets?status="+encodeURIComponent(ticketFilter)+"&limit=100";
+    if(append && ticketCursor) url+="&before_id="+encodeURIComponent(ticketCursor);
+    const result=await request(url);
+    const nextPage=result.tickets||[];
+    ticketItems=append?ticketItems.concat(nextPage):nextPage;
+    ticketCursor=result.next_before_id||null;
     const list=make("div","tb-ticket-list");
-    const tickets=result.tickets||[];
+    const tickets=ticketItems;
     if(!tickets.length) list.append(make("div","tb-empty","Тикетов пока нет."));
     for(const ticket of tickets) {
       const row=make("article","tb-ticket-row");
@@ -266,7 +274,11 @@ window.loadTicketBot = async function(section) {
       }
       row.append(info,controls);list.append(row);
     }
-    view.append(list);contentEl.replaceChildren(view);
+    view.append(list);
+    if(ticketCursor) {
+      view.append(button("Загрузить ещё тикеты","tb-button",()=>renderTickets(true).catch(showError)));
+    }
+    contentEl.replaceChildren(view);
   };
 
   const paintTicketEvents = (container, items) => {
