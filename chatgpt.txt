@@ -2559,3 +2559,13 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Исходники подтверждены на main: Ticket-Bot/ticketbot/api.py blob caeee0b848efba5854e2487d8d29166b5e91b379; Ticket-Bot/ticketbot/config.py blob d18bdeb8ecfe71f715def6feef0ed1cf933481d6; Gandon-bot/dashboard/backend/main.py blob f27635195b26dc8b8ed6f43a08da8ae02c468297.
 - Фактический внешний HTTP check пока не выполнен: пользователь ещё не предоставил публичный hostname/IP и порт, назначенные Bot-Hosting для Ticket Bot. Внутренний лог подтверждает bind Uvicorn на 0.0.0.0:25920, но не подтверждает наличие внешнего port allocation, HTTPS или доступность из GastWorld.
 - Следующий шаг: запросить только публичный базовый URL или публичный host:port Ticket Bot (без секретов), выполнить внешний GET /health, затем проверить GastWorld → Ticket Bot через настроенный proxy/API. Не просить и не сохранять значения TICKET_DISCORD_TOKEN, TICKETBOT_API_KEY или encryption key.
+
+61. ПУБЛИЧНЫЕ АДРЕСА TICKET BOT И НЕЗАВЕРШЁННАЯ ВНЕШНЯЯ HEALTH-ПРОВЕРКА (2026-11-25)
+- Пользователь предоставил два HTTPS адреса сервиса Ticket Bot на Bot-Hosting:
+  - домен/предполагаемый alias: https://ticketbot.apps.bot-hosting.cloud
+  - выданный хостингом адрес (пользователь обозначил как настоящий): https://ugvo3ma82k.apps.bot-hosting.cloud
+- Для внешней проверки следует открыть /health на обоих адресах. Корректный ожидаемый JSON исходя из Ticket-Bot/ticketbot/api.py: ok=true, service='ticket-bot', discord_ready=true, guild_count=<число серверов>.
+- В текущей среде ChatGPT обе попытки открыть /health не удались: web open вернул URL not accessible, а контейнерный HTTP-запрос завершился DNS resolution failure. Это ограничение/ошибка сетевого доступа из среды проверки и НЕ доказывает недоступность сервиса или ошибку DNS у пользователя.
+- Пока не подтверждено, что оба hostname маршрутизируются на один и тот же сервис, что TLS/HTTPS и порт API корректно опубликованы, и что /health отвечает извне. Не утверждать, что проверка успешна.
+- До подтверждения лучше использовать выданный хостингом адрес как кандидат для TICKETBOT_API_URL: https://ugvo3ma82k.apps.bot-hosting.cloud (без /health, без /api/v1). Пользователь должен сам открыть https://ugvo3ma82k.apps.bot-hosting.cloud/health и https://ticketbot.apps.bot-hosting.cloud/health в браузере и прислать отображённый JSON или HTTP-ошибку; секреты не нужны. Если оба работают, можно выбрать красивый alias только после подтверждения, что он маршрутизирует к тому же API.
+- TICKETBOT_API_KEY остаётся одинаковым на обоих backend и передаётся только как секретный environment variable; никогда не запрашивать его в чате.
