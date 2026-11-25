@@ -571,6 +571,86 @@ async function loadAllowedGuilds(section){
     if(!response.ok)throw new Error(data.detail||"Запрос не выполнен.");
     return data;
   };
+  const renderCommandManager=async(server,panel,toggle)=>{
+    panel.replaceChildren();
+    const loading=document.createElement("div");
+    loading.className="allowed-guild-command-loading";
+    loading.textContent="Загружаем команды сервера…";
+    panel.append(loading);
+    try{
+      const data=await api("/api/allowed-guilds/"+encodeURIComponent(server.id)+"/commands");
+      panel.replaceChildren();
+      const intro=document.createElement("div");
+      intro.className="allowed-guild-command-intro";
+      intro.textContent="Отключённые команды не выполняются на этом сервере. Настройки сохраняются в SQLite и действуют также для старых регистраций slash-команд.";
+      panel.append(intro);
+      const renderType=(title,type,items)=>{
+        const group=document.createElement("section");
+        group.className="allowed-command-group";
+        const heading=document.createElement("div");
+        heading.className="allowed-command-group-heading";
+        const label=document.createElement("h4");label.textContent=title;
+        const count=document.createElement("span");count.textContent=String(items.length);
+        heading.append(label,count);group.append(heading);
+        const list=document.createElement("div");list.className="allowed-command-list";
+        if(!items.length){
+          const empty=document.createElement("div");
+          empty.className="allowed-command-empty";
+          empty.textContent=type==="slash"?"В этой версии бота нет slash-команд.":"В этой версии бота нет prefix-команд.";
+          list.append(empty);
+        }
+        items.forEach(command=>{
+          const row=document.createElement("article");row.className="allowed-command-row";
+          const info=document.createElement("div");info.className="allowed-command-info";
+          const name=document.createElement("code");name.className="allowed-command-name";
+          name.textContent=(type==="slash"?"/":"!")+command.name;
+          const description=document.createElement("small");
+          description.textContent=command.description||"Описание не задано";
+          info.append(name,description);
+          const controls=document.createElement("div");controls.className="allowed-command-controls";
+          const state=document.createElement("span");
+          state.className="allowed-command-state"+(command.disabled?" is-disabled":"");
+          state.textContent=command.disabled?"Запрещена":"Разрешена";
+          const action=document.createElement("button");
+          action.type="button";
+          action.className="allowed-command-toggle"+(command.disabled?" is-disabled":"");
+          action.textContent=command.disabled?"Разрешить":"Запретить";
+          action.addEventListener("click",async()=>{
+            const nextDisabled=!command.disabled;
+            action.disabled=true;
+            action.textContent=nextDisabled?"Сохраняем…":"Включаем…";
+            try{
+              await api("/api/allowed-guilds/"+encodeURIComponent(server.id)+"/commands",{
+                method:"POST",
+                body:JSON.stringify({command_type:type,command_name:command.name,disabled:nextDisabled})
+              });
+              showNotice("Команда "+(type==="slash"?"/":"!")+command.name+
+                (nextDisabled?" запрещена":" снова разрешена")+" на сервере «"+(server.name||server.id)+"».","success");
+              await renderCommandManager(server,panel,toggle);
+            }catch(error){
+              showNotice(error.message,"error");
+              action.disabled=false;
+              action.textContent=command.disabled?"Разрешить":"Запретить";
+            }
+          });
+          controls.append(state,action);row.append(info,controls);list.append(row);
+        });
+        group.append(list);panel.append(group);
+      };
+      renderType("Slash-команды","slash",Array.isArray(data.slash_commands)?data.slash_commands:[]);
+      renderType("Prefix-команды","prefix",Array.isArray(data.prefix_commands)?data.prefix_commands:[]);
+      const footer=document.createElement("small");
+      footer.className="allowed-guild-command-footer";
+      footer.textContent="Всего активных запретов: "+Number(data.disabled_count||0);
+      panel.append(footer);
+    }catch(error){
+      panel.replaceChildren();
+      const failed=document.createElement("div");
+      failed.className="allowed-command-empty is-error";
+      failed.textContent=error.message;
+      panel.append(failed);
+    }
+  };
   const renderGroup=(title,description,items,allowedGroup)=>{
     const group=document.createElement("section");group.className="allowed-guilds-group";
     const head=document.createElement("div");head.className="allowed-guilds-group-head";
@@ -581,6 +661,7 @@ async function loadAllowedGuilds(section){
     const list=document.createElement("div");list.className="allowed-guilds-list";
     if(!items.length){const empty=document.createElement("div");empty.className="allowed-guilds-empty";empty.textContent=allowedGroup?"Нет разрешённых серверов.":"Нет других серверов, где бот уже состоит.";list.append(empty);}
     items.forEach(server=>{
+      const entry=document.createElement("div");entry.className="allowed-guild-entry";
       const card=document.createElement("article");card.className="allowed-guild-card";
       const avatar=document.createElement("div");avatar.className="allowed-guild-avatar";
       if(server.icon_url){const image=document.createElement("img");image.src=server.icon_url;image.alt="";image.loading="lazy";image.onerror=()=>{avatar.textContent=(server.name||"D").slice(0,1).toUpperCase();};avatar.append(image);}
@@ -596,18 +677,37 @@ async function loadAllowedGuilds(section){
       else if(allowedGroup){badge.textContent="Команды включены";badge.classList.add("is-enabled");}
       else{badge.textContent="Не разрешён";}
       actions.append(badge);
-      const action=document.createElement("button");action.type="button";
+
       if(allowedGroup){
-        action.className="allowed-guild-remove";action.textContent="Отключить";
-        action.disabled=!!server.is_core;
-        action.title=server.is_core?"Основной сервер нельзя удалить":"Убрать этот сервер из списка разрешённых";
-        action.addEventListener("click",async()=>{
-          if(server.is_core)return;
-          action.disabled=true;action.textContent="Отключаем…";
-          try{await api("/api/allowed-guilds/"+encodeURIComponent(server.id),{method:"DELETE"});showNotice("Сервер «"+server.name+"» отключён. Команды на нём больше не выполняются.","success");await load();}
-          catch(error){showNotice(error.message,"error");action.disabled=false;action.textContent="Отключить";}
+        const commandPanel=document.createElement("div");
+        commandPanel.className="allowed-guild-command-panel";
+        commandPanel.hidden=true;
+        const configure=document.createElement("button");
+        configure.type="button";
+        configure.className="allowed-guild-configure";
+        configure.textContent="Настроить команды";
+        configure.addEventListener("click",async()=>{
+          commandPanel.hidden=!commandPanel.hidden;
+          configure.textContent=commandPanel.hidden?"Настроить команды":"Скрыть команды";
+          if(!commandPanel.hidden)await renderCommandManager(server,commandPanel,configure);
         });
+        actions.append(configure);
+
+        const remove=document.createElement("button");remove.type="button";
+        remove.className="allowed-guild-remove";remove.textContent="Отключить";
+        remove.disabled=!!server.is_core;
+        remove.title=server.is_core?"Основной сервер нельзя удалить":"Убрать этот сервер из списка разрешённых";
+        remove.addEventListener("click",async()=>{
+          if(server.is_core)return;
+          remove.disabled=true;remove.textContent="Отключаем…";
+          try{await api("/api/allowed-guilds/"+encodeURIComponent(server.id),{method:"DELETE"});showNotice("Сервер «"+server.name+"» отключён. Команды на нём больше не выполняются.","success");await load();}
+          catch(error){showNotice(error.message,"error");remove.disabled=false;remove.textContent="Отключить";}
+        });
+        actions.append(remove);
+        card.append(avatar,identity,actions);
+        entry.append(card,commandPanel);
       }else{
+        const action=document.createElement("button");action.type="button";
         action.className="allowed-guild-add";action.textContent="Разрешить";
         action.addEventListener("click",async()=>{
           action.disabled=true;action.textContent="Подключаем…";
@@ -616,8 +716,9 @@ async function loadAllowedGuilds(section){
             showNotice("Сервер «"+(result.guild?.name||server.name)+"» разрешён. Slash-команды синхронизированы: "+Number(result.commands_synced||0)+".","success");await load();
           }catch(error){showNotice(error.message,"error");action.disabled=false;action.textContent="Разрешить";}
         });
+        actions.append(action);card.append(avatar,identity,actions);entry.append(card);
       }
-      actions.append(action);card.append(avatar,identity,actions);list.append(card);
+      list.append(entry);
     });
     group.append(list);return group;
   };
@@ -627,7 +728,7 @@ async function loadAllowedGuilds(section){
     try{
       const data=await api("/api/allowed-guilds");
       root.replaceChildren(
-        renderGroup("Разрешённые серверы","На этих серверах бот принимает и выполняет команды.",Array.isArray(data.allowed_guilds)?data.allowed_guilds:[],true),
+        renderGroup("Разрешённые серверы","На этих серверах бот принимает и выполняет команды. Для каждого можно отдельно настроить запреты.",Array.isArray(data.allowed_guilds)?data.allowed_guilds:[],true),
         renderGroup("Бот уже добавлен","Можно включить команды на любом из этих серверов.",Array.isArray(data.available_guilds)?data.available_guilds:[],false)
       );
     }catch(error){
@@ -652,7 +753,6 @@ async function loadAllowedGuilds(section){
   });
   await load();
 }
-
 
 async function loadAccess(section){
   const root=section.querySelector("#accessWorkspace");
