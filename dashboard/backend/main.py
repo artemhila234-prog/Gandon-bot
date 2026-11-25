@@ -775,6 +775,16 @@ async def api_ticketbot_reply_save(guild_id: str, request: Request):
     )
 
 
+@app.delete("/api/ticketbot/guilds/{guild_id}/replies/{shortcut}")
+async def api_ticketbot_reply_delete(guild_id: str, shortcut: str, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request(
+        "DELETE", f"guilds/{guild_id}/replies/{shortcut}",
+        payload=ticketbot_actor_payload(request, {}),
+    )
+
+
 @app.get("/api/ticketbot/guilds/{guild_id}/tags")
 async def api_ticketbot_tags(guild_id: str, request: Request):
     await require_ticketbot_admin(request)
@@ -793,6 +803,16 @@ async def api_ticketbot_tag_save(guild_id: str, request: Request):
     )
 
 
+@app.delete("/api/ticketbot/guilds/{guild_id}/tags/{tag_id}")
+async def api_ticketbot_tag_delete(guild_id: str, tag_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request(
+        "DELETE", f"guilds/{guild_id}/tags/{tag_id}",
+        payload=ticketbot_actor_payload(request, {}),
+    )
+
+
 @app.get("/api/ticketbot/guilds/{guild_id}/knowledge")
 async def api_ticketbot_knowledge(guild_id: str, request: Request):
     await require_ticketbot_admin(request)
@@ -808,6 +828,16 @@ async def api_ticketbot_knowledge_save(guild_id: str, request: Request):
     except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
     return await ticketbot_api_request(
         "POST", f"guilds/{guild_id}/knowledge", payload=ticketbot_actor_payload(request, payload)
+    )
+
+
+@app.delete("/api/ticketbot/guilds/{guild_id}/knowledge/{article_id}")
+async def api_ticketbot_knowledge_delete(guild_id: str, article_id: int, request: Request):
+    await require_ticketbot_admin(request)
+    if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
+    return await ticketbot_api_request(
+        "DELETE", f"guilds/{guild_id}/knowledge/{article_id}",
+        payload=ticketbot_actor_payload(request, {}),
     )
 
 
