@@ -339,6 +339,17 @@ async def api_me(request: Request):
     }
 
 
+@app.get("/api/creator-profile")
+async def api_creator_profile(request: Request):
+    await require_user(request)
+    try:
+        return await get_dm_controller("creator_profile")("1479848906106863796")
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)[:250])
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить профиль создателя: {str(error)[:250]}")
+
+
 @app.post("/auth/logout")
 async def auth_logout(request: Request):
     request.session.clear()
