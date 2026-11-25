@@ -10,6 +10,38 @@ function canOpenPage(page){
   return !!pageNames[page] && (page==="dashboard" || (isAuthenticated && (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"])));
 }
 let isAuthenticated=false;
+async function mountTicketBotWorkspace(section){
+  const workspace=section?.querySelector("#ticketBotWorkspace");
+  if(!workspace)return;
+  const showFailure=(message)=>{
+    workspace.replaceChildren();
+    const error=document.createElement("div");
+    error.className="empty-state";
+    error.textContent=message;
+    workspace.appendChild(error);
+  };
+  try{
+    if(typeof window.loadTicketBot!=="function"){
+      const appScript=Array.from(document.scripts).find(item=>/(^|\\/)app\\.js(?:\\?|$)/.test(item.src));
+      const moduleUrl=new URL("ticketbot.js",appScript?.src||document.baseURI);
+      moduleUrl.searchParams.set("v","20261125-ticketbot7");
+      await new Promise((resolve,reject)=>{
+        const script=document.createElement("script");
+        script.src=moduleUrl.href;
+        script.onload=resolve;
+        script.onerror=()=>reject(new Error("Не удалось загрузить dashboard/ticketbot.js. Проверь обновление файлов сайта и перезагрузи страницу через Ctrl+F5."));
+        document.head.appendChild(script);
+      });
+    }
+    if(typeof window.loadTicketBot!=="function"){
+      throw new Error("Файл ticketbot.js загрузился, но не зарегистрировал модуль интерфейса. Проверь JavaScript Console на ошибку выполнения.");
+    }
+    await window.loadTicketBot(workspace);
+  }catch(error){
+    showFailure(error?.message||String(error));
+    console.error("[GastWorld Ticket Bot] module mount failed:",error);
+  }
+}
 function applyAccessNavigation(){
   document.querySelectorAll(".nav-item[data-page]").forEach(button=>{
     const page=button.dataset.page;
@@ -77,7 +109,7 @@ function showPage(page){
     }
     content.appendChild(section);
     if(page==="discord")loadBotDiscord();
-    if(page==="ticketBot")window.loadTicketBot?.(section.querySelector("#ticketBotWorkspace"));
+    if(page==="ticketBot")mountTicketBotWorkspace(section);
   }else{
     const old=document.getElementById("comingPage");if(old)old.remove();
     const oldBody=document.getElementById("dashboardBody");if(oldBody)oldBody.hidden=false;
