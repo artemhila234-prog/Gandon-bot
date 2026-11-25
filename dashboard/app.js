@@ -987,7 +987,7 @@ function dcRenderMessageContent(parent,message){
   const roles=new Map(roleItems.map(item=>[String(item.id),item]));
   const cachedChannels=dcActiveGuild?(dcChannelsCacheByGuild.get(dcActiveGuild.id)?.channels||[]):[];
   const channels=new Map([...cachedChannels,...(message.channel_mentions||[])].map(item=>[String(item.id),item]));
-  const token=/<@!?([0-9]{5,})>|<@&([0-9]{5,})>|<#([0-9]{5,})>|<t:(-?[0-9]+)(?::([tTdDfFR]))?>|<(a?):([A-Za-z0-9_]+):([0-9]{5,})>|(https?:\/\/[^\s<]+)|:([0-9]{17,20}):/g;
+  const token=/<@!?([0-9]{5,})>|<@&([0-9]{5,})>|<#([0-9]{5,})>|<t:(-?[0-9]+)(?::([tTdDfFR]))?>|<(a?):([A-Za-z0-9_]+):([0-9]{5,})>|(https?:\/\/[^\s<]+)|:([0-9]{17,20}):|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
   let cursor=0,match;
   while((match=token.exec(content))){
     if(match.index>cursor)dcAppendInlineMarkdown(parent,content.slice(cursor,match.index));
@@ -1031,6 +1031,9 @@ function dcRenderMessageContent(parent,message){
         if(stickerUrlIndex<stickerUrls.length)node.src=stickerUrls[stickerUrlIndex];
         else{const link=document.createElement("a");link.href="https://discord.com/stickers/"+stickerId;link.target="_blank";link.rel="noopener noreferrer";link.textContent="Открыть стикер";link.className="dc-sticker-static-label";node.replaceWith(link);}
       };
+    }else if(match[11]!==undefined){
+      node=document.createElement("a");node.href=match[12];node.target="_blank";node.rel="noopener noreferrer";
+      dcAppendInlineMarkdown(node,match[11]);
     }
     if(node)parent.append(node);cursor=token.lastIndex;
   }
@@ -1159,6 +1162,80 @@ function dcRenderMessageReactions(body,message){
   }
   body.append(row);
 }
+function dcRenderEmbedMedia(parent,url,alt="Медиа Discord"){
+  if(!url)return;
+  const source=String(url);
+  const isVideo=/\.(?:mp4|webm|mov|m4v|gifv)(?:$|[?#])/i.test(source);
+  const isGif=/\.gif(?:$|[?#])/i.test(source)||/gifv/i.test(source);
+  const animated=isVideo||isGif;
+  const autoplay=!animated||(dcAccessibilityPrefs.autoplayGifs&&!dcAccessibilityPrefs.reducedMotion);
+  const mount=()=>{
+    if(isVideo){
+      const video=document.createElement("video");video.className="dc-embed-video";video.src=source;
+      video.controls=true;video.loop=true;video.playsInline=true;video.preload="metadata";video.muted=true;video.autoplay=animated&&autoplay;
+      video.setAttribute("aria-label",alt);parent.append(video);
+      if(video.autoplay)video.play().catch(()=>{video.controls=true;});
+    }else{
+      const image=document.createElement("img");image.className="dc-embed-image";image.src=source;image.alt=alt;image.loading="lazy";parent.append(image);
+    }
+  };
+  if(autoplay)mount();
+  else{
+    const button=document.createElement("button");button.type="button";button.className="dc-animated-media-trigger";
+    button.textContent="▶  Показать GIF";button.addEventListener("click",()=>{button.remove();mount();});parent.append(button);
+  }
+}
+function dcRenderEmbedCard(parent,embed){
+  const card=document.createElement("article");card.className="dc-embed-card";
+  const color=Number(embed.color)||0;
+  if(color>0&&color<=0xffffff)card.style.borderLeftColor="#"+color.toString(16).padStart(6,"0");
+  const author=embed.author||{};
+  if(author.name){
+    const line=document.createElement("div");line.className="dc-embed-author";
+    if(author.icon_url){const icon=document.createElement("img");icon.src=author.icon_url;icon.alt="";icon.loading="lazy";line.append(icon);}
+    const label=document.createElement(author.url?"a":"span");label.textContent=author.name;
+    if(author.url){label.href=author.url;label.target="_blank";label.rel="noopener noreferrer";}line.append(label);card.append(line);
+  }
+  if(embed.provider?.name){
+    const provider=document.createElement("div");provider.className="dc-embed-provider";
+    if(embed.provider.url){const link=document.createElement("a");link.href=embed.provider.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent=embed.provider.name;provider.append(link);}
+    else provider.textContent=embed.provider.name;card.append(provider);
+  }
+  if(embed.title){
+    const title=document.createElement(embed.url?"a":"strong");title.className="dc-embed-title";title.textContent=embed.title;
+    if(embed.url){title.href=embed.url;title.target="_blank";title.rel="noopener noreferrer";}card.append(title);
+  }else if(embed.url&&!embed.description&&!embed.image_url&&!embed.thumbnail_url&&!embed.video_url){
+    const link=document.createElement("a");link.className="dc-embed-title";link.href=embed.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent=embed.url;card.append(link);
+  }
+  if(embed.description){
+    const description=document.createElement("div");description.className="dc-embed-description";
+    dcAppendInlineMarkdown(description,embed.description);card.append(description);
+  }
+  const fields=Array.isArray(embed.fields)?embed.fields:[];
+  if(fields.length){
+    const grid=document.createElement("div");grid.className="dc-embed-fields";
+    fields.forEach(field=>{
+      const item=document.createElement("div");item.className="dc-embed-field";if(field.inline)item.classList.add("inline");
+      const name=document.createElement("strong");name.textContent=field.name||"\u00a0";
+      const value=document.createElement("div");dcAppendInlineMarkdown(value,field.value||"");item.append(name,value);grid.append(item);
+    });card.append(grid);
+  }
+  const media=document.createElement("div");media.className="dc-embed-media";
+  const mediaUrl=embed.video_url||embed.image_url||"";
+  if(mediaUrl)dcRenderEmbedMedia(media,mediaUrl,embed.title||"Медиа Discord");
+  if(embed.thumbnail_url&&embed.thumbnail_url!==mediaUrl){
+    const thumb=document.createElement("img");thumb.className="dc-embed-thumbnail";thumb.src=embed.thumbnail_url;thumb.alt="";thumb.loading="lazy";media.append(thumb);
+  }
+  if(media.childNodes.length)card.append(media);
+  if(embed.footer?.text||embed.timestamp){
+    const footer=document.createElement("div");footer.className="dc-embed-footer";
+    if(embed.footer?.icon_url){const icon=document.createElement("img");icon.src=embed.footer.icon_url;icon.alt="";icon.loading="lazy";footer.append(icon);}
+    if(embed.footer?.text){const text=document.createElement("span");text.textContent=embed.footer.text;footer.append(text);}
+    if(embed.timestamp){const time=document.createElement("time");const date=new Date(embed.timestamp);if(!Number.isNaN(date.getTime())){time.dateTime=date.toISOString();time.textContent=" · "+date.toLocaleString("ru-RU");footer.append(time);}}
+    card.append(footer);
+  }
+  parent.append(card);
+}
 function dcRenderMessages(messages){
   const root=document.getElementById("dcChatMessages");if(!root)return;root.replaceChildren();
   if(!messages.length){const empty=document.createElement("div");empty.className="dc-live-welcome";empty.innerHTML='<div class="dc-live-welcome-icon">＠</div><h1>Это начало переписки</h1><p>Здесь пока нет сообщений. Можешь отправить первое сообщение, если Discord разрешает открыть DM.</p>';root.append(empty);return;}
@@ -1183,12 +1260,28 @@ function dcRenderMessages(messages){
     }
     if(message.content){const text=document.createElement("p");text.className="dc-message-content";dcRenderMessageContent(text,message);body.append(text);}
     (message.attachments||[]).forEach(file=>{
-      const link=document.createElement("a");link.href=file.url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+file.filename;link.className="dc-attachment-link";body.append(link);
-      if((file.content_type||"").startsWith("image/")){
-        const isGif=(file.content_type||"").toLowerCase().includes("gif")||/\.gif(?:$|\?)/i.test(file.filename||file.url||"");
-        const showImage= !isGif || (dcAccessibilityPrefs.autoplayGifs&&!dcAccessibilityPrefs.reducedMotion);
-        if(showImage){const preview=document.createElement("img");preview.className="dc-attachment-preview";preview.src=file.url;preview.alt=file.filename;preview.loading="lazy";body.append(preview);}
-        else{const play=document.createElement("button");play.type="button";play.className="dc-animated-media-trigger";play.textContent="▶  Воспроизвести GIF";play.addEventListener("click",()=>{const preview=document.createElement("img");preview.className="dc-attachment-preview";preview.src=file.url;preview.alt=file.filename;preview.loading="lazy";play.replaceWith(preview);});body.append(play);}
+      const url=String(file.url||"");const filename=String(file.filename||"Вложение");
+      const link=document.createElement("a");link.href=url;link.target="_blank";link.rel="noopener noreferrer";link.textContent="📎 "+filename;link.className="dc-attachment-link";body.append(link);
+      const contentType=String(file.content_type||"").toLowerCase();
+      const isVideo=contentType.startsWith("video/")||/\.(?:mp4|webm|mov|m4v|gifv)(?:$|[?#])/i.test(filename+" "+url);
+      const isImage=contentType.startsWith("image/")||/\.(?:png|jpe?g|gif|webp|avif)(?:$|[?#])/i.test(filename+" "+url);
+      if(isImage||isVideo){
+        const animated=isVideo||contentType.includes("gif")||/\.gif(?:$|[?#])/i.test(filename+" "+url);
+        const autoplay=!animated||(dcAccessibilityPrefs.autoplayGifs&&!dcAccessibilityPrefs.reducedMotion);
+        const mount=()=>{
+          if(isVideo){
+            const preview=document.createElement("video");preview.className="dc-attachment-preview dc-attachment-video";
+            preview.src=url;preview.setAttribute("aria-label",filename);preview.controls=true;preview.loop=true;preview.playsInline=true;preview.preload="metadata";preview.muted=true;preview.autoplay=autoplay;
+            body.append(preview);if(preview.autoplay)preview.play().catch(()=>{preview.controls=true;});
+          }else{
+            const preview=document.createElement("img");preview.className="dc-attachment-preview";preview.src=url;preview.alt=filename;preview.loading="lazy";body.append(preview);
+          }
+        };
+        if(autoplay)mount();
+        else{
+          const play=document.createElement("button");play.type="button";play.className="dc-animated-media-trigger";play.textContent="▶  Воспроизвести GIF";
+          play.addEventListener("click",()=>{play.remove();mount();});body.append(play);
+        }
       }
     });
     if((message.stickers||[]).length){
@@ -1208,7 +1301,7 @@ function dcRenderMessages(messages){
       });
       body.append(stickerWrap);
     }
-    (message.embeds||[]).forEach(embed=>{const card=document.createElement("div");card.className="dc-embed-card";if(embed.title){const title=document.createElement(embed.url?"a":"strong");title.textContent=embed.title;if(embed.url){title.href=embed.url;title.target="_blank";title.rel="noopener noreferrer";}card.append(title);}if(embed.description){const description=document.createElement("p");dcAppendInlineMarkdown(description,embed.description);card.append(description);}if(embed.image_url){const image=document.createElement("img");image.src=embed.image_url;image.alt="";image.loading="lazy";card.append(image);}body.append(card);});
+    (message.embeds||[]).forEach(embed=>dcRenderEmbedCard(body,embed));
     if(!message.content&&!message.attachments?.length&&!message.embeds?.length&&!message.stickers?.length){const empty=document.createElement("p");empty.className="dc-message-content";empty.textContent="[Сообщение без текста]";body.append(empty);}
     dcRenderMessageReactions(body,message);
     if(message.pinned){const pin=document.createElement("small");pin.className="dc-message-pinned";pin.textContent="📌 Закреплено";body.append(pin);}
