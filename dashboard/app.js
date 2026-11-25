@@ -1186,10 +1186,10 @@ function dcRenderMessageReactions(body,message){
   }
   body.append(row);
 }
-function dcRenderEmbedMedia(parent,url,alt="Медиа Discord"){
+function dcRenderEmbedMedia(parent,url,alt="Медиа Discord",forceVideo=false){
   if(!url)return;
   const source=String(url);
-  const isVideo=/\.(?:mp4|webm|mov|m4v|gifv)(?:$|[?#])/i.test(source);
+  const isVideo=!!forceVideo||/\.(?:mp4|webm|mov|m4v|gifv)(?:$|[?#])/i.test(source);
   const isGif=/\.gif(?:$|[?#])/i.test(source)||/gifv/i.test(source);
   const animated=isVideo||isGif;
   const autoplay=!animated||(dcAccessibilityPrefs.autoplayGifs&&!dcAccessibilityPrefs.reducedMotion);
@@ -1246,7 +1246,7 @@ function dcRenderEmbedCard(parent,embed){
   }
   const media=document.createElement("div");media.className="dc-embed-media";
   const mediaUrl=embed.video_url||embed.image_url||"";
-  if(mediaUrl)dcRenderEmbedMedia(media,mediaUrl,embed.title||"Медиа Discord");
+  if(mediaUrl)dcRenderEmbedMedia(media,mediaUrl,embed.title||"Медиа Discord",!!embed.video_url);
   if(embed.thumbnail_url&&embed.thumbnail_url!==mediaUrl){
     const thumb=document.createElement("img");thumb.className="dc-embed-thumbnail";thumb.src=embed.thumbnail_url;thumb.alt="";thumb.loading="lazy";media.append(thumb);
   }
