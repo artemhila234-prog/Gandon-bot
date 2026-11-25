@@ -163,6 +163,29 @@ function renderDiscordAvatar(element,user,size=128){
     element.append(image);
   }else element.textContent=avatarLetter(user?.username);
 }
+async function loadCreatorProfile(){
+  const avatar=document.getElementById("creatorAvatar");
+  const name=document.getElementById("creatorName");
+  const meta=document.getElementById("creatorMeta");
+  if(!avatar||!name||!meta)return;
+  try{
+    const response=await fetch("/api/creator-profile",{credentials:"same-origin",cache:"no-store"});
+    const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}
+    if(!response.ok)throw new Error(data.detail||"Профиль Discord недоступен.");
+    const user=data.user||{};
+    const display=user.global_name||user.username||"Its_Morterlyn_7";
+    name.textContent=display;
+    meta.textContent="Discord · @"+(user.username||"Its_Morterlyn_7")+" · ID: "+(user.id||"1479848906106863796");
+    avatar.replaceChildren();
+    if(user.avatar_url){
+      const image=document.createElement("img");image.src=user.avatar_url;image.alt="Discord-аватар "+display;image.loading="lazy";
+      image.onerror=()=>{avatar.textContent=display.slice(0,1).toUpperCase();};
+      avatar.append(image);
+    }else avatar.textContent=display.slice(0,1).toUpperCase();
+  }catch(error){
+    meta.textContent="Discord · ID: 1479848906106863796";
+  }
+}
 async function loadSession(){
   try{
     const response=await fetch("/api/me",{credentials:"same-origin"});
@@ -178,6 +201,7 @@ async function loadSession(){
     }
     const user=data.user;
     currentSessionUser=user;
+    loadCreatorProfile();
     isAuthenticated=true;
     currentAccessLevel=user.access_level||"none";
     applyAccessNavigation();
