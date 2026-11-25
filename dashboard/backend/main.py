@@ -350,6 +350,57 @@ async def api_creator_profile(request: Request):
         raise HTTPException(status_code=502, detail=f"Не удалось загрузить профиль создателя: {str(error)[:250]}")
 
 
+@app.get("/api/allowed-guilds")
+async def api_allowed_guilds(request: Request):
+    """Список серверов, для которых Full разрешил выполнять команды GastWorld."""
+    await require_access(request, "full")
+    try:
+        return await get_dm_controller("allowed_guilds_list")()
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить список разрешённых серверов: {str(error)[:250]}")
+
+
+@app.post("/api/allowed-guilds")
+async def api_allowed_guilds_add(request: Request):
+    actor = await require_access(request, "full")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректные данные запроса.")
+    guild_id = str(payload.get("guild_id") or "").strip() if isinstance(payload, dict) else ""
+    if not guild_id.isdigit() or not 17 <= len(guild_id) <= 20:
+        raise HTTPException(status_code=400, detail="Укажи Discord Server ID длиной 17–20 цифр.")
+    try:
+        return await get_dm_controller("allowed_guilds_add")(guild_id, str(actor.get("id", "")))
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:250])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:250])
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось разрешить сервер: {str(error)[:250]}")
+
+
+@app.delete("/api/allowed-guilds/{guild_id}")
+async def api_allowed_guilds_remove(guild_id: str, request: Request):
+    await require_access(request, "full")
+    if not guild_id.isdigit() or not 17 <= len(guild_id) <= 20:
+        raise HTTPException(status_code=400, detail="Некорректный Discord Server ID.")
+    try:
+        return await get_dm_controller("allowed_guilds_remove")(guild_id)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:250])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:250])
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось отключить сервер: {str(error)[:250]}")
+
+
 @app.post("/auth/logout")
 async def auth_logout(request: Request):
     request.session.clear()
