@@ -2458,3 +2458,11 @@ body.discord-mode #pageContent.discord-fullscreen .dc-channel-settings-button{mi
   .tb-staff-row .tb-button{margin-left:0}
   .tb-section-head{align-items:flex-start;flex-direction:column}
 }
+
+
+.tb-bot-profile-identity{display:flex;align-items:center;gap:12px;min-width:0}
+.tb-bot-avatar-preview{display:block;width:72px;height:72px;flex:0 0 72px;border:1px solid var(--border-color,#34313f);border-radius:50%;background:#23202d;object-fit:cover}
+.tb-bot-profile-copy{display:none}
+.tb-bot-profile-identity strong{color:var(--text-primary,#f2f0f7);font-size:11px}
+.tb-bot-profile-identity small{color:var(--text-secondary,#9692a3);font-size:9px}
+.tb-profile-note{margin:0;padding:10px 12px;border-left:2px solid #7b5bb6;color:var(--text-secondary,#a8a6b3);font-size:10px;line-height:1.6}
