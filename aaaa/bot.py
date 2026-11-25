@@ -1,4 +1,5 @@
 import re
+import copy
 import base64
 import discord
 import asyncio
@@ -2500,6 +2501,14 @@ async def on_ready():
         else:
             print(f"⚠️ [ТИКЕТЫ] Первый сервер {ticket_guild_id} не найден в подключении бота.", flush=True)
 
+    # Keep an immutable source for later Full-authorized guild additions.
+    # Global registrations are removed below, so runtime additions must not
+    # depend on bot.tree.copy_global_to() after startup.
+    if getattr(bot, "_global_command_templates", None) is None:
+        bot._global_command_templates = [
+            copy.copy(command) for command in bot.tree.get_commands()
+        ]
+
     # Регистрируем команды только как серверные (guild commands).
     # Старые глобальные команды удаляем ниже, чтобы Discord не показывал
     # две версии каждой slash-команды одновременно.
@@ -3480,10 +3489,17 @@ def panel_allowed_guild_payload(guild_id):
 
 
 async def sync_allowed_guild_commands(guild):
-    """Publish current application commands to one explicitly allowed guild."""
+    """Publish the saved application-command templates to one allowed guild."""
+    templates = getattr(bot, "_global_command_templates", None)
+    if templates is None:
+        templates = [copy.copy(command) for command in bot.tree.get_commands()]
+        bot._global_command_templates = templates
+    if not templates:
+        raise RuntimeError("Не удалось найти шаблоны slash-команд для синхронизации.")
     bot.tree.clear_commands(guild=guild)
     await bot.tree.sync(guild=guild)
-    bot.tree.copy_global_to(guild=guild)
+    for command in templates:
+        bot.tree.add_command(copy.copy(command), guild=guild, override=True)
     synced = await bot.tree.sync(guild=guild)
     return len(synced)
 
