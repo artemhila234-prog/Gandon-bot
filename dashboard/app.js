@@ -22,7 +22,7 @@ async function mountTicketBotWorkspace(section){
   };
   try{
     if(typeof window.loadTicketBot!=="function"){
-      const appScript=Array.from(document.scripts).find(item=>/(^|\\/)app\\.js(?:\\?|$)/.test(item.src));
+      const appScript=Array.from(document.scripts).find(item=>item.src.includes("app.js"));
       const moduleUrl=new URL("ticketbot.js",appScript?.src||document.baseURI);
       moduleUrl.searchParams.set("v","20261125-ticketbot7");
       await new Promise((resolve,reject)=>{
