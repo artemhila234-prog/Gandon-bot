@@ -503,6 +503,24 @@ async def require_ticketbot_admin(request: Request):
     return await require_access(request, "adm")
 
 
+@app.get("/api/ticketbot/profile")
+async def api_ticketbot_profile(request: Request):
+    await require_ticketbot_admin(request)
+    return await ticketbot_api_request("GET", "profile")
+
+
+@app.patch("/api/ticketbot/profile")
+async def api_ticketbot_profile_update(request: Request):
+    await require_ticketbot_admin(request)
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректный JSON.")
+    return await ticketbot_api_request(
+        "PATCH", "profile", payload=ticketbot_actor_payload(request, payload)
+    )
+
+
 @app.get("/api/ticketbot/guilds")
 async def api_ticketbot_guilds(request: Request):
     await require_ticketbot_admin(request)
