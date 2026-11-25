@@ -224,6 +224,30 @@ ALLOWED_GUILDS[:] = [
 if VERIFICATION_GUILD_ID not in ALLOWED_GUILDS:
     ALLOWED_GUILDS.insert(0, VERIFICATION_GUILD_ID)
 
+# Запреты отдельных команд для конкретных разрешённых серверов.
+# Ключ команды хранится отдельно для slash и prefix, настройки переживают рестарт.
+conn.execute("""CREATE TABLE IF NOT EXISTS bot_disabled_commands (
+    guild_id TEXT NOT NULL,
+    command_type TEXT NOT NULL CHECK(command_type IN ('slash', 'prefix')),
+    command_name TEXT NOT NULL,
+    disabled_by TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (guild_id, command_type, command_name)
+)""")
+conn.commit()
+
+
+def is_guild_command_disabled(guild_id, command_type, command_name):
+    if guild_id is None or not command_name:
+        return False
+    row = conn.execute(
+        "SELECT 1 FROM bot_disabled_commands "
+        "WHERE guild_id = ? AND command_type = ? AND LOWER(command_name) = LOWER(?) LIMIT 1",
+        (str(guild_id), str(command_type), str(command_name)),
+    ).fetchone()
+    return row is not None
+
+
 print(f"🗄️ База GastWorld: {os.path.abspath(DB_PATH)}", flush=True)
 
 # ================== БОТ ==================
@@ -233,35 +257,66 @@ intents.members = True
 intents.presences = True
 
 class GastWorldCommandTree(app_commands.CommandTree):
-    """Processes slash commands only on GastWorld's configured command guilds."""
+    """Проверяет allowlist серверов и индивидуальные запреты slash-команд."""
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.guild_id in ALLOWED_GUILDS:
-            return True
+        if interaction.guild_id not in ALLOWED_GUILDS:
+            # Приватно отвечаем на старые/остаточные регистрации команд на чужих серверах.
+            if (
+                interaction.type == discord.InteractionType.application_command
+                and not interaction.response.is_done()
+            ):
+                try:
+                    await interaction.response.send_message(
+                        "Команды GastWorld доступны только на разрешённых серверах.",
+                        ephemeral=True,
+                    )
+                except discord.HTTPException:
+                    pass
+            return False
 
-        # Acknowledge slash/context-menu commands privately so Discord does not
-        # show the generic "application did not respond" warning. The command
-        # itself is never dispatched on an unapproved guild.
-        if (
-            interaction.type == discord.InteractionType.application_command
-            and not interaction.response.is_done()
-        ):
-            try:
-                await interaction.response.send_message(
-                    "Команды GastWorld доступны только на официальном сервере.",
-                    ephemeral=True,
-                )
-            except discord.HTTPException:
-                pass
-        return False
+        command = interaction.command
+        if command is not None:
+            command_name = (
+                getattr(command, "qualified_name", None)
+                or getattr(command, "name", "")
+            )
+            if is_guild_command_disabled(interaction.guild_id, "slash", command_name):
+                if not interaction.response.is_done():
+                    try:
+                        await interaction.response.send_message(
+                            f"🚫 Команда /{command_name} отключена администратором GastWorld на этом сервере.",
+                            ephemeral=True,
+                        )
+                    except discord.HTTPException:
+                        pass
+                return False
+
+        return True
 
 
 bot = commands.Bot(command_prefix='!', intents=intents, tree_cls=GastWorldCommandTree)
 
 @bot.check
 async def gastworld_prefix_command_check(ctx: commands.Context) -> bool:
-    """Reject every prefix command outside the configured GastWorld server."""
-    return ctx.guild is not None and ctx.guild.id in ALLOWED_GUILDS
+    """Проверяет allowlist и индивидуальные запреты prefix-команд."""
+    if ctx.guild is None or ctx.guild.id not in ALLOWED_GUILDS:
+        return False
+
+    command = ctx.command
+    command_name = getattr(command, "qualified_name", "") if command else ""
+    if command_name and is_guild_command_disabled(ctx.guild.id, "prefix", command_name):
+        try:
+            await ctx.reply(
+                f"🚫 Команда !{command_name} отключена администратором GastWorld на этом сервере.",
+                mention_author=False,
+                delete_after=8,
+            )
+        except discord.HTTPException:
+            pass
+        return False
+
+    return True
 
 
 # ================== ФУНКЦИИ ==================
@@ -3608,6 +3663,139 @@ async def panel_allowed_guild_remove(guild_id):
     return {"ok": True, "guild_id": str(numeric_id), "commands_cleared": commands_cleared}
 
 
+def panel_command_catalog():
+    """Возвращает реальные команды, зарегистрированные в текущем коде бота."""
+    slash_commands = []
+
+    def collect_slash(command):
+        children = getattr(command, "commands", None)
+        if children:
+            for child in children:
+                collect_slash(child)
+            return
+        name = (
+            getattr(command, "qualified_name", None)
+            or getattr(command, "name", "")
+        )
+        if name:
+            slash_commands.append({
+                "name": str(name),
+                "description": str(getattr(command, "description", "") or "")[:180],
+            })
+
+    templates = getattr(bot, "_global_command_templates", None)
+    if templates is None:
+        templates = bot.tree.get_commands()
+    for command in templates:
+        collect_slash(command)
+
+    prefix_commands = []
+    for command in bot.walk_commands():
+        if getattr(command, "commands", None):
+            continue
+        name = str(getattr(command, "qualified_name", "") or "")
+        if name:
+            prefix_commands.append({
+                "name": name,
+                "description": str(getattr(command, "short_doc", "") or getattr(command, "help", "") or "")[:180],
+            })
+
+    def unique_sorted(items):
+        unique = {}
+        for item in items:
+            unique[item["name"].casefold()] = item
+        return sorted(unique.values(), key=lambda item: item["name"].casefold())
+
+    return {
+        "slash_commands": unique_sorted(slash_commands),
+        "prefix_commands": unique_sorted(prefix_commands),
+    }
+
+
+async def panel_allowed_guild_commands(guild_id):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    raw_id = str(guild_id or "").strip()
+    if not raw_id.isdigit() or not 17 <= len(raw_id) <= 20:
+        raise ValueError("Некорректный Discord Server ID.")
+    numeric_id = int(raw_id)
+    if numeric_id not in ALLOWED_GUILDS:
+        raise PermissionError("Сначала разреши этот сервер в списке GastWorld.")
+    if bot.get_guild(numeric_id) is None:
+        raise ValueError("Бот больше не находится на этом сервере.")
+
+    disabled_rows = conn.execute(
+        "SELECT command_type, command_name FROM bot_disabled_commands WHERE guild_id = ?",
+        (str(numeric_id),),
+    ).fetchall()
+    disabled = {(str(row[0]), str(row[1]).casefold()) for row in disabled_rows}
+    catalog = panel_command_catalog()
+    for command_type, key in (("slash", "slash_commands"), ("prefix", "prefix_commands")):
+        for command in catalog[key]:
+            command["disabled"] = (command_type, command["name"].casefold()) in disabled
+    return {
+        "guild_id": str(numeric_id),
+        "slash_commands": catalog["slash_commands"],
+        "prefix_commands": catalog["prefix_commands"],
+        "disabled_count": len(disabled),
+    }
+
+
+async def panel_allowed_guild_command_update(
+    guild_id, command_type, command_name, disabled, changed_by=""
+):
+    if not bot.is_ready():
+        raise RuntimeError("Discord-бот ещё подключается.")
+    raw_id = str(guild_id or "").strip()
+    if not raw_id.isdigit() or not 17 <= len(raw_id) <= 20:
+        raise ValueError("Некорректный Discord Server ID.")
+    numeric_id = int(raw_id)
+    if numeric_id not in ALLOWED_GUILDS:
+        raise PermissionError("Сначала разреши этот сервер в списке GastWorld.")
+
+    kind = str(command_type or "").strip().lower()
+    name = str(command_name or "").strip()
+    if kind not in {"slash", "prefix"}:
+        raise ValueError("Неизвестный тип команды.")
+    if not name or len(name) > 100:
+        raise ValueError("Укажи корректное имя команды.")
+
+    catalog = panel_command_catalog()
+    catalog_key = "slash_commands" if kind == "slash" else "prefix_commands"
+    known_names = {item["name"].casefold() for item in catalog[catalog_key]}
+    if name.casefold() not in known_names:
+        raise ValueError("Эта команда не найдена в текущей версии бота. Обнови список команд.")
+
+    if disabled:
+        conn.execute(
+            """INSERT INTO bot_disabled_commands
+               (guild_id, command_type, command_name, disabled_by, updated_at)
+               VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(guild_id, command_type, command_name)
+               DO UPDATE SET disabled_by = excluded.disabled_by,
+                             updated_at = CURRENT_TIMESTAMP""",
+            (str(numeric_id), kind, name, str(changed_by or "")[:32]),
+        )
+    else:
+        conn.execute(
+            "DELETE FROM bot_disabled_commands WHERE guild_id = ? AND command_type = ? AND LOWER(command_name) = LOWER(?)",
+            (str(numeric_id), kind, name),
+        )
+    conn.commit()
+    print(
+        f"{'🚫' if disabled else '✅'} [КОМАНДЫ] {kind}:{name} "
+        f"{'отключена' if disabled else 'разрешена'} на сервере {numeric_id}.",
+        flush=True,
+    )
+    return {
+        "ok": True,
+        "guild_id": str(numeric_id),
+        "command_type": kind,
+        "command_name": name,
+        "disabled": bool(disabled),
+    }
+
+
 async def panel_guild_list():
     if not bot.is_ready():
         raise RuntimeError("Discord-бот ещё подключается.")
@@ -5050,6 +5238,8 @@ async def run_services():
         "allowed_guilds_list": panel_allowed_guilds_list,
         "allowed_guilds_add": panel_allowed_guild_add,
         "allowed_guilds_remove": panel_allowed_guild_remove,
+        "allowed_guild_commands": panel_allowed_guild_commands,
+        "allowed_guild_command_update": panel_allowed_guild_command_update,
         "dm_send": panel_dm_send,
         "bot_profile": panel_bot_profile,
         "bot_profile_update": panel_bot_profile_update,
