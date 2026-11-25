@@ -401,6 +401,59 @@ async def api_allowed_guilds_remove(guild_id: str, request: Request):
         raise HTTPException(status_code=502, detail=f"Не удалось отключить сервер: {str(error)[:250]}")
 
 
+@app.get("/api/allowed-guilds/{guild_id}/commands")
+async def api_allowed_guild_commands(guild_id: str, request: Request):
+    await require_access(request, "full")
+    if not guild_id.isdigit() or not 17 <= len(guild_id) <= 20:
+        raise HTTPException(status_code=400, detail="Некорректный Discord Server ID.")
+    try:
+        return await get_dm_controller("allowed_guild_commands")(guild_id)
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:250])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:250])
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось загрузить команды сервера: {str(error)[:250]}")
+
+
+@app.post("/api/allowed-guilds/{guild_id}/commands")
+async def api_allowed_guild_command_update(guild_id: str, request: Request):
+    actor = await require_access(request, "full")
+    if not guild_id.isdigit() or not 17 <= len(guild_id) <= 20:
+        raise HTTPException(status_code=400, detail="Некорректный Discord Server ID.")
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Некорректные данные запроса.")
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Ожидается объект с настройками команды.")
+
+    command_type = str(payload.get("command_type") or "").strip().lower()
+    command_name = str(payload.get("command_name") or "").strip()
+    disabled = payload.get("disabled")
+    if command_type not in {"slash", "prefix"}:
+        raise HTTPException(status_code=400, detail="Тип команды должен быть slash или prefix.")
+    if not command_name or len(command_name) > 100:
+        raise HTTPException(status_code=400, detail="Укажи корректное имя команды.")
+    if not isinstance(disabled, bool):
+        raise HTTPException(status_code=400, detail="Параметр disabled должен быть true или false.")
+
+    try:
+        return await get_dm_controller("allowed_guild_command_update")(
+            guild_id, command_type, command_name, disabled, str(actor.get("id", ""))
+        )
+    except PermissionError as error:
+        raise HTTPException(status_code=403, detail=str(error)[:250])
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)[:250])
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(status_code=502, detail=f"Не удалось изменить доступ команды: {str(error)[:250]}")
+
+
 @app.post("/auth/logout")
 async def auth_logout(request: Request):
     request.session.clear()
