@@ -859,10 +859,18 @@ window.loadTicketBot = async function(section) {
     const heat=make("section","tb-editor-card");
     heat.append(make("h3","","Тепловая карта активности"));
     const table=make("table","tb-data-table");
-    const header=make("tr","");for(const label of ["День недели","Час","События"])header.append(make("th","",label));
+    const header=make("tr","");for(const label of ["День недели","Час","Активность"])header.append(make("th","",label));
     table.append(header);
-    for(const event of data.activity_heatmap||[]) {
-      const row=make("tr","");row.append(make("td","",weekdayLabel(event.weekday)),make("td","",event.hour+":00"),make("td","",event.count));table.append(row);
+    const heatRows=data.activity_heatmap||[];
+    const maxActivity=Math.max(1,...heatRows.map(item=>Number(item.count)||0));
+    for(const event of heatRows) {
+      const row=make("tr","");
+      row.append(make("td","",weekdayLabel(event.weekday)),make("td","",event.hour+":00"));
+      const cell=make("td","",event.count);
+      const intensity=Math.min(.82,.12+(Number(event.count)||0)/maxActivity*.62);
+      cell.style.backgroundColor="rgba(139,92,246,"+intensity+")";
+      cell.style.borderRadius="5px";
+      row.append(cell);table.append(row);
     }
     heat.append(table);view.append(heat);
     const board=make("section","tb-editor-card");
