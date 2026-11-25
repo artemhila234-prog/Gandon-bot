@@ -109,7 +109,7 @@ window.loadTicketBot = async function(section) {
     noticeEl.className = "tb-notice " + (kind === "error" ? "is-error" : kind === "success" ? "is-success" : "");
   };
   const request = async (path, method="GET", payload=null) => {
-    if (!guildId && !path.startsWith("@guilds")) throw new Error("Сначала выбери сервер.");
+    if (!guildId && !path.startsWith("@guilds") && !path.startsWith("@profile")) throw new Error("Сначала выбери сервер.");
     const url = path.startsWith("@guilds") ? "/api/ticketbot/guilds"
       : path.startsWith("@profile") ? "/api/ticketbot/profile"
       : "/api/ticketbot/guilds/" + encodeURIComponent(guildId) + path;
