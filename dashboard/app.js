@@ -67,7 +67,6 @@ function showPage(page){
       loadAllowedGuilds(section);
     } else if(page==="ticketBot"){
       section.innerHTML='<div class="panel-heading"><div><h2>Ticket Bot v2</h2><p>Отдельный Discord-бот поддержки · все функции бесплатны · управление через GastWorld</p></div></div><div id="ticketBotWorkspace"></div>';
-      loadTicketBot(section.querySelector("#ticketBotWorkspace"));
     } else if(page==="settings"){
        section.innerHTML='<div class="panel-heading"><div><h2>Настройки системы</h2><p>Подключения, роли доступа, Discord-каналы и интеграции GastWorld.</p></div><button class="text-button" id="refreshSettings">↻ Обновить</button></div><div id="settingsWorkspace" class="settings-workspace"><div class="empty-state">Проверяем конфигурацию…</div></div>';
        loadSettings(section);
