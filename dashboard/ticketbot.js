@@ -744,6 +744,17 @@ window.loadTicketBot = async function(section) {
     for(const reply of data.replies||[]) {
       const item=make("article","tb-panel-row");
       item.append(make("div","tb-panel-main",reply.title+" · /tag "+reply.shortcut),make("p","tb-wrap",reply.content));
+      const controls=make("div","tb-actions");
+      controls.append(
+        button("Изменить","tb-button",()=>{
+          shortcut.value=reply.shortcut;title.value=reply.title;body.value=reply.content;
+          form.scrollIntoView({behavior:"smooth",block:"start"});shortcut.focus();
+        }),
+        button("Удалить","tb-button is-danger",()=>confirm("Удалить сохранённый ответ /tag "+reply.shortcut+"?")&&runAction(
+          ()=>request("/replies/"+encodeURIComponent(reply.shortcut),"DELETE",{}),"Ответ удалён.",renderReplies
+        ))
+      );
+      item.append(controls);
       list.append(item);
     }
     if(!(data.replies||[]).length) list.append(make("div","tb-empty","Сохранённых ответов нет."));
@@ -768,10 +779,14 @@ window.loadTicketBot = async function(section) {
     view.append(heading("Теги","Метки для классификации тикетов."));
     const list=make("div","tb-tag-cloud");
     for(const tag of data.tags||[]) {
+      const row=make("div","tb-tag-row");
       const item=make("span","tb-tag-chip",tag.name);
       item.style.borderColor=tag.color||"#8b5cf6";
       item.style.color=tag.color||"#c4b5fd";
-      list.append(item);
+      row.append(item,button("Удалить","tb-button is-danger",()=>confirm("Удалить тег «"+tag.name+"»?")&&runAction(
+        ()=>request("/tags/"+tag.id,"DELETE",{}),"Тег удалён.",renderTags
+      )));
+      list.append(row);
     }
     if(!(data.tags||[]).length) list.append(make("div","tb-empty","Теги ещё не созданы."));
     view.append(list);
@@ -797,6 +812,18 @@ window.loadTicketBot = async function(section) {
       item.append(make("div","tb-panel-main",article.title),statusBadge(article.published?"Опубликована":"Черновик",!!article.published),
         make("small","",article.category+" · "+article.language+" · "+article.slug),
         make("p","tb-wrap",article.body));
+      const controls=make("div","tb-actions");
+      controls.append(
+        button("Изменить","tb-button",()=>{
+          slug.value=article.slug;title.value=article.title;category.value=article.category||"General";
+          language.value=article.language||"en";body.value=article.body||"";
+          form.scrollIntoView({behavior:"smooth",block:"start"});title.focus();
+        }),
+        button("Удалить","tb-button is-danger",()=>confirm("Удалить статью «"+article.title+"»?")&&runAction(
+          ()=>request("/knowledge/"+article.id,"DELETE",{}),"Статья удалена.",renderKnowledge
+        ))
+      );
+      item.append(controls);
       list.append(item);
     }
     if(!(data.articles||[]).length) list.append(make("div","tb-empty","Статей пока нет."));
