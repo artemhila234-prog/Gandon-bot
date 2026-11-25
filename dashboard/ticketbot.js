@@ -699,13 +699,27 @@ window.loadTicketBot = async function(section) {
       item.append(make("div","tb-panel-main",schedule.name),
         make("small","",schedule.timezone+" · ID "+schedule.id),
         make("pre","tb-code",JSON.stringify(schedule.hours||{},null,2)));
-      item.append(button("Удалить","tb-button is-danger",()=>runAction(
-        ()=>request("/schedules/"+schedule.id,"DELETE",{}),"Расписание удалено.",renderSchedules
-      )));
+      const actions=make("div","tb-actions");
+      actions.append(
+        button("Изменить","tb-button",()=>{
+          scheduleId.value=schedule.id;
+          name.value=schedule.name||"";
+          timezone.value=schedule.timezone||"UTC";
+          hours.value=JSON.stringify(schedule.hours||{},null,2);
+          message.value=schedule.closed_message||"";
+          form.scrollIntoView({behavior:"smooth",block:"start"});
+          name.focus();
+        }),
+        button("Удалить","tb-button is-danger",()=>runAction(
+          ()=>request("/schedules/"+schedule.id,"DELETE",{}),"Расписание удалено.",renderSchedules
+        ))
+      );
+      item.append(actions);
       list.append(item);
     }
     view.append(list);
-    const form=make("form","tb-editor-card");form.append(make("h3","","Новое расписание"));
+    const form=make("form","tb-editor-card");form.append(make("h3","","Создать / изменить расписание"));
+    const scheduleId=input("hidden","");
     const name=input("text","Support hours","Название расписания");
     const timezone=input("text","Europe/Tallinn","Часовой пояс IANA");
     const hours=textarea(JSON.stringify({"0":[{"start":"09:00","end":"17:00"}],"1":[{"start":"09:00","end":"17:00"}],"2":[{"start":"09:00","end":"17:00"}],"3":[{"start":"09:00","end":"17:00"}],"4":[{"start":"09:00","end":"17:00"}]},null,2),"JSON: дни 0=пн … 6=вс",8);
@@ -715,7 +729,7 @@ window.loadTicketBot = async function(section) {
     form.addEventListener("submit",async event=>{
       event.preventDefault();
       try {
-        await request("/schedules","POST",{name:name.value,timezone:timezone.value,hours:parseJSON(hours.value,{},"График"),closed_message:message.value,enabled:true});
+        await request("/schedules","POST",{id:scheduleId.value?Number(scheduleId.value):undefined,name:name.value,timezone:timezone.value,hours:parseJSON(hours.value,{},"График"),closed_message:message.value,enabled:true});
         showNotice("Расписание сохранено.","success");await renderSchedules();
       }catch(error){showError(error);}
     });
