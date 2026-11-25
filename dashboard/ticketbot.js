@@ -291,7 +291,7 @@ window.loadTicketBot = async function(section) {
     const ticket=data.ticket;
     if(!ticket || Number(ticket.guild_id)!==Number(guildId)) throw new Error("Тикет не найден.");
     const view=make("div","tb-view");
-    const back=button("← К списку","tb-button",()=>{currentTicket=null;renderTickets().catch(showError);});
+    const back=button("← К списку","tb-button",()=>{stopTicketRefresh();currentTicket=null;renderTickets().catch(showError);});
     const tools=make("div","tb-actions");tools.append(back);
     if(ticket.status==="open") {
       tools.append(button("Забрать","tb-button",()=>runAction(()=>request("/tickets/"+ticketId+"/claim","POST",{}),"Тикет назначен.",()=>renderTicketDetail(ticketId))));
