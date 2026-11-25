@@ -384,6 +384,7 @@ window.loadTicketBot = async function(section) {
     contentEl.replaceChildren(view);
     if(ticket.status==="open") {
       ticketRefreshTimer=window.setInterval(async()=>{
+        if(!root.isConnected) {stopTicketRefresh();return;}
         if(activeTab!=="tickets" || currentTicket!==ticketId ||
            document.visibilityState==="hidden" || ticketRefreshBusy) return;
         const liveContainer=root.querySelector("#tbLiveEvents");
