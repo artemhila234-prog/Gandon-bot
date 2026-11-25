@@ -51,6 +51,8 @@ window.loadTicketBot = async function(section) {
   let overviewCache = null;
   let currentTicket = null;
   let ticketFilter = "open";
+  let ticketRefreshTimer = null;
+  let ticketRefreshBusy = false;
 
   const make = (tag, cls, value) => {
     const node = document.createElement(tag);
@@ -145,8 +147,16 @@ window.loadTicketBot = async function(section) {
     return wrap;
   };
   const idArray = (value) => String(value || "").split(/[,\s]+/).map(x=>x.trim()).filter(x=>/^\d{15,22}$/.test(x));
+  const stopTicketRefresh = () => {
+    if (ticketRefreshTimer !== null) {
+      window.clearInterval(ticketRefreshTimer);
+      ticketRefreshTimer = null;
+    }
+    ticketRefreshBusy = false;
+  };
   const setActiveTab = async (tab) => {
     if (!tabs.some(item=>item[0]===tab)) return;
+    stopTicketRefresh();
     activeTab=tab;
     currentTicket=null;
     root.querySelectorAll("[data-tab]").forEach(item=>item.classList.toggle("active",item.dataset.tab===tab));
@@ -259,7 +269,24 @@ window.loadTicketBot = async function(section) {
     view.append(list);contentEl.replaceChildren(view);
   };
 
+  const paintTicketEvents = (container, items) => {
+    container.replaceChildren(make("h3","","История"));
+    for(const event of items||[]) {
+      const item=make("article","tb-event");
+      const dataObj=(()=>{try{return JSON.parse(event.data_json||"{}");}catch{return {};}})();
+      item.append(make("div","tb-event-top",event.event_type+" · "+(event.actor_id||"Система")+" · "+event.created_at));
+      if(event.content) item.append(make("p","tb-event-body",event.content));
+      for(const file of dataObj.attachments||[]) {
+        const a=make("a","tb-file-link",file.filename||"Вложение");
+        a.href=file.url||"#";a.target="_blank";a.rel="noopener noreferrer";item.append(a);
+      }
+      container.append(item);
+    }
+    if(!(items||[]).length) container.append(make("p","tb-muted","История ещё пуста."));
+  };
+
   const renderTicketDetail = async (ticketId) => {
+    stopTicketRefresh();
     const data=await request("/tickets/"+ticketId);
     const ticket=data.ticket;
     if(!ticket || Number(ticket.guild_id)!==Number(guildId)) throw new Error("Тикет не найден.");
@@ -283,18 +310,8 @@ window.loadTicketBot = async function(section) {
     }
     view.append(meta);
     const events=make("section","tb-events-card");
-    events.append(make("h3","","История"));
-    for(const event of ticket.events||[]) {
-      const item=make("article","tb-event");
-      const dataObj=(()=>{try{return JSON.parse(event.data_json||"{}");}catch{return {};}})();
-      item.append(make("div","tb-event-top",event.event_type+" · "+(event.actor_id||"Система")+" · "+event.created_at));
-      if(event.content) item.append(make("p","tb-event-body",event.content));
-      for(const file of dataObj.attachments||[]) {
-        const a=make("a","tb-file-link",file.filename||"Вложение");a.href=file.url||"#";a.target="_blank";a.rel="noopener noreferrer";item.append(a);
-      }
-      events.append(item);
-    }
-    if(!(ticket.events||[]).length) events.append(make("p","tb-muted","История ещё пуста."));
+    events.id="tbLiveEvents";
+    paintTicketEvents(events,ticket.events||[]);
     view.append(events);
     if(ticket.status==="open") {
       const reply=make("form","tb-reply-form");
@@ -353,6 +370,26 @@ window.loadTicketBot = async function(section) {
       view.append(tagSection);
     }
     contentEl.replaceChildren(view);
+    if(ticket.status==="open") {
+      ticketRefreshTimer=window.setInterval(async()=>{
+        if(activeTab!=="tickets" || currentTicket!==ticketId ||
+           document.visibilityState==="hidden" || ticketRefreshBusy) return;
+        const liveContainer=root.querySelector("#tbLiveEvents");
+        if(!liveContainer) {stopTicketRefresh();return;}
+        ticketRefreshBusy=true;
+        try {
+          const fresh=await request("/tickets/"+ticketId);
+          if(activeTab==="tickets" && currentTicket===ticketId && fresh.ticket) {
+            paintTicketEvents(liveContainer,fresh.ticket.events||[]);
+          }
+        } catch(error) {
+          // A transient refresh error should not replace the user's draft reply.
+          console.warn("Ticket Bot live history refresh failed:",error);
+        } finally {
+          ticketRefreshBusy=false;
+        }
+      },8000);
+    }
   };
 
   const renderPanels = async () => {
