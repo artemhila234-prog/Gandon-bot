@@ -1,10 +1,10 @@
-const pageNames={dashboard:"Главная",discord:"Discord от бота",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",allowedGuilds:"Разрешённые серверы",settings:"Настройки"};
+const pageNames={dashboard:"Главная",discord:"Discord от бота",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",allowedGuilds:"Разрешённые серверы",ticketBot:"Ticket Bot",settings:"Настройки"};
 const content=document.getElementById("pageContent");
 const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
 const overlay=document.getElementById("overlay");
 let currentAccessLevel="none";
-const pageMinimumAccess={dashboard:"none",discord:"adm",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",allowedGuilds:"full",settings:"none"};
+const pageMinimumAccess={dashboard:"none",discord:"adm",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",allowedGuilds:"full",ticketBot:"adm",settings:"none"};
 const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
 function canOpenPage(page){
   return !!pageNames[page] && (page==="dashboard" || (isAuthenticated && (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"])));
@@ -30,7 +30,7 @@ function showPage(page){
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
   breadcrumb.textContent=pageNames[page];
   if(page!=="dashboard"){
-    const descriptions={players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",tickets:"Обращения игроков по ошибкам сайта и Discord-бота.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям.",allowedGuilds:"Управление серверами, на которых бот может выполнять команды GastWorld. Доступно только Full."};
+    const descriptions={players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",tickets:"Обращения игроков по ошибкам сайта и Discord-бота.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям.",allowedGuilds:"Управление серверами, на которых бот может выполнять команды GastWorld. Доступно только Full.",ticketBot:"Полноценное управление отдельным Ticket Bot: панели, тикеты, сотрудники, часы поддержки, база знаний, аналитика и аудит."};
     const existing=document.getElementById("comingPage");
     if(existing) existing.remove();
     const section=document.createElement("section");
@@ -65,6 +65,9 @@ function showPage(page){
     } else if(page==="allowedGuilds"){
       section.innerHTML='<div class="panel-heading"><div><h2>Разрешённые серверы</h2><p>Только Full может включать и отключать работу команд GastWorld на серверах.</p></div><button class="text-button" id="refreshAllowedGuilds">↻ Обновить</button></div><div class="allowed-guilds-intro"><strong>Как это работает</strong><p>В список можно добавить только сервер, на котором уже находится бот. После добавления команды GastWorld становятся доступны на нём; после удаления команды блокируются. Основной сервер GastWorld защищён от удаления.</p></div><form id="allowedGuildsAddForm" class="allowed-guilds-add-form"><label><span>Discord Server ID</span><input id="allowedGuildId" type="text" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="Например, 123456789012345678" required></label><button class="primary-button" id="addAllowedGuild" type="submit">＋ Разрешить сервер</button></form><div id="allowedGuildsNotice" class="allowed-guilds-notice" hidden></div><div id="allowedGuildsWorkspace" class="allowed-guilds-workspace"><div class="empty-state">Загрузка списка серверов…</div></div>';
       loadAllowedGuilds(section);
+    } else if(page==="ticketBot"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Ticket Bot v2</h2><p>Отдельный Discord-бот поддержки · все функции бесплатны · управление через GastWorld</p></div></div><div id="ticketBotWorkspace"></div>';
+      loadTicketBot(section.querySelector("#ticketBotWorkspace"));
     } else if(page==="settings"){
        section.innerHTML='<div class="panel-heading"><div><h2>Настройки системы</h2><p>Подключения, роли доступа, Discord-каналы и интеграции GastWorld.</p></div><button class="text-button" id="refreshSettings">↻ Обновить</button></div><div id="settingsWorkspace" class="settings-workspace"><div class="empty-state">Проверяем конфигурацию…</div></div>';
        loadSettings(section);
@@ -75,6 +78,7 @@ function showPage(page){
     }
     content.appendChild(section);
     if(page==="discord")loadBotDiscord();
+    if(page==="ticketBot")window.loadTicketBot?.(section.querySelector("#ticketBotWorkspace"));
   }else{
     const old=document.getElementById("comingPage");if(old)old.remove();
     const oldBody=document.getElementById("dashboardBody");if(oldBody)oldBody.hidden=false;
