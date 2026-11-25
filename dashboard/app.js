@@ -1,10 +1,10 @@
-const pageNames={dashboard:"Главная",discord:"Discord от бота",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",settings:"Настройки"};
+const pageNames={dashboard:"Главная",discord:"Discord от бота",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",allowedGuilds:"Разрешённые серверы",settings:"Настройки"};
 const content=document.getElementById("pageContent");
 const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
 const overlay=document.getElementById("overlay");
 let currentAccessLevel="none";
-const pageMinimumAccess={dashboard:"none",discord:"adm",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",settings:"none"};
+const pageMinimumAccess={dashboard:"none",discord:"adm",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",allowedGuilds:"full",settings:"none"};
 const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
 function canOpenPage(page){
   return !!pageNames[page] && (page==="dashboard" || (isAuthenticated && (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"])));
@@ -30,7 +30,7 @@ function showPage(page){
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
   breadcrumb.textContent=pageNames[page];
   if(page!=="dashboard"){
-    const descriptions={players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",tickets:"Обращения игроков по ошибкам сайта и Discord-бота.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям."};
+    const descriptions={players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",tickets:"Обращения игроков по ошибкам сайта и Discord-бота.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям.",allowedGuilds:"Управление серверами, на которых бот может выполнять команды GastWorld. Доступно только Full."};
     const existing=document.getElementById("comingPage");
     if(existing) existing.remove();
     const section=document.createElement("section");
@@ -62,6 +62,9 @@ function showPage(page){
     } else if(page==="access"){
       section.innerHTML='<div class="panel-heading"><div><h2>Доступ к серверу</h2><p>Все участники GastWorld и назначенные им Discord-роли</p></div><button class="text-button" id="refreshAccess">↻ Обновить</button></div><div id="accessWorkspace" class="access-workspace"><div class="empty-state">Загружаем участников сервера…</div></div>';
       loadAccess(section);
+    } else if(page==="allowedGuilds"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Разрешённые серверы</h2><p>Только Full может включать и отключать работу команд GastWorld на серверах.</p></div><button class="text-button" id="refreshAllowedGuilds">↻ Обновить</button></div><div class="allowed-guilds-intro"><strong>Как это работает</strong><p>В список можно добавить только сервер, на котором уже находится бот. После добавления команды GastWorld становятся доступны на нём; после удаления команды блокируются. Основной сервер GastWorld защищён от удаления.</p></div><form id="allowedGuildsAddForm" class="allowed-guilds-add-form"><label><span>Discord Server ID</span><input id="allowedGuildId" type="text" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="Например, 123456789012345678" required></label><button class="primary-button" id="addAllowedGuild" type="submit">＋ Разрешить сервер</button></form><div id="allowedGuildsNotice" class="allowed-guilds-notice" hidden></div><div id="allowedGuildsWorkspace" class="allowed-guilds-workspace"><div class="empty-state">Загрузка списка серверов…</div></div>';
+      loadAllowedGuilds(section);
     } else if(page==="settings"){
        section.innerHTML='<div class="panel-heading"><div><h2>Настройки системы</h2><p>Подключения, роли доступа, Discord-каналы и интеграции GastWorld.</p></div><button class="text-button" id="refreshSettings">↻ Обновить</button></div><div id="settingsWorkspace" class="settings-workspace"><div class="empty-state">Проверяем конфигурацию…</div></div>';
        loadSettings(section);
@@ -543,6 +546,110 @@ async function loadSettings(section){
     }finally{if(refresh){refresh.disabled=false;refresh.textContent="↻ Обновить";}}
   };
   if(refresh)refresh.addEventListener("click",load);
+  await load();
+}
+
+
+async function loadAllowedGuilds(section){
+  const root=section.querySelector("#allowedGuildsWorkspace");
+  const refresh=section.querySelector("#refreshAllowedGuilds");
+  const form=section.querySelector("#allowedGuildsAddForm");
+  const input=section.querySelector("#allowedGuildId");
+  const addButton=section.querySelector("#addAllowedGuild");
+  const notice=section.querySelector("#allowedGuildsNotice");
+  if(!root)return;
+  const showNotice=(message,kind="info")=>{
+    if(!notice)return;
+    notice.hidden=!message;
+    notice.textContent=message||"";
+    notice.className="allowed-guilds-notice "+(kind==="error"?"is-error":kind==="success"?"is-success":"");
+  };
+  const api=async(url,options={})=>{
+    const response=await fetch(url,{credentials:"same-origin",cache:"no-store",...options,
+      headers:options.body?{"Content-Type":"application/json",...(options.headers||{})}:options.headers});
+    const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}
+    if(!response.ok)throw new Error(data.detail||"Запрос не выполнен.");
+    return data;
+  };
+  const renderGroup=(title,description,items,allowedGroup)=>{
+    const group=document.createElement("section");group.className="allowed-guilds-group";
+    const head=document.createElement("div");head.className="allowed-guilds-group-head";
+    const copy=document.createElement("div");const heading=document.createElement("h3");heading.textContent=title;
+    const sub=document.createElement("p");sub.textContent=description;copy.append(heading,sub);
+    const count=document.createElement("span");count.className="allowed-guilds-count";count.textContent=String(items.length);
+    head.append(copy,count);group.append(head);
+    const list=document.createElement("div");list.className="allowed-guilds-list";
+    if(!items.length){const empty=document.createElement("div");empty.className="allowed-guilds-empty";empty.textContent=allowedGroup?"Нет разрешённых серверов.":"Нет других серверов, где бот уже состоит.";list.append(empty);}
+    items.forEach(server=>{
+      const card=document.createElement("article");card.className="allowed-guild-card";
+      const avatar=document.createElement("div");avatar.className="allowed-guild-avatar";
+      if(server.icon_url){const image=document.createElement("img");image.src=server.icon_url;image.alt="";image.loading="lazy";image.onerror=()=>{avatar.textContent=(server.name||"D").slice(0,1).toUpperCase();};avatar.append(image);}
+      else avatar.textContent=(server.name||"D").slice(0,1).toUpperCase();
+      const identity=document.createElement("div");identity.className="allowed-guild-identity";
+      const name=document.createElement("strong");name.textContent=server.name||"Discord-сервер";
+      const id=document.createElement("span");id.textContent="ID: "+server.id;
+      const details=document.createElement("small");details.textContent=server.is_current_member?"Участников: "+Number(server.member_count||0):"Бот сейчас не состоит на этом сервере";
+      identity.append(name,id,details);
+      const actions=document.createElement("div");actions.className="allowed-guild-actions";
+      const badge=document.createElement("span");badge.className="allowed-guild-status";
+      if(server.is_core){badge.textContent="Основной";badge.classList.add("is-core");}
+      else if(allowedGroup){badge.textContent="Команды включены";badge.classList.add("is-enabled");}
+      else{badge.textContent="Не разрешён";}
+      actions.append(badge);
+      const action=document.createElement("button");action.type="button";
+      if(allowedGroup){
+        action.className="allowed-guild-remove";action.textContent="Отключить";
+        action.disabled=!!server.is_core;
+        action.title=server.is_core?"Основной сервер нельзя удалить":"Убрать этот сервер из списка разрешённых";
+        action.addEventListener("click",async()=>{
+          if(server.is_core)return;
+          action.disabled=true;action.textContent="Отключаем…";
+          try{await api("/api/allowed-guilds/"+encodeURIComponent(server.id),{method:"DELETE"});showNotice("Сервер «"+server.name+"» отключён. Команды на нём больше не выполняются.","success");await load();}
+          catch(error){showNotice(error.message,"error");action.disabled=false;action.textContent="Отключить";}
+        });
+      }else{
+        action.className="allowed-guild-add";action.textContent="Разрешить";
+        action.addEventListener("click",async()=>{
+          action.disabled=true;action.textContent="Подключаем…";
+          try{
+            const result=await api("/api/allowed-guilds",{method:"POST",body:JSON.stringify({guild_id:server.id})});
+            showNotice("Сервер «"+(result.guild?.name||server.name)+"» разрешён. Slash-команды синхронизированы: "+Number(result.commands_synced||0)+".","success");await load();
+          }catch(error){showNotice(error.message,"error");action.disabled=false;action.textContent="Разрешить";}
+        });
+      }
+      actions.append(action);card.append(avatar,identity,actions);list.append(card);
+    });
+    group.append(list);return group;
+  };
+  const load=async()=>{
+    if(refresh){refresh.disabled=true;refresh.textContent="Загрузка…";}
+    root.innerHTML='<div class="empty-state">Получаем список разрешённых серверов…</div>';
+    try{
+      const data=await api("/api/allowed-guilds");
+      root.replaceChildren(
+        renderGroup("Разрешённые серверы","На этих серверах бот принимает и выполняет команды.",Array.isArray(data.allowed_guilds)?data.allowed_guilds:[],true),
+        renderGroup("Бот уже добавлен","Можно включить команды на любом из этих серверов.",Array.isArray(data.available_guilds)?data.available_guilds:[],false)
+      );
+    }catch(error){
+      root.innerHTML="";const empty=document.createElement("div");empty.className="empty-state";empty.textContent=error.message;root.append(empty);
+    }finally{
+      if(refresh){refresh.disabled=false;refresh.textContent="↻ Обновить";}
+    }
+  };
+  refresh?.addEventListener("click",load);
+  form?.addEventListener("submit",async event=>{
+    event.preventDefault();
+    const guildId=String(input?.value||"").trim();
+    if(!/^\d{17,20}$/.test(guildId)){showNotice("Discord Server ID должен содержать от 17 до 20 цифр.","error");return;}
+    if(addButton){addButton.disabled=true;addButton.textContent="Добавляем…";}
+    try{
+      const result=await api("/api/allowed-guilds",{method:"POST",body:JSON.stringify({guild_id:guildId})});
+      if(input)input.value="";
+      showNotice("Сервер «"+(result.guild?.name||guildId)+"» разрешён. Синхронизировано slash-команд: "+Number(result.commands_synced||0)+".","success");
+      await load();
+    }catch(error){showNotice(error.message,"error");}
+    finally{if(addButton){addButton.disabled=false;addButton.textContent="＋ Разрешить сервер";}}
+  });
   await load();
 }
 
