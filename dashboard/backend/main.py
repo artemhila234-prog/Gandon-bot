@@ -25,6 +25,11 @@ BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN") or os.getenv("DISCORD_TOKEN", "")
 REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://media.apps.bot-hosting.cloud/auth/callback")
 # OAuth, членство, роли и доступ к панели всегда проверяются на первом сервере GastWorld (1492974397001171176).
 GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1492974397001171176").strip() or "1492974397001171176"
+# Dedicated Ticket Bot access role on the second GastWorld server.
+TICKETBOT_SUPPORT_GUILD_ID = "1454858970824230822"
+TICKETBOT_SUPPORT_ROLE_ID = "1519379551032184882"
+TICKETBOT_ADMIN_GUILD_IDS = tuple(dict.fromkeys((GUILD_ID, TICKETBOT_SUPPORT_GUILD_ID)))
+DISCORD_ADMINISTRATOR_PERMISSION = 1 << 3
 PLAYER_LIST_ROLE_ID = "1493196315205566545"  # Роль «Команда медиа» для вкладки «Игроки»
 AUDIT_LOG_CHANNEL_ID = os.getenv("AUDIT_LOG_CHANNEL_ID", "1573032052666663032")
 SESSION_SECRET = os.getenv("SESSION_SECRET", "")
@@ -161,35 +166,78 @@ async def current_user(request: Request) -> dict[str, Any] | None:
     return user if isinstance(user, dict) else None
 
 
+async def optional_guild_member_and_roles(guild_id: str, user_id: str):
+    """Returns (member, roles); a 404 means the user/bot is not present in that guild."""
+    try:
+        member, roles = await asyncio.gather(
+            discord_get(f"/guilds/{guild_id}/members/{user_id}", BOT_TOKEN, bot=True),
+            discord_get(f"/guilds/{guild_id}/roles", BOT_TOKEN, bot=True),
+        )
+        return member, roles
+    except HTTPException as exc:
+        if "404" in str(exc.detail):
+            return None, None
+        raise
+
+
+def member_has_discord_administrator(member: dict[str, Any] | None, roles: list[dict[str, Any]] | None) -> bool:
+    if not member:
+        return False
+    assigned = {str(role_id) for role_id in member.get("roles", [])}
+    for role in roles or []:
+        if str(role.get("id")) not in assigned:
+            continue
+        try:
+            permissions = int(str(role.get("permissions") or "0"))
+        except (TypeError, ValueError):
+            permissions = 0
+        if permissions & DISCORD_ADMINISTRATOR_PERMISSION:
+            return True
+    return False
+
+
 async def refresh_session_user(request: Request) -> dict[str, Any] | None:
-    """Повторно проверяет членство и роли в Discord, чтобы снятая роль сразу закрывала доступ."""
+    """Re-check access on both GastWorld guilds on each request."""
     user = await current_user(request)
     if not user:
         return None
     if not BOT_TOKEN:
         raise HTTPException(status_code=503, detail="Не настроен DISCORD_BOT_TOKEN для проверки доступа.")
 
-    try:
-        member = await discord_get(f"/guilds/{GUILD_ID}/members/{user['id']}", BOT_TOKEN, bot=True)
-        guild_roles = await discord_get(f"/guilds/{GUILD_ID}/roles", BOT_TOKEN, bot=True)
-    except HTTPException as exc:
-        if "404" in str(exc.detail):
-            request.session.clear()
-            return None
-        raise
+    user_id = str(user.get("id", ""))
+    primary_member, primary_roles = await optional_guild_member_and_roles(GUILD_ID, user_id)
+    support_member, support_roles = await optional_guild_member_and_roles(TICKETBOT_SUPPORT_GUILD_ID, user_id)
 
-    role_ids = [str(role_id) for role_id in member.get("roles", [])]
-    access = calculate_access(role_ids)
-    if access == "none":
+    role_ids = [str(role_id) for role_id in (primary_member or {}).get("roles", [])]
+    access = calculate_access(role_ids) if primary_member else "none"
+    has_discord_admin = (
+        member_has_discord_administrator(primary_member, primary_roles)
+        or member_has_discord_administrator(support_member, support_roles)
+    )
+    if ACCESS_RANK.get(access, 0) >= ACCESS_RANK["adm"] or has_discord_admin:
+        ticketbot_access = "admin"
+    elif TICKETBOT_SUPPORT_ROLE_ID in {
+        str(role_id) for role_id in (support_member or {}).get("roles", [])
+    }:
+        ticketbot_access = "support"
+    else:
+        ticketbot_access = "none"
+
+    if access == "none" and ticketbot_access == "none":
         request.session.clear()
         return None
 
-    role_names = {str(role["id"]): role["name"] for role in guild_roles}
+    role_names = {
+        str(role["id"]): str(role.get("name") or "Без названия")
+        for role in (primary_roles or [])
+    }
     user.update({
         "role_ids": role_ids,
         "role_names": [role_names.get(role_id, "Неизвестная роль") for role_id in role_ids],
         "is_media": access != "none",
         "access_level": access,
+        "ticketbot_access": ticketbot_access,
+        "ticketbot_only": access == "none" and ticketbot_access != "none",
     })
     request.session["user"] = user
     return user
@@ -304,23 +352,10 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
             raise HTTPException(status_code=502, detail="Discord не вернул профиль пользователя.")
         profile = profile_response.json()
 
-    # Membership and roles are checked server-side using the bot token.
-    # The bot must be in the configured server and have access to view its members.
+    # The panel normally uses the first guild, but the Ticket Bot support role
+    # on the second guild is also a valid, restricted sign-in path.
     if not BOT_TOKEN:
         raise HTTPException(status_code=503, detail="Не настроен DISCORD_BOT_TOKEN для проверки сервера.")
-    try:
-        member = await discord_get(f"/guilds/{GUILD_ID}/members/{profile['id']}", BOT_TOKEN, bot=True)
-        guild_roles = await discord_get(f"/guilds/{GUILD_ID}/roles", BOT_TOKEN, bot=True)
-    except HTTPException as exc:
-        if "404" in str(exc.detail):
-            raise HTTPException(status_code=403, detail="Ты не состоишь на Discord-сервере GastWorld.")
-        raise
-
-    member_role_ids = [str(role_id) for role_id in member.get("roles", [])]
-    role_names = {str(role["id"]): role["name"] for role in guild_roles}
-    access = calculate_access(member_role_ids)
-    if access == "none":
-        raise HTTPException(status_code=403, detail="У тебя нет роли доступа GastWorld Control Panel. Обратись к администрации Media.")
 
     request.session.clear()
     request.session["user"] = {
@@ -329,11 +364,13 @@ async def auth_callback(request: Request, code: str = "", state: str = ""):
         "discord_username": profile.get("username", ""),
         "avatar": profile.get("avatar"),
         "guild_id": GUILD_ID,
-        "role_ids": member_role_ids,
-        "role_names": [role_names.get(role_id, "Неизвестная роль") for role_id in member_role_ids],
-        "is_media": access != "none",
-        "access_level": access,
     }
+    verified_user = await refresh_session_user(request)
+    if not verified_user:
+        raise HTTPException(
+            status_code=403,
+            detail="Нет роли доступа GastWorld. Для Ticket Bot нужна роль поддержки на втором сервере.",
+        )
     return RedirectResponse("/", status_code=303)
 
 
@@ -525,8 +562,22 @@ def ticketbot_actor_payload(request: Request, payload: Any) -> dict[str, Any]:
     return data
 
 
+async def require_ticketbot_access(
+    request: Request, minimum: str = "support", guild_id: str | None = None
+) -> dict[str, Any]:
+    user = await require_user(request)
+    current = str(user.get("ticketbot_access") or "none")
+    if minimum == "admin" and current != "admin":
+        raise HTTPException(status_code=403, detail="Для этого раздела нужны права ADM Ticket Bot.")
+    if minimum == "support" and current not in {"support", "admin"}:
+        raise HTTPException(status_code=403, detail="Нет роли поддержки Ticket Bot.")
+    if guild_id and current == "support" and str(guild_id) != TICKETBOT_SUPPORT_GUILD_ID:
+        raise HTTPException(status_code=403, detail="Роль поддержки действует только на втором сервере GastWorld.")
+    return user
+
+
 async def require_ticketbot_admin(request: Request):
-    return await require_access(request, "adm")
+    return await require_ticketbot_access(request, "admin")
 
 
 @app.get("/api/ticketbot/profile")
@@ -549,13 +600,19 @@ async def api_ticketbot_profile_update(request: Request):
 
 @app.get("/api/ticketbot/guilds")
 async def api_ticketbot_guilds(request: Request):
-    await require_ticketbot_admin(request)
-    return await ticketbot_api_request("GET", "guilds")
+    user = await require_ticketbot_access(request, "support")
+    data = await ticketbot_api_request("GET", "guilds")
+    if user.get("ticketbot_access") == "support":
+        data["guilds"] = [
+            guild for guild in data.get("guilds", [])
+            if str(guild.get("id") or guild.get("guild_id") or "") == TICKETBOT_SUPPORT_GUILD_ID
+        ]
+    return data
 
 
 @app.get("/api/ticketbot/guilds/{guild_id}/overview")
 async def api_ticketbot_overview(guild_id: str, request: Request):
-    await require_ticketbot_admin(request)
+    await require_ticketbot_access(request, "support", guild_id)
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный Discord Server ID.")
     return await ticketbot_api_request("GET", f"guilds/{guild_id}/overview")
@@ -630,7 +687,7 @@ async def api_ticketbot_panel_delete(guild_id: str, panel_id: int, request: Requ
 @app.get("/api/ticketbot/guilds/{guild_id}/tickets")
 async def api_ticketbot_tickets(guild_id: str, request: Request, status: str = "all",
                               limit: int = 100, before_id: int | None = None):
-    await require_ticketbot_admin(request)
+    await require_ticketbot_access(request, "support", guild_id)
     if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
     params = {"status": status, "limit": max(1, min(limit, 200))}
     if before_id is not None:
@@ -640,14 +697,14 @@ async def api_ticketbot_tickets(guild_id: str, request: Request, status: str = "
 
 @app.get("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}")
 async def api_ticketbot_ticket(guild_id: str, ticket_id: int, request: Request):
-    await require_ticketbot_admin(request)
+    await require_ticketbot_access(request, "support", guild_id)
     if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
     return await ticketbot_api_request("GET", f"guilds/{guild_id}/tickets/{ticket_id}")
 
 
 @app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/reply")
 async def api_ticketbot_ticket_reply(guild_id: str, ticket_id: int, request: Request):
-    await require_ticketbot_admin(request)
+    await require_ticketbot_access(request, "support", guild_id)
     if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
     try: payload = await request.json()
     except Exception: raise HTTPException(status_code=400, detail="Некорректный JSON.")
@@ -659,7 +716,7 @@ async def api_ticketbot_ticket_reply(guild_id: str, ticket_id: int, request: Req
 
 @app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/claim")
 async def api_ticketbot_ticket_claim(guild_id: str, ticket_id: int, request: Request):
-    await require_ticketbot_admin(request)
+    await require_ticketbot_access(request, "support", guild_id)
     if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
     return await ticketbot_api_request(
         "POST", f"guilds/{guild_id}/tickets/{ticket_id}/claim",
@@ -669,7 +726,7 @@ async def api_ticketbot_ticket_claim(guild_id: str, ticket_id: int, request: Req
 
 @app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/close")
 async def api_ticketbot_ticket_close(guild_id: str, ticket_id: int, request: Request):
-    await require_ticketbot_admin(request)
+    await require_ticketbot_access(request, "support", guild_id)
     if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
     try: payload = await request.json()
     except Exception: payload = {}
@@ -722,7 +779,7 @@ async def api_ticketbot_ticket_tag_update(guild_id: str, ticket_id: int, request
 
 @app.get("/api/ticketbot/guilds/{guild_id}/transcript/{ticket_id}")
 async def api_ticketbot_transcript(guild_id: str, ticket_id: int, request: Request):
-    await require_ticketbot_admin(request)
+    await require_ticketbot_access(request, "support", guild_id)
     if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
     if not TICKETBOT_API_URL or not TICKETBOT_API_KEY:
         raise HTTPException(status_code=503, detail="Ticket Bot API не подключён.")
