@@ -172,19 +172,55 @@ window.loadTicketBot = async function(section) {
   const channelOptions = (includeCategories=false) => channelsCache
     .filter(x=>includeCategories ? ["text","news","forum","category"].includes(x.type) : ["text","news"].includes(x.type))
     .map(x=>({label:(x.type==="category"?"📁 ":"# ")+x.name+" · "+x.id,value:x.id}));
-  const roleOptions = () => rolesCache.filter(x=>!x.managed).map(x=>({label:"@"+x.name+" · "+x.id,value:x.id}));
+  const roleOptions = () => rolesCache.filter(x=>!x.managed).map(x=>({label:"@"+x.name+" · "+x.id,name:"@"+x.name,color:x.color,value:x.id}));
   const multiRoleSelect = (selected=[]) => {
-    const node=make("select","tb-select tb-multi");
-    node.multiple=true;
-    node.size=Math.min(6,Math.max(3,roleOptions().length));
-    for(const item of roleOptions()) {
-      const opt=make("option","",item.label);opt.value=String(item.value);
-      opt.selected=(selected||[]).map(String).includes(String(item.value));
-      node.append(opt);
+    const node=make("div","tb-role-picker");
+    node.dataset.rolePicker="true";
+    node.setAttribute("role","group");
+    const selectedIds=new Set((selected||[]).map(String));
+    const roles=roleOptions();
+    if(!roles.length) {
+      node.append(make("div","tb-role-empty","Роли сервера не загрузились или у бота нет доступа к ним."));
+      return node;
     }
+    const summary=make("div","tb-role-picker-summary");
+    const list=make("div","tb-role-picker-list");
+    const updateSummary=()=>{
+      const count=list.querySelectorAll('input[type="checkbox"]:checked').length;
+      summary.textContent="Выбрано ролей: "+count;
+    };
+    for(const item of roles) {
+      const option=make("label","tb-role-option");
+      const check=make("input","tb-role-check");
+      check.type="checkbox";
+      check.value=String(item.value);
+      check.checked=selectedIds.has(check.value);
+      check.defaultChecked=check.checked;
+      check.addEventListener("change",updateSummary);
+      const name=make("span","tb-role-option-name",item.name);
+      const roleId=make("small","tb-role-option-id",String(item.value));
+      if(item.color) option.style.setProperty("--role-color",item.color);
+      option.append(check,name,roleId);
+      list.append(option);
+    }
+    node._updateSummary=updateSummary;
+    updateSummary();
+    node.append(summary,list);
     return node;
   };
-  const selectedValues = (node) => Array.from(node.selectedOptions).map(o=>o.value);
+  const selectedValues = (node) => {
+    if(node?.dataset?.rolePicker==="true") {
+      return Array.from(node.querySelectorAll('input[type="checkbox"]:checked')).map(input=>input.value);
+    }
+    return Array.from(node?.selectedOptions||[]).map(option=>option.value);
+  };
+  const setSelectedValues = (node, values=[]) => {
+    const selected=new Set((values||[]).map(String));
+    node.querySelectorAll('input[type="checkbox"]').forEach(input=>{
+      input.checked=selected.has(input.value);
+    });
+    node._updateSummary?.();
+  };
   const renderGuildPicker = async () => {
     const result=await request("@guilds");
     guildCache=result.guilds||[];
@@ -437,7 +473,7 @@ window.loadTicketBot = async function(section) {
       field("Название панели",name),field("Канал публикации / родительский канал",target),
       field("Описание",description),field("Режим тикетов",mode),
       field("Способ открытия",openMode),field("Категория для новых каналов",category),
-      field("Роли поддержки (выбери несколько)",support),field("Роли администраторов",admins),
+      field("Роли поддержки",support,"Отметь нужные роли. Выбор сохранится после нажатия «Сохранить панель»."),field("Роли администраторов",admins,"Отметь роли администраторов и затем сохрани панель."),
       field("Текст кнопки",buttonLabel),field("Эмодзи кнопки",buttonEmoji),
       field("Цвет",color),field("Часы поддержки",schedule),
       field("Приветственное сообщение",welcome),field("Поля формы · JSON (максимум 5)",formFields),
@@ -447,6 +483,7 @@ window.loadTicketBot = async function(section) {
     toggles.append(field("Панель активна",enabled),field("После сохранения опубликовать в Discord",publish));
     const formActions=make("div","tb-form-actions");
     const reset=button("Очистить","tb-button",()=>form.reset());
+    form.addEventListener("reset",()=>window.setTimeout(()=>{support._updateSummary?.();admins._updateSummary?.();},0));
     const save=make("button","tb-primary","Сохранить панель");save.type="submit";
     formActions.append(reset,save);
     form.append(panelId,grid,toggles,formActions);
@@ -467,8 +504,8 @@ window.loadTicketBot = async function(section) {
       enabled.checked=!!panel.is_enabled;
       publish.checked=false;
       schedule.value=String(panel.schedule_id||"");
-      for(const opt of support.options) opt.selected=(panel.support_roles||[]).map(String).includes(opt.value);
-      for(const opt of admins.options) opt.selected=(panel.admin_roles||[]).map(String).includes(opt.value);
+      setSelectedValues(support,panel.support_roles||[]);
+      setSelectedValues(admins,panel.admin_roles||[]);
       form.scrollIntoView({behavior:"smooth",block:"start"});
       name.focus();
     };
@@ -668,8 +705,8 @@ window.loadTicketBot = async function(section) {
     grid.append(
       field("Язык",language),field("Часовой пояс",timezone),
       field("Категория тикет-каналов",category),field("Канал транскриптов",transcript),
-      field("Канал логов",logs),field("Роли поддержки по умолчанию",support),
-      field("Роли администраторов по умолчанию",admins),field("Пауза до автозакрытия (минуты)",autoMinutes),
+      field("Канал логов",logs),field("Роли поддержки по умолчанию",support,"Отметь роли сотрудников поддержки. Нажми «Сохранить настройки», чтобы применить."),
+      field("Роли администраторов по умолчанию",admins,"Отметь роли администраторов. Нажми «Сохранить настройки», чтобы применить."),field("Пауза до автозакрытия (минуты)",autoMinutes),
       field("White-label · Название",labelName),field("White-label · URL аватара",labelAvatar),
       field("White-label · Подпись",labelFooter)
     );
