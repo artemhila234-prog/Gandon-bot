@@ -2960,6 +2960,42 @@ async def api_status():
         return {"ok": True, "bot_api": False, "status": "offline", "message": "Нет соединения с API бота"}
 
 
+async def probe_bot_api(base_url: str) -> dict[str, Any]:
+    if not base_url:
+        return {"online": False, "status": "not_configured"}
+    try:
+        async with httpx.AsyncClient(timeout=4.5) as client:
+            response = await client.get(f"{base_url.rstrip('/')}/health")
+        if response.status_code != 200:
+            return {"online": False, "status": "offline"}
+        payload = response.json()
+        if not isinstance(payload, dict) or payload.get("ok") is not True:
+            return {"online": False, "status": "offline"}
+        return {
+            "online": payload.get("discord_ready", True) is not False,
+            "status": "online" if payload.get("discord_ready", True) is not False else "connecting",
+            "discord_ready": payload.get("discord_ready"),
+            "guild_count": payload.get("guild_count"),
+        }
+    except (httpx.HTTPError, ValueError):
+        return {"online": False, "status": "offline"}
+
+
+@app.get("/api/bots/status")
+async def api_bots_status(request: Request):
+    await require_access(request, "adm")
+    gastworld, ticketbot = await asyncio.gather(
+        probe_bot_api(BOT_API_URL),
+        probe_bot_api(TICKETBOT_API_URL),
+    )
+    return {
+        "bots": {
+            "gastworld": {"name": "GastWorld", **gastworld},
+            "ticketbot": {"name": "Ticket Bot", **ticketbot},
+        }
+    }
+
+
 @app.get("/health")
 async def health():
     return {"ok": True, "service": "gastworld-control-panel"}
