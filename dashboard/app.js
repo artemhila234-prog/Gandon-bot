@@ -160,7 +160,12 @@ async function loadBotsWorkspace(section){
     }
   };
   section.querySelectorAll("[data-open-bot]").forEach(button=>{
-    button.addEventListener("click",()=>showPage(button.dataset.openBot));
+    button.addEventListener("click",()=>{
+      const target=button.dataset.openBot;
+      if(target==="discord-ticketbot"){dcActiveBotProvider="ticketbot";showPage("discord");return;}
+      if(target==="discord-gastworld"){dcActiveBotProvider="gastworld";showPage("discord");return;}
+      showPage(target);
+    });
   });
   section.querySelector("#refreshBotsStatus")?.addEventListener("click",refresh);
   await refresh();
