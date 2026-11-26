@@ -1716,7 +1716,7 @@ function dcSetMode(mode){
   const dm=mode==="dm",search=document.getElementById("dcDmSearch"),searchResults=document.getElementById("dcSearchResults"),dmList=document.getElementById("dcDmList"),channelList=document.getElementById("dcChannelList"),title=document.getElementById("dcSidebarTitle"),refresh=document.getElementById("dcRefreshDms");
   if(search)search.hidden=!dm;if(searchResults)searchResults.hidden=true;if(dmList)dmList.hidden=!dm;if(channelList)channelList.hidden=dm;
   const membersPanel=document.getElementById("dcMembersPanel"),profilePanel=document.getElementById("dcDmProfilePanel"),membersHead=membersPanel?.querySelector(".dc-members-head"),memberSearch=document.getElementById("dcMemberSearch"),memberList=document.getElementById("dcMemberList");
-  if(membersPanel)membersPanel.hidden=false;if(profilePanel)profilePanel.hidden=!dm;if(membersHead)membersHead.hidden=dm;if(memberSearch)memberSearch.hidden=dm;if(memberList)memberList.hidden=dm;const settingsButton=document.getElementById("dcServerSettingsButton");if(settingsButton)settingsButton.hidden=dm||!dcActiveGuild||dcActiveBotProvider==="ticketbot";
+  if(membersPanel)membersPanel.hidden=false;if(profilePanel)profilePanel.hidden=!dm;if(membersHead)membersHead.hidden=dm;if(memberSearch)memberSearch.hidden=dm;if(memberList)memberList.hidden=dm;const settingsButton=document.getElementById("dcServerSettingsButton");if(settingsButton)settingsButton.hidden=dm||!dcActiveGuild;
   if(title)title.textContent=dm?"ЛИЧНЫЕ СООБЩЕНИЯ":"КАНАЛЫ";if(refresh)refresh.title=dm?"Обновить диалоги":"Обновить каналы";
   document.querySelectorAll(".dc-guild-icon").forEach(x=>x.classList.toggle("selected",dm?x.id==="dcHomeButton":x.dataset.guildId===dcActiveGuild?.id));
 }
@@ -2185,8 +2185,7 @@ function dcRenderGuildMembers(){
   // Discord-style offline section is deliberately rendered last, regardless of role/hoist assignments.
   appendGroup("НЕ В СЕТИ",offlineMembers,"");
 }
-async function dcOpenServerSettings(initialTab="overview",targetChannelId=""){
-  if(dcActiveBotProvider==="ticketbot"){if(typeof showToast==="function")showToast("Настройки сервера Ticket Bot пока не доступны в этом Discord-режиме.");return;}
+async function dcOpenServerSettings(initialTab=dcActiveBotProvider==="ticketbot"?"channels":"overview",targetChannelId=""){
   if(!dcActiveGuild?.id)return;
   const guild=dcActiveGuild;
   const button=document.getElementById("dcServerSettingsButton");
@@ -2204,7 +2203,7 @@ function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
   const card=document.createElement("section");card.className="dc-settings-card dc-settings-discord-card";card.setAttribute("role","dialog");card.setAttribute("aria-modal","true");
   const head=document.createElement("header");head.className="dc-settings-header";
   const heading=document.createElement("div");heading.className="dc-settings-heading";
-  const eyebrow=document.createElement("span");eyebrow.textContent="GASTWORLD • SERVER SETTINGS";
+  const eyebrow=document.createElement("span");eyebrow.textContent=(dcActiveBotProvider==="ticketbot"?"TICKET BOT":"GASTWORLD")+" • SERVER SETTINGS";
   const title=document.createElement("h2");title.textContent="Настройки сервера";
   const sub=document.createElement("p");sub.textContent=data.guild?.name||dcActiveGuild?.name||"Discord";
   heading.append(eyebrow,title,sub);
@@ -2226,9 +2225,10 @@ function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
     const block=document.createElement("div");block.className="dc-settings-nav-group";
     const label=document.createElement("div");label.className="dc-settings-nav-label";label.textContent=group.title;block.append(label);
     group.items.forEach(([key,text,icon,enabled])=>{
-      const button=document.createElement("button");button.type="button";button.className="dc-settings-nav-item";button.disabled=!enabled;button.title=enabled?text:"Этот раздел ещё не реализован.";
+      const available=enabled&&(dcActiveBotProvider!=="ticketbot"||key==="channels");
+      const button=document.createElement("button");button.type="button";button.className="dc-settings-nav-item";button.disabled=!available;button.title=available?text:(dcActiveBotProvider==="ticketbot"?"В режиме Ticket Bot доступно управление каналами и категориями.":"Этот раздел ещё не реализован.");
       const symbol=document.createElement("span");symbol.textContent=icon;const name=document.createElement("span");name.textContent=text;button.append(symbol,name);
-      if(!enabled){const tag=document.createElement("small");tag.textContent="Скоро";button.append(tag);}
+      if(!available){const tag=document.createElement("small");tag.textContent=dcActiveBotProvider==="ticketbot"?"—":"Скоро";button.append(tag);}
       navButtons.set(key,button);block.append(button);
     });
     sidebar.append(block);
@@ -2615,7 +2615,7 @@ function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
     const options={method,credentials:"same-origin"};
     if(payload instanceof FormData)options.body=payload;
     else if(payload!==null){options.headers={"Content-Type":"application/json"};options.body=JSON.stringify(payload);}
-    const response=await fetch(url,options);
+    const response=await dcFetch(url,options);
     const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{throw new Error("Discord вернул неожиданный ответ (HTTP "+response.status+").");}
     if(!response.ok)throw new Error(result.detail||"Запрос к настройкам сервера не выполнен.");
     return result;
@@ -2714,7 +2714,7 @@ function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
         const url=endpoint+(targetId?"/"+encodeURIComponent(targetId):"");
         const options={method,credentials:"same-origin"};
         if(payload){options.headers={"Content-Type":"application/json"};options.body=JSON.stringify(payload);}
-        const response=await fetch(url,options);const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{}
+        const response=await dcFetch(url,options);const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{}
         if(!response.ok)throw new Error(result.detail||"Не удалось изменить права канала.");return result;
       };
       try{
@@ -3236,6 +3236,7 @@ function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
   };
 
   const renderSection=async tab=>{
+    if(dcActiveBotProvider==="ticketbot"&&tab!=="channels")tab="channels";
     if(tab==="channels")return renderChannels();
     if(tab==="members")return renderMembers();
     if(tab==="invites")return renderInvites();
@@ -3440,7 +3441,7 @@ function loadBotDiscord(){
   if(currentSessionUser?.ticketbot_only && currentTicketBotAccess==="admin")dcActiveBotProvider="ticketbot";
   if(dcPollTimer)clearInterval(dcPollTimer);dcActiveUser=null;dcActiveChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcReplyTarget=null;
   const search=document.getElementById("dcUserSearch"),searchButton=document.getElementById("dcSearchButton"),refresh=document.getElementById("dcRefreshDms"),refreshChat=document.getElementById("dcRefreshChat"),form=document.getElementById("dcComposerForm");
-  document.getElementById("dcServerSettingsButton")?.addEventListener("click",dcOpenServerSettings);
+  document.getElementById("dcServerSettingsButton")?.addEventListener("click",()=>dcOpenServerSettings(dcActiveBotProvider==="ticketbot"?"channels":"overview"));
   document.getElementById("dcAccessibilityButton")?.addEventListener("click",dcOpenAccessibilitySettings);
   document.getElementById("dcBotAccountTrigger")?.addEventListener("click",dcOpenBotProfileSettings);
   document.getElementById("dcExitLive")?.addEventListener("click",()=>showPage("dashboard"));
