@@ -4,10 +4,16 @@ const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
 const overlay=document.getElementById("overlay");
 let currentAccessLevel="none";
+let currentTicketBotAccess="none";
+let ticketBotOnlySession=false;
 const pageMinimumAccess={dashboard:"none",discord:"adm",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",allowedGuilds:"full",ticketBot:"adm",settings:"none"};
 const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
 function canOpenPage(page){
-  return !!pageNames[page] && (page==="dashboard" || (isAuthenticated && (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"])));
+  if(!pageNames[page])return false;
+  if(!isAuthenticated)return page==="dashboard";
+  if(ticketBotOnlySession)return page==="ticketBot";
+  if(page==="ticketBot")return currentTicketBotAccess!=="none" || (accessRank[currentAccessLevel]||0)>=accessRank.adm;
+  return page==="dashboard" || (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"]);
 }
 let isAuthenticated=false;
 async function mountTicketBotWorkspace(section){
@@ -36,7 +42,7 @@ async function mountTicketBotWorkspace(section){
     if(typeof window.loadTicketBot!=="function"){
       throw new Error("Файл ticketbot.js загрузился, но не зарегистрировал модуль интерфейса. Проверь JavaScript Console на ошибку выполнения.");
     }
-    await window.loadTicketBot(workspace);
+    await window.loadTicketBot(workspace,currentSessionUser||{});
   }catch(error){
     showFailure(error?.message||String(error));
     console.error("[GastWorld Ticket Bot] module mount failed:",error);
@@ -56,7 +62,7 @@ function applyAccessNavigation(){
 applyAccessNavigation();
 function showPage(page){
   if(!pageNames[page]) return;
-  if(!canOpenPage(page)){page="dashboard";}
+  if(!canOpenPage(page)){page=ticketBotOnlySession?"ticketBot":"dashboard";}
   document.getElementById("pageContent")?.classList.toggle("discord-fullscreen",page==="discord");
   document.body.classList.toggle("discord-mode",page==="discord");
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
@@ -230,6 +236,9 @@ async function loadSession(){
     const data=await response.json();
     if(!data.authenticated){
       currentSessionUser=null;
+      isAuthenticated=false;
+      currentTicketBotAccess="none";
+      ticketBotOnlySession=false;
       authBadge.textContent="НЕ АВТОРИЗОВАН";
       sideUserName.textContent="Гость";
       sideUserAccess.textContent="Вход не выполнен";
@@ -239,12 +248,17 @@ async function loadSession(){
     }
     const user=data.user;
     currentSessionUser=user;
-    loadCreatorProfile();
     isAuthenticated=true;
     currentAccessLevel=user.access_level||"none";
+    currentTicketBotAccess=user.ticketbot_access||"none";
+    ticketBotOnlySession=!!user.ticketbot_only || (currentAccessLevel==="none" && currentTicketBotAccess!=="none");
+    if(!ticketBotOnlySession){
+      loadCreatorProfile();
+      startSettingsLiveSync();
+    }
     applyAccessNavigation();
-    startSettingsLiveSync();
     if(initialPage && pageNames[initialPage])showPage(initialPage);
+    else showPage(ticketBotOnlySession?"ticketBot":"dashboard");
     const letter=avatarLetter(user.username);
     const avatarUrl=user.avatar
       ? "https://cdn.discordapp.com/avatars/"+encodeURIComponent(user.id)+"/"+encodeURIComponent(user.avatar)+".png?size=128"
@@ -265,12 +279,14 @@ async function loadSession(){
     loginButton.hidden=true;
     logoutButton.hidden=false;
     sideUserName.textContent=user.username;
-    sideUserAccess.textContent=accessLabels[user.access_level]||"Нет доступа";
+    sideUserAccess.textContent=ticketBotOnlySession
+      ? (currentTicketBotAccess==="admin"?"Ticket Bot · ADM":"Ticket Bot · Поддержка")
+      : (accessLabels[user.access_level]||"Нет доступа");
     renderDiscordAvatar(topAvatar,user,96);
     renderDiscordAvatar(sideAvatar,user,96);
-    const mediaText=user.access_level==="none"?"доступ не выдан":"доступ подтверждён";
+    const mediaText=ticketBotOnlySession?"доступ Ticket Bot подтверждён":(user.access_level==="none"?"доступ не выдан":"доступ подтверждён");
     const setupTag=document.getElementById("setupTag");
-    if(setupTag)setupTag.textContent=user.access_level==="none"?"NO ACCESS":"ACCESS VERIFIED";
+    if(setupTag)setupTag.textContent=ticketBotOnlySession?"TICKET BOT ACCESS":(user.access_level==="none"?"NO ACCESS":"ACCESS VERIFIED");
     const notice=document.querySelector(".notice p");
     if(notice){
       const roleText=(user.role_names||[]).length?(user.role_names.join(", ")):"Ролей не найдено";
