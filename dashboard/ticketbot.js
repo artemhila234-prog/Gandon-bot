@@ -259,8 +259,8 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
     stats.append(
       card("Открытые тикеты",data.tickets?.open??0,"Требуют внимания поддержки"),
       card("Закрытые тикеты",data.tickets?.closed??0,"История обращений"),
-      card("Панели",data.panels?.length??0,"Количество настроенных панелей"),
-      card("Сотрудники",data.staff?.length??0,"Назначенная команда поддержки")
+      card("Панели",data.panels_count??data.panels?.length??0,"Количество настроенных панелей"),
+      card("Сотрудники",data.staff_count??data.staff?.length??0,"Назначенная команда поддержки")
     );
     view.append(stats);
     const quick=make("div","tb-quick-grid");
@@ -297,7 +297,9 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
     filter.addEventListener("change",()=>{ticketFilter=filter.value;ticketCursor=null;ticketItems=[];renderTickets().catch(showError);});
     const refresh=button("↻ Обновить","tb-button",()=>renderTickets().catch(showError));
     const actions=make("div","tb-actions");actions.append(filter,refresh);
-    view.append(heading("Тикеты","Все обращения, история сообщений, участники и управление статусом. История загружается страницами без лимита на количество тикетов.",actions));
+    view.append(heading("Тикеты",isSupportMode
+      ? "Очередь обращений: можно забрать открытый тикет, ответить пользователю и закрыть решённое обращение."
+      : "Все обращения, история сообщений, участники и управление статусом. История загружается страницами без лимита на количество тикетов.",actions));
     let url="/tickets?status="+encodeURIComponent(ticketFilter)+"&limit=100";
     if(append && ticketCursor) url+="&before_id="+encodeURIComponent(ticketCursor);
     const result=await request(url);
