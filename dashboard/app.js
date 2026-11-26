@@ -2711,7 +2711,9 @@ function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
       const loading=document.createElement("p");loading.className="dc-settings-permission";loading.textContent="Загрузка переопределений прав…";permissionsEditor.append(loading);
       const endpoint=serverSettingsBase+"channels/"+encodeURIComponent(channel.id)+"/permissions";
       const request=async(method="GET",payload=null,targetId="")=>{
-        const url=endpoint+(targetId?"/"+encodeURIComponent(targetId):"");
+        const suffix=targetId?"/"+encodeURIComponent(targetId):"";
+        const query=method==="DELETE"&&targetType.value==="member"?"?target_type=member":"";
+        const url=endpoint+suffix+query;
         const options={method,credentials:"same-origin"};
         if(payload){options.headers={"Content-Type":"application/json"};options.body=JSON.stringify(payload);}
         const response=await dcFetch(url,options);const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{}
