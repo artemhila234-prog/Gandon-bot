@@ -1,7 +1,8 @@
 /* Ticket Bot v2 administration module. The browser never receives the internal Ticket Bot API key. */
-window.loadTicketBot = async function(section) {
+window.loadTicketBot = async function(section, sessionUser = {}) {
+  const isSupportMode = sessionUser?.ticketbot_access === "support";
   const root = document.createElement("div");
-  root.className = "ticketbot-workspace";
+  root.className = "ticketbot-workspace" + (isSupportMode ? " tb-support-mode" : "");
   root.innerHTML = `
     <div class="tb-toolbar">
       <div class="tb-server-select-wrap"><label for="tbGuildSelect">Discord-сервер</label><select id="tbGuildSelect"><option>Загрузка серверов…</option></select></div>
@@ -37,14 +38,15 @@ window.loadTicketBot = async function(section) {
   const noticeEl = $("#tbNotice");
   const guildSelect = $("#tbGuildSelect");
   const stateEl = $("#tbApiState");
-  const tabs = [
+  const allTabs = [
     ["overview","Обзор"],["tickets","Тикеты"],["panels","Панели"],["staff","Персонал"],
     ["settings","Настройки"],["schedules","Часы поддержки"],["replies","Сохранённые ответы"],
     ["tags","Теги"],["knowledge","База знаний"],["analytics","Аналитика"],["audit","Аудит"],
     ["botProfile","Профиль бота"]
   ];
+  const tabs = isSupportMode ? allTabs.filter(item=>["overview","tickets"].includes(item[0])) : allTabs;
   let guildId = "";
-  let activeTab = "overview";
+  let activeTab = isSupportMode ? "tickets" : "overview";
   let guildCache = [];
   let channelsCache = [];
   let rolesCache = [];
@@ -116,6 +118,13 @@ window.loadTicketBot = async function(section) {
     noticeEl.textContent = message || "";
     noticeEl.className = "tb-notice " + (kind === "error" ? "is-error" : kind === "success" ? "is-success" : "");
   };
+  if (isSupportMode) {
+    root.querySelectorAll("#tbTabs [data-tab]").forEach(item=>{
+      item.hidden=!tabs.some(tab=>tab[0]===item.dataset.tab);
+      item.classList.toggle("active",item.dataset.tab===activeTab);
+    });
+    showNotice("Режим поддержки: можно просматривать очередь, забирать открытые тикеты, отвечать пользователям, закрывать обращения и открывать транскрипты. Настройки и управление ботом недоступны.");
+  }
   const request = async (path, method="GET", payload=null) => {
     if (!guildId && !path.startsWith("@guilds") && !path.startsWith("@profile")) throw new Error("Сначала выбери сервер.");
     const url = path.startsWith("@guilds") ? "/api/ticketbot/guilds"
@@ -261,6 +270,7 @@ window.loadTicketBot = async function(section) {
       ["staff","Персонал","Добавить поддержку и администраторов","♙"],
       ["analytics","Аналитика","Время ответа и активность","↗"]
     ]) {
+      if(!tabs.some(entry=>entry[0]===tab)) continue;
       const item=make("button","tb-quick-card");
       item.type="button";
       item.append(make("span","tb-quick-icon",icon),make("strong","",title),make("small","",description));
@@ -309,7 +319,7 @@ window.loadTicketBot = async function(section) {
       if(ticket.status==="open") {
         controls.append(button("Забрать","tb-button",async()=>runAction(()=>request("/tickets/"+ticket.id+"/claim","POST",{}),"Тикет назначен.",renderTickets)));
         controls.append(button("Закрыть","tb-button is-danger",async()=>runAction(()=>request("/tickets/"+ticket.id+"/close","POST",{reason:"Closed from GastWorld dashboard"}),"Тикет закрыт.",renderTickets)));
-      } else {
+      } else if(!isSupportMode) {
         controls.append(button("Открыть снова","tb-button",async()=>runAction(()=>request("/tickets/"+ticket.id+"/reopen","POST",{}),"Тикет открыт снова.",renderTickets)));
       }
       row.append(info,controls);list.append(row);
@@ -348,7 +358,7 @@ window.loadTicketBot = async function(section) {
     if(ticket.status==="open") {
       tools.append(button("Забрать","tb-button",()=>runAction(()=>request("/tickets/"+ticketId+"/claim","POST",{}),"Тикет назначен.",()=>renderTicketDetail(ticketId))));
       tools.append(button("Закрыть","tb-button is-danger",()=>runAction(()=>request("/tickets/"+ticketId+"/close","POST",{reason:"Closed from dashboard"}),"Тикет закрыт.",()=>renderTicketDetail(ticketId))));
-    } else {
+    } else if(!isSupportMode) {
       tools.append(button("Открыть снова","tb-button",()=>runAction(()=>request("/tickets/"+ticketId+"/reopen","POST",{}),"Тикет открыт.",()=>renderTicketDetail(ticketId))));
     }
     tools.append(button("Транскрипт","tb-button",()=>window.open("/api/ticketbot/guilds/"+encodeURIComponent(guildId)+"/transcript/"+ticketId,"_blank","noopener")));
@@ -384,6 +394,7 @@ window.loadTicketBot = async function(section) {
         finally { send.disabled=false; }
       });
       view.append(reply);
+      if(!isSupportMode) {
       const members=make("form","tb-member-form");
       members.append(make("h3","","Участники тикета"));
       const row=make("div","tb-inline-form");
@@ -420,6 +431,7 @@ window.loadTicketBot = async function(section) {
       tagRow.append(tagSelect,tagAdd);tagSection.append(tagRow);
       for(const tag of ticketTags.tags||[]) tagSection.append(statusBadge(tag.name));
       view.append(tagSection);
+      }
     }
     contentEl.replaceChildren(view);
     if(ticket.status==="open") {
