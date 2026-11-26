@@ -321,7 +321,7 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
       if(ticket.status==="open") {
         controls.append(button("Забрать","tb-button",async()=>runAction(()=>request("/tickets/"+ticket.id+"/claim","POST",{}),"Тикет назначен.",renderTickets)));
         controls.append(button("Закрыть","tb-button is-danger",async()=>runAction(()=>request("/tickets/"+ticket.id+"/close","POST",{reason:"Closed from GastWorld dashboard"}),"Тикет закрыт.",renderTickets)));
-      } else if(!isSupportMode) {
+      } else {
         controls.append(button("Открыть снова","tb-button",async()=>runAction(()=>request("/tickets/"+ticket.id+"/reopen","POST",{}),"Тикет открыт снова.",renderTickets)));
       }
       row.append(info,controls);list.append(row);
@@ -360,7 +360,7 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
     if(ticket.status==="open") {
       tools.append(button("Забрать","tb-button",()=>runAction(()=>request("/tickets/"+ticketId+"/claim","POST",{}),"Тикет назначен.",()=>renderTicketDetail(ticketId))));
       tools.append(button("Закрыть","tb-button is-danger",()=>runAction(()=>request("/tickets/"+ticketId+"/close","POST",{reason:"Closed from dashboard"}),"Тикет закрыт.",()=>renderTicketDetail(ticketId))));
-    } else if(!isSupportMode) {
+    } else {
       tools.append(button("Открыть снова","tb-button",()=>runAction(()=>request("/tickets/"+ticketId+"/reopen","POST",{}),"Тикет открыт.",()=>renderTicketDetail(ticketId))));
     }
     tools.append(button("Транскрипт","tb-button",()=>window.open("/api/ticketbot/guilds/"+encodeURIComponent(guildId)+"/transcript/"+ticketId,"_blank","noopener")));
