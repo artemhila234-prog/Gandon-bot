@@ -68,9 +68,13 @@ window.loadTicketBot = async function(section) {
     node.addEventListener("click", fn);
     return node;
   };
+  let fieldLabelSequence=0;
   const field = (labelText, control, hint) => {
-    const wrap = make("label","tb-field");
-    wrap.append(make("span","tb-field-label",labelText),control);
+    const wrap = make("div","tb-field");
+    const label = make("span","tb-field-label",labelText);
+    label.id = "tb-field-label-" + (++fieldLabelSequence);
+    control.setAttribute?.("aria-labelledby",label.id);
+    wrap.append(label,control);
     if (hint) wrap.append(make("small","tb-field-hint",hint));
     return wrap;
   };
