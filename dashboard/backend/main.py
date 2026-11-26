@@ -243,6 +243,11 @@ async def stylesheet():
 async def frontend_script():
     return FileResponse(os.path.join(BASE_DIR, "app.js"), media_type="application/javascript")
 
+
+@app.get("/ticketbot.js")
+async def ticketbot_frontend_script():
+    return FileResponse(os.path.join(BASE_DIR, "ticketbot.js"), media_type="application/javascript")
+
 @app.get("/tiktokm5Y1iWvDkXPyhVbml4Yb7W3NE8WSScOd.txt")
 async def tiktok_site_verification():
     verification_file = os.path.join(BASE_DIR, "tiktokm5Y1iWvDkXPyhVbml4Yb7W3NE8WSScOd.txt")
