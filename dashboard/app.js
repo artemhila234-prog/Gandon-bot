@@ -11,7 +11,7 @@ const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
 function canOpenPage(page){
   if(!pageNames[page])return false;
   if(!isAuthenticated)return page==="dashboard";
-  if(ticketBotOnlySession)return page==="ticketBot";
+  if(ticketBotOnlySession)return page==="ticketBot" || (currentTicketBotAccess==="admin" && page==="discord");
   if(page==="ticketBot")return currentTicketBotAccess!=="none" || (accessRank[currentAccessLevel]||0)>=accessRank.adm;
   return page==="dashboard" || (accessRank[currentAccessLevel]||0)>=(accessRank[pageMinimumAccess[page]||"none"]);
 }
@@ -1785,6 +1785,7 @@ async function dcOpenBotProfileSettings(){
   const currentBot=profile.bot||{};
   username.value=currentBot.username||currentBot.global_name||"GastWorld";
   status.value=profile.status||"online";activityType.value=profile.activity_type||"playing";activityText.value=profile.activity_text||"";about.value=profile.about||"";
+  if(dcActiveBotProvider==="ticketbot")about.closest(".dc-settings-field")?.setAttribute("hidden","");
   if(currentBot.avatar_url){avatarPreview.src=currentBot.avatar_url;}else{avatarPreview.hidden=true;}
   activityType.addEventListener("change",()=>{activityText.disabled=activityType.value==="none";});
   activityType.dispatchEvent(new Event("change"));
@@ -3420,6 +3421,7 @@ async function dcRefreshActiveDiscordView(){
   else if(!dcActiveGuild)dcLoadConversationList();
 }
 function loadBotDiscord(){
+  if(currentSessionUser?.ticketbot_only && currentTicketBotAccess==="admin")dcActiveBotProvider="ticketbot";
   if(dcPollTimer)clearInterval(dcPollTimer);dcActiveUser=null;dcActiveChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcReplyTarget=null;
   const search=document.getElementById("dcUserSearch"),searchButton=document.getElementById("dcSearchButton"),refresh=document.getElementById("dcRefreshDms"),refreshChat=document.getElementById("dcRefreshChat"),form=document.getElementById("dcComposerForm");
   document.getElementById("dcServerSettingsButton")?.addEventListener("click",dcOpenServerSettings);
@@ -3428,6 +3430,9 @@ function loadBotDiscord(){
   document.getElementById("dcExitLive")?.addEventListener("click",()=>showPage("dashboard"));
   const botProviderSelect=document.getElementById("dcBotProviderSelect");
   if(botProviderSelect){
+    const ticketBotOnlyAdmin=!!currentSessionUser?.ticketbot_only&&currentTicketBotAccess==="admin";
+    const gastOption=botProviderSelect.querySelector('option[value="gastworld"]');
+    if(ticketBotOnlyAdmin&&gastOption){gastOption.hidden=true;botProviderSelect.disabled=true;}
     botProviderSelect.value=dcActiveBotProvider;
     botProviderSelect.addEventListener("change",async()=>{
       const next=botProviderSelect.value==="ticketbot"?"ticketbot":"gastworld";
