@@ -24,7 +24,7 @@ async function mountTicketBotWorkspace(section){
     if(typeof window.loadTicketBot!=="function"){
       const appScript=Array.from(document.scripts).find(item=>item.src.includes("app.js"));
       const moduleUrl=new URL("/ticketbot.js",document.baseURI);
-      moduleUrl.searchParams.set("v","20261126-ticketbot9");
+      moduleUrl.searchParams.set("v","20261126-ticketbot10");
       await new Promise((resolve,reject)=>{
         const script=document.createElement("script");
         script.src=moduleUrl.href;
