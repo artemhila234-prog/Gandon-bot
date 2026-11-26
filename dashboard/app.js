@@ -1,4 +1,4 @@
-const pageNames={dashboard:"Главная",bots:"Боты",discord:"GastWorld Bot",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",allowedGuilds:"Разрешённые серверы",ticketBot:"Ticket Bot",settings:"Настройки"};
+const pageNames={dashboard:"Главная",bots:"Боты",discord:"Discord",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",allowedGuilds:"Разрешённые серверы",ticketBot:"Ticket Bot",settings:"Настройки"};
 const content=document.getElementById("pageContent");
 const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
@@ -3420,6 +3420,17 @@ async function dcRefreshActiveDiscordView(){
   else if(dcActiveUser)dcOpenConversation(dcActiveUser,true);
   else if(!dcActiveGuild)dcLoadConversationList();
 }
+function dcApplyProviderBrand(){
+  const ticketBot=dcActiveBotProvider==="ticketbot";
+  const home=document.querySelector(".dc-guildbar .dc-home");
+  if(home){home.textContent=ticketBot?"TB":"GW";home.title=ticketBot?"Ticket Bot":"GastWorld Bot";}
+  const ribbon=document.querySelector(".dc-release-ribbon");
+  if(ribbon)ribbon.textContent="● АКТИВЕН DISCORD-БОТ: "+(ticketBot?"TICKET BOT":"GASTWORLD")+" · ОТДЕЛЬНОЕ ПОДКЛЮЧЕНИЕ";
+  const welcome=document.querySelector(".dc-live-welcome p");
+  if(welcome)welcome.textContent="Выбери существующий диалог слева или найди участника Discord по имени или ID. Сообщения отправляются от имени "+(ticketBot?"Ticket Bot":"GastWorld Bot")+".";
+  const hint=document.getElementById("dcComposerHint");
+  if(hint&&!dcActiveUser&&!dcActiveChannel)hint.textContent="Сначала выбери пользователя или канал. Сообщения будут отправляться от имени "+(ticketBot?"Ticket Bot":"GastWorld Bot")+".";
+}
 function loadBotDiscord(){
   if(currentSessionUser?.ticketbot_only && currentTicketBotAccess==="admin")dcActiveBotProvider="ticketbot";
   if(dcPollTimer)clearInterval(dcPollTimer);dcActiveUser=null;dcActiveChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcReplyTarget=null;
@@ -3428,6 +3439,7 @@ function loadBotDiscord(){
   document.getElementById("dcAccessibilityButton")?.addEventListener("click",dcOpenAccessibilitySettings);
   document.getElementById("dcBotAccountTrigger")?.addEventListener("click",dcOpenBotProfileSettings);
   document.getElementById("dcExitLive")?.addEventListener("click",()=>showPage("dashboard"));
+  dcApplyProviderBrand();
   const botProviderSelect=document.getElementById("dcBotProviderSelect");
   if(botProviderSelect){
     const ticketBotOnlyAdmin=!!currentSessionUser?.ticketbot_only&&currentTicketBotAccess==="admin";
@@ -3438,6 +3450,7 @@ function loadBotDiscord(){
       const next=botProviderSelect.value==="ticketbot"?"ticketbot":"gastworld";
       if(next===dcActiveBotProvider)return;
       dcActiveBotProvider=next;
+      dcApplyProviderBrand();
       if(dcPollTimer){clearInterval(dcPollTimer);dcPollTimer=null;}
       dcMemberCache=[];dcMemberCacheByGuild.clear();dcMemberRolesByGuild.clear();dcChannelsCacheByGuild.clear();
       dcMembersLoading.clear();dcChannelsLoading.clear();dcGuildCache=[];dcConversationCache=[];
