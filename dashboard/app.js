@@ -1240,13 +1240,23 @@ function makeCell(value){
   return cell;
 }
 async function apiPost(url,payload){
-  const response=await fetch(url,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  const response=await dcFetch(url,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
   const data=await response.json();
   if(!response.ok)throw new Error(data.detail||"Ошибка запроса.");
   return data;
 }
 
 let dcActiveUser=null,dcPollTimer=null,dcConversationCache=[];
+let dcActiveBotProvider="gastworld";
+function dcApiUrl(url){
+  const value=String(url||"");
+  return dcActiveBotProvider==="ticketbot"&&value.startsWith("/api/discord/")
+    ? value.replace("/api/discord/","/api/ticketbot-discord/")
+    : value;
+}
+function dcFetch(url,options){
+  return fetch(dcApiUrl(url),options);
+}
 function dcEscape(value){return String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
 function dcAvatar(user,extra=""){
   const label=(user?.global_name||user?.username||"?").slice(0,2).toUpperCase();
@@ -1368,7 +1378,7 @@ function dcRenderMessageContent(parent,message){
 }
 function dcActiveMessageChannelId(){return dcActiveChannel?.id||dcActiveDmChannelId||"";}
 async function dcMessageRequest(method,channelId,messageId,payload){
-  const response=await fetch("/api/discord/channels/"+encodeURIComponent(channelId)+"/messages/"+encodeURIComponent(messageId)+(method==="POST"&&payload?.emoji?"/reactions":method==="POST"&&typeof payload?.pinned==="boolean"?"/pin":""),{
+  const response=await dcFetch("/api/discord/channels/"+encodeURIComponent(channelId)+"/messages/"+encodeURIComponent(messageId)+(method==="POST"&&payload?.emoji?"/reactions":method==="POST"&&typeof payload?.pinned==="boolean"?"/pin":""),{
     method,credentials:"same-origin",headers:payload?{"Content-Type":"application/json"}:undefined,body:payload?JSON.stringify(payload):undefined
   });
   const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ.");}
@@ -1405,7 +1415,7 @@ const dcGuildEmojiCache=new Map();
 async function dcLoadGuildEmojis(guildId){
   if(!guildId)return [];
   if(dcGuildEmojiCache.has(String(guildId)))return dcGuildEmojiCache.get(String(guildId));
-  const response=await fetch("/api/discord/guilds/"+encodeURIComponent(guildId)+"/emojis",{credentials:"same-origin",cache:"no-store"});
+  const response=await dcFetch("/api/discord/guilds/"+encodeURIComponent(guildId)+"/emojis",{credentials:"same-origin",cache:"no-store"});
   const raw=await response.text();let data={};try{data=raw?JSON.parse(raw):{};}catch{}
   if(!response.ok)throw new Error(data.detail||"Не удалось загрузить эмодзи сервера.");
   const emojis=Array.isArray(data.emojis)?data.emojis:[];
@@ -1679,7 +1689,7 @@ async function dcSendMessage(event){
   try{
     const form=new FormData();form.append("content",content);if(dcReplyTarget?.id)form.append("reply_to",String(dcReplyTarget.id));files.forEach(file=>form.append("files",file,file.name));
     const url=dcActiveChannel?"/api/discord/channels/"+encodeURIComponent(dcActiveChannel.id)+"/messages":"/api/discord/dms/"+encodeURIComponent(dcActiveUser.id)+"/messages";
-    const response=await fetch(url,{method:"POST",credentials:"same-origin",body:form});
+    const response=await dcFetch(url,{method:"POST",credentials:"same-origin",body:form});
     const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ.");}
     if(!response.ok)throw new Error(result.detail||"Не удалось отправить сообщение.");
     input.value="";if(filesInput)filesInput.value="";dcClearReplyTarget();dcCloseMentionPicker();dcCloseEmojiPicker();
@@ -1701,7 +1711,7 @@ function dcSetMode(mode){
   const dm=mode==="dm",search=document.getElementById("dcDmSearch"),searchResults=document.getElementById("dcSearchResults"),dmList=document.getElementById("dcDmList"),channelList=document.getElementById("dcChannelList"),title=document.getElementById("dcSidebarTitle"),refresh=document.getElementById("dcRefreshDms");
   if(search)search.hidden=!dm;if(searchResults)searchResults.hidden=true;if(dmList)dmList.hidden=!dm;if(channelList)channelList.hidden=dm;
   const membersPanel=document.getElementById("dcMembersPanel"),profilePanel=document.getElementById("dcDmProfilePanel"),membersHead=membersPanel?.querySelector(".dc-members-head"),memberSearch=document.getElementById("dcMemberSearch"),memberList=document.getElementById("dcMemberList");
-  if(membersPanel)membersPanel.hidden=false;if(profilePanel)profilePanel.hidden=!dm;if(membersHead)membersHead.hidden=dm;if(memberSearch)memberSearch.hidden=dm;if(memberList)memberList.hidden=dm;const settingsButton=document.getElementById("dcServerSettingsButton");if(settingsButton)settingsButton.hidden=dm||!dcActiveGuild;
+  if(membersPanel)membersPanel.hidden=false;if(profilePanel)profilePanel.hidden=!dm;if(membersHead)membersHead.hidden=dm;if(memberSearch)memberSearch.hidden=dm;if(memberList)memberList.hidden=dm;const settingsButton=document.getElementById("dcServerSettingsButton");if(settingsButton)settingsButton.hidden=dm||!dcActiveGuild||dcActiveBotProvider==="ticketbot";
   if(title)title.textContent=dm?"ЛИЧНЫЕ СООБЩЕНИЯ":"КАНАЛЫ";if(refresh)refresh.title=dm?"Обновить диалоги":"Обновить каналы";
   document.querySelectorAll(".dc-guild-icon").forEach(x=>x.classList.toggle("selected",dm?x.id==="dcHomeButton":x.dataset.guildId===dcActiveGuild?.id));
 }
@@ -1793,7 +1803,7 @@ async function dcOpenBotProfileSettings(){
     try{
       const payload={username:username.value.trim(),status:status.value,activity_type:activityType.value,activity_text:activityText.value.trim(),about:about.value.trim()};
       if(chosenAvatar)payload.avatar_data=await dcReadFileAsDataUrl(chosenAvatar);
-      const response=await fetch("/api/discord/bot-profile",{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const response=await dcFetch("/api/discord/bot-profile",{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
       const raw=await response.text();let result={};try{result=raw?JSON.parse(raw):{};}catch{throw new Error("Сервер вернул неожиданный ответ.");}
       if(!response.ok)throw new Error(result.detail||"Не удалось изменить профиль бота.");
       dcRenderBotAccount(result);close();
@@ -2170,6 +2180,7 @@ function dcRenderGuildMembers(){
   appendGroup("НЕ В СЕТИ",offlineMembers,"");
 }
 async function dcOpenServerSettings(initialTab="overview",targetChannelId=""){
+  if(dcActiveBotProvider==="ticketbot"){if(typeof showToast==="function")showToast("Настройки сервера Ticket Bot пока не доступны в этом Discord-режиме.");return;}
   if(!dcActiveGuild?.id)return;
   const guild=dcActiveGuild;
   const button=document.getElementById("dcServerSettingsButton");
@@ -2306,7 +2317,7 @@ function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
       };
       ["rules_channel_id","public_updates_channel_id","safety_alerts_channel_id"].forEach(key=>{if(form.querySelector('[name="'+key+'"]'))payload[key]=fieldValue(key)||null;});
       try{
-        const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/settings",{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+        const response=await dcFetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/settings",{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
         const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось сохранить настройки.");
         if(typeof showToast==="function")showToast("Настройки сервера сохранены.");
         data=result;renderOverview();
@@ -2420,7 +2431,7 @@ function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
       deleteButton.addEventListener("click",async()=>{
         if(!confirm("Удалить роль «"+role.name+"»? Это действие нельзя отменить."))return;
         deleteButton.disabled=true;
-        try{await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"DELETE",credentials:"same-origin"}).then(async response=>{const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось удалить роль.");return result;});await refresh(null);await dcLoadGuildMembers(dcActiveGuild,true);if(typeof showToast==="function")showToast("Роль удалена.");}
+        try{await dcFetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"DELETE",credentials:"same-origin"}).then(async response=>{const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось удалить роль.");return result;});await refresh(null);await dcLoadGuildMembers(dcActiveGuild,true);if(typeof showToast==="function")showToast("Роль удалена.");}
         catch(error){saveStatus.textContent=error.message;deleteButton.disabled=false;}
       });
       const saveButton=document.createElement("button");saveButton.type="button";saveButton.className="dc-settings-save";saveButton.textContent="Сохранить изменения";saveButton.disabled=!isEditable;
@@ -2428,7 +2439,7 @@ function dcRenderServerSettings(data,initialTab="overview",targetChannelId=""){
         saveButton.disabled=true;saveButton.textContent="Сохраняем…";saveStatus.textContent="";
         try{
           const payload=role.is_default?{permissions:draft.permissions}:draft;
-          const response=await fetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+          const response=await dcFetch("/api/discord/guilds/"+encodeURIComponent(dcActiveGuild.id)+"/roles/"+encodeURIComponent(role.id),{method:"PATCH",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
           const result=await response.json();if(!response.ok)throw new Error(result.detail||"Не удалось сохранить роль.");
           await refresh(result.role?.id);
           await dcLoadGuildMembers(dcActiveGuild,true);
@@ -3393,6 +3404,21 @@ async function dcOpenGuildChannel(channel,silent=false){
   try{const data=await apiGet("/api/discord/channels/"+encodeURIComponent(channel.id)+"/messages");if(dcActiveChannel?.id!==channel.id)return;dcRenderMessages(data.messages||[]);}
   catch(error){if(root){root.replaceChildren();const msg=document.createElement("div");msg.className="dc-live-error";msg.textContent=error.message;root.append(msg);}if(hint)hint.textContent="Не удалось загрузить канал.";}
 }
+async function dcRefreshActiveDiscordView(){
+  if(!document.getElementById("dcDmList")){if(dcPollTimer){clearInterval(dcPollTimer);dcPollTimer=null;}return;}
+  if(dcActiveGuild){
+    const guildId=dcActiveGuild.id;
+    apiGet("/api/discord/guilds/"+encodeURIComponent(guildId)+"/presence").then(data=>{
+      if(dcActiveGuild?.id!==guildId)return;
+      const states=new Map((data.members||[]).map(item=>[String(item.id),item]));
+      dcMemberCache=dcMemberCache.map(member=>({...member,...(states.get(String(member.id))||{})}));
+      dcMemberCacheByGuild.set(guildId,dcMemberCache);dcRenderGuildMembers();
+    }).catch(()=>{});
+  }
+  if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel,true);
+  else if(dcActiveUser)dcOpenConversation(dcActiveUser,true);
+  else if(!dcActiveGuild)dcLoadConversationList();
+}
 function loadBotDiscord(){
   if(dcPollTimer)clearInterval(dcPollTimer);dcActiveUser=null;dcActiveChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcReplyTarget=null;
   const search=document.getElementById("dcUserSearch"),searchButton=document.getElementById("dcSearchButton"),refresh=document.getElementById("dcRefreshDms"),refreshChat=document.getElementById("dcRefreshChat"),form=document.getElementById("dcComposerForm");
@@ -3400,6 +3426,32 @@ function loadBotDiscord(){
   document.getElementById("dcAccessibilityButton")?.addEventListener("click",dcOpenAccessibilitySettings);
   document.getElementById("dcBotAccountTrigger")?.addEventListener("click",dcOpenBotProfileSettings);
   document.getElementById("dcExitLive")?.addEventListener("click",()=>showPage("dashboard"));
+  const botProviderSelect=document.getElementById("dcBotProviderSelect");
+  if(botProviderSelect){
+    botProviderSelect.value=dcActiveBotProvider;
+    botProviderSelect.addEventListener("change",async()=>{
+      const next=botProviderSelect.value==="ticketbot"?"ticketbot":"gastworld";
+      if(next===dcActiveBotProvider)return;
+      dcActiveBotProvider=next;
+      if(dcPollTimer){clearInterval(dcPollTimer);dcPollTimer=null;}
+      dcMemberCache=[];dcMemberCacheByGuild.clear();dcMemberRolesByGuild.clear();dcChannelsCacheByGuild.clear();
+      dcMembersLoading.clear();dcChannelsLoading.clear();dcGuildCache=[];dcConversationCache=[];
+      dcActiveUser=null;dcActiveChannel=null;dcActiveVoiceChannel=null;dcActiveGuild=null;dcActiveDmChannelId=null;dcReplyTarget=null;
+      dcBotProfileCache=null;
+      const dmList=document.getElementById("dcDmList"),channelList=document.getElementById("dcChannelList"),memberList=document.getElementById("dcMemberList"),chat=document.getElementById("dcChatMessages"),guildRail=document.getElementById("dcGuildList");
+      if(dmList)dmList.replaceChildren(Object.assign(document.createElement("div"),{className:"dc-live-loading",textContent:"Загружаем диалоги…"}));
+      if(channelList)channelList.replaceChildren(Object.assign(document.createElement("div"),{className:"dc-live-loading",textContent:"Выбери сервер слева"}));
+      if(memberList)memberList.replaceChildren(Object.assign(document.createElement("div"),{className:"dc-live-empty",textContent:"Выбери сервер слева"}));
+      if(chat)chat.innerHTML='<div class="dc-live-welcome"><div class="dc-live-welcome-icon">＠</div><h1>Личные сообщения</h1><p>Выбери диалог или сервер слева.</p></div>';
+      if(guildRail)guildRail.querySelectorAll("[data-guild-id]").forEach(item=>item.remove());
+      const botName=document.getElementById("dcBotName"),botStatus=document.getElementById("dcBotStatusText");
+      if(botName)botName.textContent=next==="ticketbot"?"Ticket Bot":"GastWorld";
+      if(botStatus)botStatus.textContent="Бот · подключение";
+      dcSetMode("dm");
+      await Promise.all([dcLoadBotProfile(),dcLoadConversationList(),dcLoadGuilds()]);
+      dcPollTimer=setInterval(dcRefreshActiveDiscordView,15000);
+    });
+  }
   const closeMobileSidebar=()=>document.querySelector(".dc-live-app")?.classList.remove("dc-mobile-sidebar-open");
   document.getElementById("dcToggleSidebar")?.addEventListener("click",()=>{
     const app=document.querySelector(".dc-live-app");if(!app)return;
@@ -3492,11 +3544,11 @@ function loadBotDiscord(){
     addComposerFiles(named);
   });
   dcSetMode("dm");dcLoadConversationList();dcLoadGuilds();
-  dcPollTimer=setInterval(()=>{if(!document.getElementById("dcDmList")){clearInterval(dcPollTimer);dcPollTimer=null;return;}if(dcActiveGuild){const guildId=dcActiveGuild.id;apiGet("/api/discord/guilds/"+encodeURIComponent(guildId)+"/presence").then(data=>{if(dcActiveGuild?.id!==guildId)return;const states=new Map((data.members||[]).map(item=>[String(item.id),item]));dcMemberCache=dcMemberCache.map(member=>({...member,...(states.get(String(member.id))||{})}));dcMemberCacheByGuild.set(guildId,dcMemberCache);dcRenderGuildMembers();}).catch(()=>{});}if(dcActiveChannel)dcOpenGuildChannel(dcActiveChannel,true);else if(dcActiveUser)dcOpenConversation(dcActiveUser,true);else if(!dcActiveGuild)dcLoadConversationList();},15000);
+  dcPollTimer=setInterval(dcRefreshActiveDiscordView,15000);
 }
 
 async function apiGet(url){
-  const response=await fetch(url,{credentials:"same-origin"});
+  const response=await dcFetch(url,{credentials:"same-origin"});
   const data=await response.json();
   if(!response.ok)throw new Error(data.detail||"Ошибка запроса.");
   return data;
