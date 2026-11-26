@@ -12,7 +12,7 @@ from typing import Any
 import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse
+from fastapi.responses import FileResponse, RedirectResponse, HTMLResponse, Response
 from starlette.middleware.sessions import SessionMiddleware
 
 load_dotenv()
@@ -585,6 +585,43 @@ async def require_ticketbot_access(
 
 async def require_ticketbot_admin(request: Request):
     return await require_ticketbot_access(request, "admin")
+
+
+
+@app.api_route(
+    "/api/ticketbot-discord/{path:path}",
+    methods=["GET", "POST", "PATCH", "DELETE"],
+)
+async def api_ticketbot_discord_proxy(path: str, request: Request):
+    """ADM-only bridge for the unified Discord UI, using the separate Ticket Bot identity."""
+    await require_ticketbot_admin(request)
+    if not TICKETBOT_API_URL or not TICKETBOT_API_KEY:
+        raise HTTPException(status_code=503, detail="Ticket Bot API не подключён.")
+    clean_path = str(path or "").strip("/")
+    if not clean_path or ".." in clean_path.split("/") or not re.fullmatch(r"[A-Za-z0-9_./-]+", clean_path):
+        raise HTTPException(status_code=400, detail="Некорректный путь Discord API.")
+    url = f"{TICKETBOT_API_URL}/api/v1/discord/{clean_path}"
+    headers = {"X-TicketBot-Key": TICKETBOT_API_KEY}
+    content_type = request.headers.get("content-type")
+    if content_type:
+        headers["Content-Type"] = content_type
+    body = await request.body() if request.method not in {"GET", "HEAD"} else None
+    try:
+        async with httpx.AsyncClient(timeout=35) as client:
+            upstream = await client.request(
+                request.method, url, params=request.query_params,
+                content=body, headers=headers,
+            )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Ticket Bot долго отвечает на Discord-запрос.")
+    except httpx.RequestError:
+        raise HTTPException(status_code=503, detail="Ticket Bot сейчас недоступен.")
+    response_type = upstream.headers.get("content-type", "application/json")
+    return Response(
+        content=upstream.content,
+        status_code=upstream.status_code,
+        media_type=response_type.split(";", 1)[0],
+    )
 
 
 @app.get("/api/ticketbot/profile")
