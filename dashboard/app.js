@@ -1,4 +1,4 @@
-const pageNames={dashboard:"Главная",discord:"Discord от бота",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",allowedGuilds:"Разрешённые серверы",ticketBot:"Ticket Bot",settings:"Настройки"};
+const pageNames={dashboard:"Главная",bots:"Боты",discord:"GastWorld Bot",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",allowedGuilds:"Разрешённые серверы",ticketBot:"Ticket Bot",settings:"Настройки"};
 const content=document.getElementById("pageContent");
 const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
@@ -6,7 +6,7 @@ const overlay=document.getElementById("overlay");
 let currentAccessLevel="none";
 let currentTicketBotAccess="none";
 let ticketBotOnlySession=false;
-const pageMinimumAccess={dashboard:"none",discord:"adm",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",allowedGuilds:"full",ticketBot:"adm",settings:"none"};
+const pageMinimumAccess={dashboard:"none",bots:"adm",discord:"adm",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",allowedGuilds:"full",ticketBot:"adm",settings:"none"};
 const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
 function canOpenPage(page){
   if(!pageNames[page])return false;
@@ -63,12 +63,16 @@ applyAccessNavigation();
 function showPage(page){
   if(!pageNames[page]) return;
   if(!canOpenPage(page)){page=ticketBotOnlySession?"ticketBot":"dashboard";}
+  const botSwitcherWrap=document.getElementById("botQuickSwitcherWrap");
+  const botSwitcher=document.getElementById("botQuickSwitcher");
+  if(botSwitcherWrap)botSwitcherWrap.hidden=ticketBotOnlySession || !["bots","discord","ticketBot"].includes(page);
+  if(botSwitcher)botSwitcher.value=page==="discord"?"discord":page==="ticketBot"?"ticketBot":"bots";
   document.getElementById("pageContent")?.classList.toggle("discord-fullscreen",page==="discord");
   document.body.classList.toggle("discord-mode",page==="discord");
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
   breadcrumb.textContent=pageNames[page];
   if(page!=="dashboard"){
-    const descriptions={players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",tickets:"Обращения игроков по ошибкам сайта и Discord-бота.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям.",allowedGuilds:"Управление серверами, на которых бот может выполнять команды GastWorld. Доступно только Full.",ticketBot:"Полноценное управление отдельным Ticket Bot: панели, тикеты, сотрудники, часы поддержки, база знаний, аналитика и аудит."};
+    const descriptions={bots:"Единый центр управления подключёнными Discord-ботами. Выбирай GastWorld или отдельный Ticket Bot и переключайся между ними без повторного входа.",players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",tickets:"Обращения игроков по ошибкам сайта и Discord-бота.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям.",allowedGuilds:"Управление серверами, на которых бот может выполнять команды GastWorld. Доступно только Full.",ticketBot:"Полноценное управление отдельным Ticket Bot: панели, тикеты, сотрудники, часы поддержки, база знаний, аналитика и аудит."};
     const existing=document.getElementById("comingPage");
     if(existing) existing.remove();
     const section=document.createElement("section");
@@ -76,7 +80,10 @@ function showPage(page){
     section.innerHTML='<div class="empty-state"><div class="empty-icon">✦</div><strong>'+pageNames[page]+'</strong><p>'+descriptions[page]+'</p><span class="pill pending">Будет реализовано на следующем этапе</span></div>';
     const old=document.getElementById("dashboardBody");
     if(old) old.hidden=true;
-    if(page==="players"){
+    if(page==="bots"){
+      section.innerHTML='<div class="panel-heading"><div><h2>Подключённые боты</h2><p>Выбери, каким Discord-ботом управлять. Переключение не меняет токены и настройки другого бота.</p></div><button class="text-button" id="refreshBotsStatus">↻ Проверить подключения</button></div><div class="bots-switcher-grid"><article class="bots-switcher-card" data-bot-card="gastworld"><div class="bots-switcher-card-top"><div class="bots-switcher-icon bots-icon-gastworld">GW</div><span class="bots-connection-status is-loading" id="gastworldBotStatus">Проверяем…</span></div><div class="bots-switcher-copy"><h3>GastWorld Bot</h3><p>Основной бот: серверы, участники, сообщения Discord, роли и инструменты управления сообществом.</p></div><div class="bots-switcher-meta"><span>Основной Discord-бот</span><strong id="gastworldBotMeta">API проверяется</strong></div><button type="button" class="primary-button bots-switch-button" data-open-bot="discord">Открыть GastWorld <span>→</span></button></article><article class="bots-switcher-card" data-bot-card="ticketbot"><div class="bots-switcher-card-top"><div class="bots-switcher-icon bots-icon-ticket">🎫</div><span class="bots-connection-status is-loading" id="ticketBotStatus">Проверяем…</span></div><div class="bots-switcher-copy"><h3>Ticket Bot</h3><p>Отдельный бот поддержки: тикеты, панели обращений, персонал, расписания и база знаний.</p></div><div class="bots-switcher-meta"><span>Отдельное Discord-приложение</span><strong id="ticketBotMeta">API проверяется</strong></div><button type="button" class="primary-button bots-switch-button" data-open-bot="ticketBot">Открыть Ticket Bot <span>→</span></button></article></div><div class="bots-switcher-footnote">Можно переключаться между ботами через это меню или через быстрый переключатель в верхней панели.</div>';
+      loadBotsWorkspace(section);
+    } else if(page==="players"){
       section.innerHTML='<div class="panel-heading"><div><h2>Игроки</h2><p>Баланс и варны из базы бота</p></div><div class="panel-heading-actions"><button class="text-button" id="openSheetsStaff">Добавить состав в таблицу</button><button class="text-button" id="refreshPlayers">Обновить</button></div></div><div id="sheetsStaffManager" class="sheets-staff-manager" hidden><div class="sheets-staff-head"><div><strong>Добавление состава Медиа</strong><p>Участники с ролью Команда медиа, которых ещё нет в таблице</p></div><button class="text-button" id="refreshSheetsStaff">Обновить список</button></div><div id="sheetsStaffResult" class="empty-state">Нажми «Обновить список».</div></div><input id="playerSearch" class="panel-search" placeholder="⌕  Поиск по Discord ID"><div id="playersResult" class="empty-state">Загрузка игроков…</div>';
       loadPlayers(section);
     } else if(page==="requests"){
@@ -122,6 +129,44 @@ function showPage(page){
   }
   closeMenu();
 }
+async function loadBotsWorkspace(section){
+  const setStatus=(id,metaId,data)=>{
+    const badge=section.querySelector("#"+id);
+    const meta=section.querySelector("#"+metaId);
+    if(!badge||!meta)return;
+    badge.className="bots-connection-status "+(data?.online?"is-online":data?.status==="connecting"?"is-loading":"is-offline");
+    badge.textContent=data?.online?"Онлайн":data?.status==="not_configured"?"Не настроен":data?.status==="connecting"?"Подключается":"Нет соединения";
+    const details=[];
+    if(typeof data?.guild_count==="number")details.push(data.guild_count+" сервер(ов)");
+    if(data?.status==="not_configured")details.push("Добавь URL API");
+    if(!data?.online && data?.status!=="not_configured")details.push("Проверь хостинг");
+    meta.textContent=details.join(" · ")||(data?.online?"API отвечает":"Ожидается подключение");
+  };
+  const refresh=async()=>{
+    const button=section.querySelector("#refreshBotsStatus");
+    if(button){button.disabled=true;button.textContent="Проверяем…";}
+    try{
+      const response=await fetch("/api/bots/status",{credentials:"same-origin",cache:"no-store"});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.detail||"Не удалось получить состояние ботов.");
+      setStatus("gastworldBotStatus","gastworldBotMeta",data.bots?.gastworld);
+      setStatus("ticketBotStatus","ticketBotMeta",data.bots?.ticketbot);
+    }catch(error){
+      setStatus("gastworldBotStatus","gastworldBotMeta",{status:"offline"});
+      setStatus("ticketBotStatus","ticketBotMeta",{status:"offline"});
+      console.warn("[GastWorld bots] status check failed:",error);
+    }finally{
+      if(button){button.disabled=false;button.textContent="↻ Проверить подключения";}
+    }
+  };
+  section.querySelectorAll("[data-open-bot]").forEach(button=>{
+    button.addEventListener("click",()=>showPage(button.dataset.openBot));
+  });
+  section.querySelector("#refreshBotsStatus")?.addEventListener("click",refresh);
+  await refresh();
+}
+const botQuickSwitcher=document.getElementById("botQuickSwitcher");
+botQuickSwitcher?.addEventListener("change",()=>showPage(botQuickSwitcher.value));
 function closeMenu(){sidebar.classList.remove("open");overlay.classList.remove("show")}
 document.querySelectorAll("[data-page]").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.page)));
 document.querySelectorAll("[data-go]").forEach(button=>button.addEventListener("click",()=>showPage(button.dataset.go)));
