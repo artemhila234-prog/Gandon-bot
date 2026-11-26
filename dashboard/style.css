@@ -2507,3 +2507,10 @@ body.discord-mode #pageContent.discord-fullscreen .dc-channel-settings-button{mi
 .bots-switcher-footnote{margin-top:16px;color:#888b9e;font-size:10px;line-height:1.6}
 @media(max-width:900px){.bots-switcher-grid{grid-template-columns:1fr}.bot-quick-switch{margin-right:7px}.bot-quick-switch select{min-width:120px;max-width:145px}}
 @media(max-width:580px){.bot-quick-switch>span{display:none}.bot-quick-switch{margin-left:0}.bot-quick-switch select{min-width:110px;max-width:125px}.bots-switcher-card{min-height:250px;padding:16px}}
+
+
+/* Discord identity switcher: choose which connected bot is controlling the live client. */
+.dc-bot-provider-select{height:31px;max-width:160px;padding:0 28px 0 10px;border:1px solid #37384a;border-radius:8px;background:#1a1c29;color:#e6e6ef;font:600 10px Inter,system-ui,sans-serif;cursor:pointer}
+.dc-bot-provider-select:focus{outline:2px solid #8068cb;outline-offset:2px}
+.dc-topbar-actions{display:flex;align-items:center;gap:10px}
+@media(max-width:760px){.dc-bot-provider-select{max-width:118px;font-size:9px}}
