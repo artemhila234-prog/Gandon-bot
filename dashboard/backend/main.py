@@ -1,4 +1,5 @@
 import json
+import logging
 import base64
 import binascii
 import re
@@ -31,6 +32,7 @@ BOT_SYNC_SECRET = os.getenv("BOT_SYNC_SECRET", "")
 BOT_API_URL = os.getenv("BOT_API_URL", "").rstrip("/")
 TICKETBOT_API_URL = os.getenv("TICKETBOT_API_URL", "").rstrip("/")
 TICKETBOT_API_KEY = os.getenv("TICKETBOT_API_KEY", "")
+ticketbot_log = logging.getLogger("gastworld.ticketbot")
 BOT_DATA_API_SECRET = os.getenv("BOT_DATA_API_SECRET", "")
 TIKTOK_CLIENT_KEY = os.getenv("TIKTOK_CLIENT_KEY", "")
 TIKTOK_CLIENT_SECRET = os.getenv("TIKTOK_CLIENT_SECRET", "")
@@ -488,7 +490,26 @@ async def ticketbot_api_request(method: str, path: str, *, payload: Any = None, 
     if response.status_code == 403:
         raise HTTPException(status_code=403, detail="Ticket Bot отклонил действие по правам доступа.")
     if response.status_code >= 500:
-        raise HTTPException(status_code=502, detail="Ticket Bot вернул внутреннюю ошибку.")
+        ticketbot_log.error(
+            "Ticket Bot upstream failure: %s %s returned HTTP %s",
+            method.upper(), f"/api/v1/{path.lstrip('/')}", response.status_code,
+        )
+        detail = ""
+        try:
+            body = response.json()
+            if isinstance(body, dict):
+                detail = str(body.get("detail") or "").strip()
+        except (ValueError, TypeError):
+            pass
+        if detail and detail.lower() not in {"internal server error", "internal error"}:
+            message = f"Ticket Bot API: {detail[:300]}"
+        else:
+            message = (
+                f"Ticket Bot API вернул HTTP {response.status_code} "
+                f"на запрос {method.upper()} /api/v1/{path.lstrip('/')}. "
+                "Проверь консоль Ticket Bot — там будет traceback."
+            )
+        raise HTTPException(status_code=502, detail=message)
     if response.status_code >= 400:
         raise HTTPException(status_code=response.status_code, detail="Ticket Bot API request failed.")
     try:
