@@ -2728,3 +2728,23 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - GitHub Actions Ticket Bot CI запускается для обоих commits: presence intent run `45874724333`, health diagnostics run `45874729056`. Оба GitHub Actions workflow завершились успешно: run `45874724333` (presence intent) и run `45874729056` (health diagnostics), conclusion `success`.
 - UI GastWorld не изменялся: существующий 15-секундный presence poll использует выбранный provider и после получения данных обновляет online/offline группы. Изменения Ticket Bot ещё не развернуты на Bot-Hosting; live-результат не подтверждён.
 - Никакие токены, API-ключи и секреты в документацию не добавлены.
+
+
+73. РЕДАКТОР КАНАЛОВ TICKET BOT В DISCORD-ПАНЕЛИ (2026-11-26)
+- Пользователь сообщил, что в Discord-интерфейсе при выборе Ticket Bot каналы нельзя редактировать. Ранее это было явно отключено: кнопка настроек сервера скрывалась, dcOpenServerSettings блокировала Ticket Bot, а Ticket Bot API возвращал can_manage_channels=false.
+- В GastWorld dashboard включена кнопка настроек сервера для Ticket Bot. При открытии выбранной идентичности сразу открывается раздел «Каналы и категории»; в настройках Ticket Bot остальные разделы временно disabled, чтобы не показывать незавершённые функции.
+- Критическая маршрутизация: общий serverSettingsRequest и вложенный запрос управления permission overwrites переведены с обычного fetch на dcFetch. Теперь запросы редактора каналов отправляются через выбранную идентичность, и для Ticket Bot проксируются на его отдельный API/runtime, а не на GastWorld token. Удаление permission overwrite сохраняет тип цели role/member как query-параметр, чтобы одинаковые Discord ID не трактовались ошибочно.
+- В Ticket-Bot/ticketbot/api.py добавлены:
+  - GET /api/v1/discord/guilds/{guild_id}/settings — безопасная сводка сервера и capabilities;
+  - GET/POST /api/v1/discord/guilds/{guild_id}/settings/channels;
+  - PATCH/DELETE /api/v1/discord/guilds/{guild_id}/settings/channels/{channel_id};
+  - GET /api/v1/discord/guilds/{guild_id}/settings/channels/{channel_id}/permissions;
+  - PATCH/DELETE /api/v1/discord/guilds/{guild_id}/settings/channels/{channel_id}/permissions/{target_id}.
+- Поддерживаются создание, редактирование, перемещение и удаление текстовых каналов, announcement-каналов, голосовых и Stage-каналов, форумов и категорий. Для соответствующих типов поддерживаются название, категория, позиция, тема, slowmode, bitrate, лимит пользователей и NSFW. Редактор permission overwrites поддерживает роли и участников, режимы inherit/allow/deny, сброс override.
+- Все операции выполняются отдельным Ticket Bot discord.py runtime и его Discord token. Перед изменением API проверяет реальные права Ticket Bot: Manage Channels для структуры каналов; Manage Roles для permission overwrites; для конкретного канала дополнительно учитывается channel-level permission. Если прав недостаточно, API возвращает 403, а UI показывает причину/оставляет элементы read-only. Доступ к proxy API по-прежнему закрыт GastWorld backend проверкой Ticket Bot ADM; браузеру не передаётся API key.
+- Важная настройка Discord: для редактирования структуры каналов Ticket Bot должен иметь Manage Channels на сервере. Для раздела «Права» ему также нужен Manage Roles. Discord может дополнительно отказать конкретному действию — backend не обходит эти ограничения.
+- Gandon-bot commits: включение Ticket Bot channel settings в Discord UI 366896fb805f75cadfec19df6e9092c5185e3858; правильная обработка role/member при сбросе overrides f5a6b91b741b85b2f3529ca3ac36f2858cbfc38d; cache-bust dashboard app.js c4ed3c7aa4cdd4fb9520f8c7cb47630579cd5ee0.
+- Ticket-Bot commits: добавление channel management API 7798595e155ddbe004ac48f3466a8b361f180959; category permissions и корректный response после edit 9ed507ebc360edf98e307f3f2c854ae969bab61c; исправление получения forum channels для guild 1ef0be998a2badb172ea6a87ff3f2dd4dc9bb35a и a411638c3c4205de454305aefb1baf2279d41b51.
+- GitHub Actions: Ticket Bot CI runs 45875975598, 45876049512, 45876126071, 45876188661 завершились success; GastWorld Dashboard Syntax runs 45876043878, 45876131093, 45876231776 завершились success. Успешные workflow подтверждают Python compile/tests и JS syntax checks. End-to-end проверки на реальном Discord-сервере ещё не выполнялись.
+- Deploy на Bot-Hosting не подтверждён. Для работы нужно обновить latest main и перезапустить оба сервиса: GastWorld dashboard/backend и отдельный Ticket Bot. В Discord Developer Portal у роли/приложения Ticket Bot должны быть разрешения Manage Channels и (для прав overwrites) Manage Roles. Затем открыть сайт через Ctrl+F5 и выбрать Ticket Bot → сервер → ⚙ → «Каналы и категории».
+- В репозиторий chatgpt.txt записано без токенов, API keys и секретов.
