@@ -2468,3 +2468,15 @@ body.discord-mode #pageContent.discord-fullscreen .dc-channel-settings-button{mi
 .tb-profile-note{margin:0;padding:10px 12px;border-left:2px solid #7b5bb6;color:var(--text-secondary,#a8a6b3);font-size:10px;line-height:1.6}
 
 .tb-tag-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+
+/* Ticket Bot role picker: explicit toggles instead of the confusing native multi-select. */
+.tb-role-picker{display:grid;gap:7px;min-width:0;padding:9px;border:1px solid var(--border-color,#3b3849);border-radius:9px;background:var(--input-bg,#0c0c13)}
+.tb-role-picker-summary{color:var(--text-secondary,#a8a6b3);font-size:10px;font-weight:750}
+.tb-role-picker-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:6px;max-height:230px;overflow:auto;padding-right:3px}
+.tb-role-option{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 9px;border:1px solid var(--border-color,#34313f);border-left:3px solid var(--role-color,#686477);border-radius:7px;background:var(--surface,#12121a);cursor:pointer;transition:border-color .15s,background .15s}
+.tb-role-option:hover{border-color:#75619b;background:#211b2c}
+.tb-role-check{flex:0 0 auto;width:15px;height:15px;margin:0;accent-color:#8b5cf6;cursor:pointer}
+.tb-role-option-name{min-width:0;overflow:hidden;color:var(--text-primary,#f2f0f7);font-size:11px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.tb-role-option-id{margin-left:auto;color:var(--text-secondary,#888494);font-size:9px;font-variant-numeric:tabular-nums}
+.tb-role-empty{color:var(--text-secondary,#a8a6b3);font-size:10px;line-height:1.5}
