@@ -612,10 +612,23 @@ async def api_ticketbot_guilds(request: Request):
 
 @app.get("/api/ticketbot/guilds/{guild_id}/overview")
 async def api_ticketbot_overview(guild_id: str, request: Request):
-    await require_ticketbot_access(request, "support", guild_id)
+    user = await require_ticketbot_access(request, "support", guild_id)
     if not guild_id.isdigit():
         raise HTTPException(status_code=400, detail="Некорректный Discord Server ID.")
-    return await ticketbot_api_request("GET", f"guilds/{guild_id}/overview")
+    data = await ticketbot_api_request("GET", f"guilds/{guild_id}/overview")
+    if user.get("ticketbot_access") == "support":
+        settings = data.get("settings") or {}
+        return {
+            "guild": data.get("guild") or {},
+            "settings": {
+                "language": settings.get("language", "en"),
+                "timezone": settings.get("timezone", "UTC"),
+            },
+            "tickets": data.get("tickets") or {},
+            "panels_count": len(data.get("panels") or []),
+            "staff_count": len(data.get("staff") or []),
+        }
+    return data
 
 
 @app.get("/api/ticketbot/guilds/{guild_id}/channels")
