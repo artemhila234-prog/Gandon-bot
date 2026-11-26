@@ -341,7 +341,7 @@ window.loadTicketBot = async function(section) {
     stopTicketRefresh();
     const data=await request("/tickets/"+ticketId);
     const ticket=data.ticket;
-    if(!ticket || Number(ticket.guild_id)!==Number(guildId)) throw new Error("Тикет не найден.");
+    if(!ticket || String(ticket.guild_id)!==String(guildId)) throw new Error("Тикет не найден.");
     const view=make("div","tb-view");
     const back=button("← К списку","tb-button",()=>{stopTicketRefresh();currentTicket=null;renderTickets().catch(showError);});
     const tools=make("div","tb-actions");tools.append(back);
@@ -537,9 +537,9 @@ window.loadTicketBot = async function(section) {
       try {
         const data={
           id:panelId.value?Number(panelId.value):undefined,
-          name:name.value,description:description.value,target_channel_id:Number(target.value),
-          mode:mode.value,open_mode:openMode.value,ticket_category_id:category.value?Number(category.value):null,
-          support_roles:selectedValues(support).map(Number),admin_roles:selectedValues(admins).map(Number),
+          name:name.value,description:description.value,target_channel_id:target.value,
+          mode:mode.value,open_mode:openMode.value,ticket_category_id:category.value?category.value:null,
+          support_roles:selectedValues(support),admin_roles:selectedValues(admins),
           button_label:buttonLabel.value,button_emoji:buttonEmoji.value,
           color:parseInt(color.value.replace("#",""),16),welcome_message:welcome.value,
           form:parseJSON(formFields.value,[],"Поля формы"),
@@ -719,11 +719,11 @@ window.loadTicketBot = async function(section) {
       event.preventDefault();
       await runAction(()=>request("/settings","PATCH",{
         language:language.value,timezone:timezone.value,
-        ticket_category_id:category.value?Number(category.value):null,
-        transcript_channel_id:transcript.value?Number(transcript.value):null,
-        log_channel_id:logs.value?Number(logs.value):null,
-        default_support_roles:selectedValues(support).map(Number),
-        default_admin_roles:selectedValues(admins).map(Number),
+        ticket_category_id:category.value?category.value:null,
+        transcript_channel_id:transcript.value?transcript.value:null,
+        log_channel_id:logs.value?logs.value:null,
+        default_support_roles:selectedValues(support),
+        default_admin_roles:selectedValues(admins),
         automation:{auto_close_enabled:autoEnabled.checked,auto_close_minutes:Number(autoMinutes.value||1440)},
         white_label:{name:labelName.value,avatar_url:labelAvatar.value,footer:labelFooter.value}
       }),"Настройки сохранены.",async()=>{overviewCache=null;await renderSettings();});
