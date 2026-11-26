@@ -26,7 +26,7 @@ REDIRECT_URI = os.getenv("DISCORD_REDIRECT_URI", "https://media.apps.bot-hosting
 # OAuth, членство, роли и доступ к панели всегда проверяются на первом сервере GastWorld (1492974397001171176).
 GUILD_ID = os.getenv("DISCORD_GUILD_ID", "1492974397001171176").strip() or "1492974397001171176"
 # Dedicated Ticket Bot access role on the second GastWorld server.
-TICKETBOT_SUPPORT_GUILD_ID = "1454858970824230822"
+TICKETBOT_SUPPORT_GUILD_ID = "1454858971084230822"
 TICKETBOT_SUPPORT_ROLE_ID = "1519379551032184882"
 TICKETBOT_ADMIN_GUILD_IDS = tuple(dict.fromkeys((GUILD_ID, TICKETBOT_SUPPORT_GUILD_ID)))
 DISCORD_ADMINISTRATOR_PERMISSION = 1 << 3
@@ -231,9 +231,16 @@ async def refresh_session_user(request: Request) -> dict[str, Any] | None:
         str(role["id"]): str(role.get("name") or "Без названия")
         for role in (primary_roles or [])
     }
+    role_names.update({
+        str(role["id"]): str(role.get("name") or "Без названия")
+        for role in (support_roles or [])
+    })
+    visible_role_ids = list(dict.fromkeys(
+        role_ids + [str(role_id) for role_id in (support_member or {}).get("roles", [])]
+    ))
     user.update({
         "role_ids": role_ids,
-        "role_names": [role_names.get(role_id, "Неизвестная роль") for role_id in role_ids],
+        "role_names": [role_names.get(role_id, "Неизвестная роль") for role_id in visible_role_ids],
         "is_media": access != "none",
         "access_level": access,
         "ticketbot_access": ticketbot_access,
@@ -751,7 +758,7 @@ async def api_ticketbot_ticket_close(guild_id: str, ticket_id: int, request: Req
 
 @app.post("/api/ticketbot/guilds/{guild_id}/tickets/{ticket_id}/reopen")
 async def api_ticketbot_ticket_reopen(guild_id: str, ticket_id: int, request: Request):
-    await require_ticketbot_admin(request)
+    await require_ticketbot_access(request, "support", guild_id)
     if not guild_id.isdigit(): raise HTTPException(status_code=400, detail="Некорректный Server ID.")
     return await ticketbot_api_request(
         "POST", f"guilds/{guild_id}/tickets/{ticket_id}/reopen",
