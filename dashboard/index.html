@@ -46,10 +46,16 @@
         </nav>
       </div>
       <div class="nav-group" data-nav-group>
+        <div class="nav-label">БОТЫ</div>
+        <nav class="nav-list" aria-label="Переключение между ботами">
+          <button class="nav-item" data-page="bots"><span class="nav-icon">▣</span>Все боты</button>
+          <button class="nav-item" data-page="discord"><span class="nav-icon">◉</span>GastWorld Bot <span class="nav-soon" style="background:#1f8b5b;color:#d8ffea">LIVE</span></button>
+          <button class="nav-item" data-page="ticketBot"><span class="nav-icon">🎫</span>Ticket Bot <span class="nav-soon">V2</span></button>
+        </nav>
+      </div>
+      <div class="nav-group" data-nav-group>
         <div class="nav-label">АДМИНИСТРИРОВАНИЕ</div>
         <nav class="nav-list">
-          <button class="nav-item" data-page="discord"><span class="nav-icon">◉</span>Discord от бота <span class="nav-soon" style="background:#1f8b5b;color:#d8ffea">LIVE</span></button>
-          <button class="nav-item" data-page="ticketBot"><span class="nav-icon">🎫</span>Ticket Bot <span class="nav-soon">V2</span></button>
           <button class="nav-item" data-page="allowedGuilds" hidden><span class="nav-icon">◎</span>Разрешённые серверы <span class="nav-soon">FULL</span></button>
         </nav>
       </div>
@@ -70,6 +76,7 @@
       <header class="topbar">
         <button class="icon-button menu-button" id="menuButton" aria-label="Открыть меню">☰</button>
         <div class="breadcrumbs"><span>GastWorld</span><b>/</b><strong id="breadcrumb">Главная</strong></div>
+        <label class="bot-quick-switch" id="botQuickSwitcherWrap" hidden><span>БОТ</span><select id="botQuickSwitcher" aria-label="Переключить бота"><option value="bots">Все боты</option><option value="discord">GastWorld Bot</option><option value="ticketBot">Ticket Bot</option></select></label>
         <div class="top-actions"><span class="environment"><i></i> WEB PANEL</span><span id="authBadge" class="auth-badge">НЕ АВТОРИЗОВАН</span><a class="login-button" id="loginButton" href="/auth/login">Войти через Discord</a><button class="icon-button" id="logoutButton" title="Выйти" hidden>↪</button><div class="top-avatar" id="topAvatar">?</div></div>
       </header>
 
