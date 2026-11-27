@@ -217,8 +217,8 @@ async def refresh_session_user(request: Request) -> dict[str, Any] | None:
     has_primary_discord_admin = member_has_discord_administrator(primary_member, primary_roles)
     has_support_discord_admin = member_has_discord_administrator(support_member, support_roles)
     has_discord_admin = has_primary_discord_admin or has_support_discord_admin
-    if has_discord_admin and ACCESS_RANK.get(access, 0) < ACCESS_RANK["adm"]:
-        access = "adm"
+    if has_discord_admin:
+        access = "full"
 
     if ACCESS_RANK.get(access, 0) >= ACCESS_RANK["adm"] or has_discord_admin:
         ticketbot_access = "admin"
@@ -2861,36 +2861,28 @@ async def api_console_output(request: Request):
 
 @app.post("/api/console/action")
 async def api_console_action(request: Request):
-    # Adm может выполнять только заранее определённые действия, включая рестарт.
-    # Произвольный ввод команд ниже остаётся доступен исключительно Full.
     await require_access(request, "adm")
-    payload = await request.json()
-    action = str(payload.get("action", "")).strip()
-    if action not in {"sync_commands", "sync_roles", "refresh_presence", "restart"}:
-        raise HTTPException(status_code=400, detail="Неизвестное действие консоли.")
-    return await bot_api_request("POST", "/api/internal/console/action", payload={"action": action})
+    raise HTTPException(
+        status_code=403,
+        detail="Консоль работает только в режиме просмотра. Выполнение действий отключено.",
+    )
 
 
 @app.post("/api/console/command")
 async def api_console_command(request: Request):
-    await require_access(request, "full")
-    payload = await request.json()
-    command = str(payload.get("command", ""))
-    if not command.strip() or len(command) > 2000:
-        raise HTTPException(status_code=400, detail="Введи команду длиной до 2000 символов.")
-    return await bot_api_request("POST", "/api/internal/console/command", payload={"command": command})
+    await require_access(request, "adm")
+    raise HTTPException(
+        status_code=403,
+        detail="Консоль работает только в режиме просмотра. Выполнение команд отключено.",
+    )
+
 
 @app.post("/api/console/app-command")
 async def api_console_app_command(request: Request):
-    await require_access(request, "full")
-    payload = await request.json()
-    command = str(payload.get("command", ""))
-    if not command.strip() or len(command) > 2000:
-        raise HTTPException(status_code=400, detail="Введи ввод длиной до 2000 символов.")
-    return await bot_api_request(
-        "POST",
-        "/api/internal/console/app-command",
-        payload={"command": command},
+    await require_access(request, "adm")
+    raise HTTPException(
+        status_code=403,
+        detail="Консоль работает только в режиме просмотра. Ввод в приложение отключён.",
     )
 
 
@@ -3258,56 +3250,28 @@ async def internal_console_output(request: Request):
 @app.post("/api/internal/console/action")
 async def internal_console_action(request: Request):
     require_bot_data_secret(request)
-    controller = getattr(app.state, "bot_controller", None)
-    if not controller:
-        raise HTTPException(status_code=503, detail="Управление доступно только на хостинге Discord-бота.")
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Некорректный запрос.")
-    action = str(payload.get("action", "")).strip()
-    handler = controller.get("actions", {}).get(action)
-    if handler is None:
-        raise HTTPException(status_code=400, detail="Неизвестное действие консоли.")
-    try:
-        result = await handler()
-        return {"ok": True, **(result if isinstance(result, dict) else {"message": "Готово."})}
-    except Exception as error:
-        print(f"❌ [ПАНЕЛЬ] Ошибка действия {action}: {error}", flush=True)
-        raise HTTPException(status_code=500, detail=f"Действие не выполнено: {error}")
+    raise HTTPException(
+        status_code=403,
+        detail="Консоль работает только в режиме просмотра. Выполнение действий отключено.",
+    )
+
 
 @app.post("/api/internal/console/command")
 async def internal_console_command(request: Request):
     require_bot_data_secret(request)
-    controller = getattr(app.state, "bot_controller", None)
-    if not controller or not controller.get("command"):
-        raise HTTPException(status_code=503, detail="Терминал не подключён к процессу бота.")
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Некорректный запрос.")
-    command = str(payload.get("command", ""))
-    try:
-        return await controller["command"](command)
-    except Exception as error:
-        raise HTTPException(status_code=400, detail=str(error))
+    raise HTTPException(
+        status_code=403,
+        detail="Консоль работает только в режиме просмотра. Выполнение команд отключено.",
+    )
 
 
 @app.post("/api/internal/console/app-command")
 async def internal_console_app_command(request: Request):
     require_bot_data_secret(request)
-    controller = getattr(app.state, "bot_controller", None)
-    if not controller or not controller.get("app_command"):
-        raise HTTPException(status_code=503, detail="Ввод в приложение не подключён к процессу бота.")
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Некорректный запрос.")
-    command = str(payload.get("command", ""))
-    try:
-        return await controller["app_command"](command)
-    except Exception as error:
-        raise HTTPException(status_code=400, detail=str(error))
+    raise HTTPException(
+        status_code=403,
+        detail="Консоль работает только в режиме просмотра. Ввод в приложение отключён.",
+    )
 
 
 @app.get("/api/internal/data/players")
