@@ -2590,6 +2590,40 @@ async def resolve_application_member(guild, discord_identifier):
     )
 
 
+async def create_application_invite(guild):
+    """Create a one-use, non-expiring invite for an approved applicant."""
+    bot_member = guild.me or guild.get_member(bot.user.id)
+    if bot_member is None:
+        return None, "Не удалось определить участника-бота на сервере."
+
+    candidates = []
+    if guild.system_channel is not None:
+        candidates.append(guild.system_channel)
+    candidates.extend(channel for channel in guild.text_channels if channel not in candidates)
+
+    for channel in candidates:
+        permissions = channel.permissions_for(bot_member)
+        if not (permissions.view_channel and permissions.create_instant_invite):
+            continue
+        try:
+            invite = await channel.create_invite(
+                max_age=0,
+                max_uses=1,
+                unique=True,
+                reason="Одобрение заявки в команду Медиа GastWorld",
+            )
+            return invite, ""
+        except discord.Forbidden:
+            continue
+        except discord.HTTPException as error:
+            return None, f"Discord не смог создать приглашение: {error}"
+
+    return None, (
+        "На сервере нет доступного текстового канала, где боту разрешено "
+        "создавать приглашения. Выдай ему права View Channel и Create Instant Invite."
+    )
+
+
 async def send_application_decision_dm(record, decision):
     guild = bot.get_guild(VERIFICATION_GUILD_ID)
     if guild is None:
@@ -2602,18 +2636,26 @@ async def send_application_decision_dm(record, decision):
         return False, resolve_error
 
     nickname = str(record.get("minecraft_nickname") or "").strip()
-    safe_nickname = re.sub(r"[\r\n]+", " ", nickname)[:32].replace("@", "@\u200b").replace("<", "‹").replace(">", "›")
-    greeting = f"Привет, {safe_nickname}!\n\n" if safe_nickname else "Привет!\n\n"
+    safe_nickname = re.sub(r"[\\r\\n]+", " ", nickname)[:32].replace("@", "@\\u200b").replace("<", "‹").replace(">", "›")
+    greeting = f"Привет, {safe_nickname}!\\n\\n" if safe_nickname else "Привет!\\n\\n"
+
     if decision == "accepted":
+        invite, invite_error = await create_application_invite(guild)
+        if invite is None:
+            return False, f"Заявка одобрена, но приглашение не создано: {invite_error}"
         message = (
-            "🎉 **Твоя заявка принята!**\n\n"
+            "🎉 **Твоя заявка принята!**\\n\\n"
             + greeting
-            + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.\n"
-            "Добро пожаловать в команду! Следи за сообщениями на Discord-сервере — там будет дальнейшая информация."
+            + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.\\n"
+            "Добро пожаловать! Вот твоя персональная одноразовая ссылка для входа на сервер:\\n"
+            f"{invite.url}\\n\\n"
+            "Ссылка действует без ограничения по времени и может быть использована только один раз. "
+            "Не пересылай её другим людям. Вступление на сервер само по себе не выдаёт роли Медиа "
+            "и не отменяет действующую проверку."
         )
     else:
         message = (
-            "❌ **Твоя заявка не принята.**\n\n"
+            "❌ **Твоя заявка не принята.**\\n\\n"
             + greeting
             + "Спасибо за интерес к команде Медиа GastWorld. К сожалению, по результатам рассмотрения "
             "сейчас мы не можем принять твою заявку. Спасибо за уделённое время."
@@ -2621,6 +2663,8 @@ async def send_application_decision_dm(record, decision):
 
     try:
         await member.send(message)
+        if decision == "accepted":
+            return True, f"DM с одноразовым приглашением отправлено {member} ({member.id}); канал: {invite.channel}."
         return True, f"DM отправлено {member} ({member.id})."
     except discord.Forbidden:
         return False, f"Не удалось отправить DM {member} ({member.id}): личные сообщения закрыты или бот заблокирован."
