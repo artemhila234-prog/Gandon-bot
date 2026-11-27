@@ -2585,7 +2585,7 @@ async def resolve_application_member(guild, discord_identifier):
     if len(unique) > 1:
         return None, "Discord username совпал с несколькими участниками."
     return None, (
-        f"Не найден участник с точным Discord username/именем «{lookup}». "
+        f"Не найден участник с точным Discord username «{lookup}». "
         "Проверь значение в столбце Discord формы."
     )
 
