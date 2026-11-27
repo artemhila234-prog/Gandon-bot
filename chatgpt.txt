@@ -2852,3 +2852,20 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
   * Роль, которая просто называется «Администратор», но не имеет включённого Discord permission Administrator, не даёт автоматический ADM. Проверяется именно флаг права в Discord API, а не имя роли.
 - После деплоя и повторной авторизации/обновления сессии ожидается, что при наличии реального Administrator permission на первом сервере главная панель и профиль покажут ADM вместо Media. Изменение не live-проверено на сервере; GitHub combined status для commit вернул пустой список, поэтому успешный CI не подтверждён.
 - Памятка проекта обновлена; секреты не добавлялись.
+
+
+80. ДОСТУП К DISCORD, КОНСОЛИ И ЛОГАМ ДЛЯ DISCORD ADMINISTRATOR НА ОБОИХ СЕРВЕРАХ (2026-11-27)
+- Пользователь попросил открыть разделы Discord, «Консоль» и «Логи» для администраторских ролей на обоих серверах GastWorld.
+- Проверены действующие правила:
+  * dashboard/app.js: pageMinimumAccess.discord = adm, logs = adm, console = adm; навигация открывает эти страницы только ADM/Full.
+  * dashboard/backend/main.py: API Discord, GET /api/logs, GET /api/log-files, GET /api/log-file, GET /api/console, GET /api/console/output и POST /api/console/action требуют require_access(request, "adm"). Скрытие кнопок не является единственной защитой.
+  * Произвольные команды shell и произвольный ввод в приложение через POST /api/console/command и /api/console/app-command требуют Full; это ограничение сохранено. ADM получает просмотр консоли и логов, а также только безопасные заранее заданные действия консоли, включая restart.
+- Причина: ранее реальный Discord permission Administrator на первом и втором серверах определялся, но access_level повышался до adm только при Administrator на первом сервере. Поэтому администратор второго сервера мог получить ticketbot_access=admin, но оставаться Media/ниже ADM для общей панели.
+- Исправлено в dashboard/backend/main.py, commit 08b3a42d255af99ab2b542a8e8a9d076a3cf70bd:
+  * has_primary_discord_admin и has_support_discord_admin объединяются в has_discord_admin.
+  * Реальный Discord Administrator permission на любом из двух серверов (1492974397001171176 или 1454858971084230822) повышает основной access_level минимум до adm.
+  * Таким пользователям становятся доступны Discord, «Консоль» и «Логи» через существующие frontend- и backend ADM gates. Название роли без включённого системного permission Administrator само по себе не даёт доступ.
+  * Пороги UI и API не ослаблялись для Media/Co.Adm. Произвольные команды консоли по-прежнему только Full.
+- Проверка исходников после commit подтвердила соответствие UI и backend порогов ADM; GitHub combined status для commit вернул пустой список — CI не подтверждён. Live-проверка Discord API/сессии после deploy не выполнялась.
+- Для применения обновить Gandon-bot main и перезапустить backend; затем выйти/войти через Discord или обновить сессию. Ожидается уровень ADM и видимые Discord, «Консоль», «Логи».
+- Секреты не добавлялись.
