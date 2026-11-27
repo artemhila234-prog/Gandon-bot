@@ -10,6 +10,7 @@ Only the lower "Состав Медии" table is touched (rows 16+, columns B:I
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from functools import lru_cache
@@ -227,5 +228,112 @@ def remove_staff_row(discord_id: int | str) -> bool:
 
 
 def clear_client_cache() -> None:
-    """Drop cached worksheet/client after changing credentials or spreadsheet settings."""
+    """Drop cached worksheets after changing credentials or spreadsheet settings."""
     _worksheet.cache_clear()
+    _applications_worksheet.cache_clear()
+
+
+# Google Form response spreadsheet. This is intentionally separate from the
+# staff roster workbook configured by GASTWORLD_SHEETS_ID.
+DEFAULT_APPLICATIONS_SPREADSHEET_ID = "1urQf3pgud56nQ5uZya8vZQ5M7w3VkgBJnS-JwJRz3Ko"
+DEFAULT_APPLICATIONS_WORKSHEET = "Ответы на форму (1)"
+
+
+def _positive_int_setting(name: str, default: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+        return value if value > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+@lru_cache(maxsize=1)
+def _applications_worksheet():
+    try:
+        import gspread
+    except ImportError as exc:
+        raise SheetsConfigError(
+            "Не установлен gspread. Установи зависимости из aaaa/requirements.txt."
+        ) from exc
+
+    raw_credentials = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+    credentials_file = os.getenv("GOOGLE_SERVICE_ACCOUNT_FILE", "").strip()
+    spreadsheet_id = (
+        os.getenv("GASTWORLD_APPLICATIONS_SHEETS_ID", "").strip()
+        or DEFAULT_APPLICATIONS_SPREADSHEET_ID
+    )
+    worksheet_name = (
+        os.getenv("GASTWORLD_APPLICATIONS_WORKSHEET", "").strip()
+        or DEFAULT_APPLICATIONS_WORKSHEET
+    )
+
+    if not raw_credentials and not credentials_file:
+        raise SheetsConfigError(
+            "Для чтения ответов Google Forms задай GOOGLE_SERVICE_ACCOUNT_FILE "
+            "или GOOGLE_SERVICE_ACCOUNT_JSON."
+        )
+
+    try:
+        if credentials_file:
+            client = gspread.service_account(filename=credentials_file)
+        else:
+            credentials_info = json.loads(raw_credentials)
+            client = gspread.service_account_from_dict(credentials_info)
+    except (json.JSONDecodeError, OSError, ValueError) as exc:
+        raise SheetsConfigError(
+            "Не удалось прочитать JSON-ключ Google Service Account."
+        ) from exc
+
+    try:
+        spreadsheet = client.open_by_key(spreadsheet_id)
+        return spreadsheet.worksheet(worksheet_name)
+    except gspread.exceptions.WorksheetNotFound as exc:
+        available = ", ".join(ws.title for ws in spreadsheet.worksheets()) or "(нет доступных листов)"
+        raise SheetsConfigError(
+            f'Лист ответов Google Forms "{worksheet_name}" не найден. Доступные листы: {available}.'
+        ) from exc
+
+
+def read_application_decision_rows() -> list[dict[str, str]]:
+    """Read Google Form decisions without changing any cells in the response sheet.
+
+    Defaults match the screenshot: response timestamp in A, Minecraft nickname
+    in C, Discord username/mention in D, and decision dropdown in J.
+    Column numbers and header row can be overridden with environment variables.
+    """
+    worksheet = _applications_worksheet()
+    values = worksheet.get_all_values()
+
+    header_row = _positive_int_setting("GASTWORLD_APPLICATIONS_HEADER_ROW", 4)
+    timestamp_col = _positive_int_setting("GASTWORLD_APPLICATIONS_TIMESTAMP_COLUMN", 1)
+    nickname_col = _positive_int_setting("GASTWORLD_APPLICATIONS_NICKNAME_COLUMN", 3)
+    discord_col = _positive_int_setting("GASTWORLD_APPLICATIONS_DISCORD_COLUMN", 4)
+    status_col = _positive_int_setting("GASTWORLD_APPLICATIONS_STATUS_COLUMN", 10)
+    first_data_row = header_row + 1
+
+    max_col = max(timestamp_col, nickname_col, discord_col, status_col)
+    result: list[dict[str, str]] = []
+    for row_number, row in enumerate(values[header_row:], start=first_data_row):
+        padded = row + [""] * max(0, max_col - len(row))
+        submitted_at = str(padded[timestamp_col - 1] or "").strip()
+        nickname = str(padded[nickname_col - 1] or "").strip()
+        discord_identifier = str(padded[discord_col - 1] or "").strip()
+        status = str(padded[status_col - 1] or "").strip()
+        if not submitted_at and not discord_identifier and not nickname:
+            continue
+
+        # Google Forms timestamps are immutable and unique to a response.
+        # Fallback fields cover manually added rows without a timestamp.
+        identity = submitted_at or "|".join(
+            (str(row_number), nickname.casefold(), discord_identifier.casefold())
+        )
+        application_key = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+        result.append({
+            "key": application_key,
+            "row_number": str(row_number),
+            "submitted_at": submitted_at,
+            "minecraft_nickname": nickname,
+            "discord_identifier": discord_identifier,
+            "status": status,
+        })
+    return result
