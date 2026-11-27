@@ -2892,3 +2892,22 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Статическая проверка загруженных GitHub файлов после commits: Full escalation видна в backend; все три public и три internal POST console routes отвечают 403; loadConsole не содержит fetch к action/command endpoints, создания input/form, действий, перезапуска или Shell. GET polling сохранён. Combined status GitHub для backend и frontend commits вернул пустые массивы; успешный CI не подтверждён.
 - Не выполнено: полный py_compile, browser E2E, тест реальной сессии с Discord Administrator на первом и втором серверах, проверка после деплоя. Для применения обновить Gandon-bot main, перезапустить backend и выйти/войти через Discord; обновить сайт Ctrl+F5.
 - Важно: Full даёт полный доступ ко всем разделам, включая настройки разрешённых серверов и остальные Full-only функции, кроме исполнения действий через вкладку «Консоль», которое теперь заблокировано для всех уровней, включая Full. Секреты не добавлялись.
+
+
+82. МАГАЗИН ВРЕМЕННО СКРЫТ ДЛЯ ПЕРЕХОДА, ФУНКЦИОНАЛ СОХРАНЁН (2026-11-27)
+- Запрос пользователя: оставить магазин в проекте, но пометить вкладку как «Магазин (в разработке)» и запретить её открытие.
+- Изменено только frontend-навигация и стили:
+  * dashboard/app.js: pageNames.shop переименован в «Магазин (в разработке)»; добавлен pagesInDevelopment = new Set(["shop"]); showPage() игнорирует переход на shop, включая прямой URL query ?page=shop и программный вызов.
+  * applyAccessNavigation() сохраняет пункт магазина видимым согласно прежнему access rule, но выставляет disabled=true, aria-disabled=true и tooltip с пояснением «Магазин временно находится в разработке.».
+  * Быстрая карточка магазина на главной также отключена через disabled/aria-disabled.
+  * dashboard/index.html: подпись боковой вкладки и карточки на главной изменена на «Магазин (в разработке)»; подзаголовок карточки указывает, что каталог временно недоступен.
+  * dashboard/style.css: disabled навигация имеет приглушённый вид и не реагирует на hover.
+- Функционал намеренно НЕ удалялся: в dashboard/app.js остались ветка загрузки shop, функция каталога loadShop(), API-запрос GET /api/shop и POST /api/shop/purchase; серверные маршруты/данные магазина не изменялись. Магазин можно будет вернуть в работу снятием временного UI disable/guard и сменой подписи, без восстановления удалённого кода.
+- Изменения:
+  * dashboard/app.js: commit 5e5a88ee69ad8f1d9da331dd6c568f46e8d19abe.
+  * dashboard/index.html: commit 4301dbb897bb06debd1023ffceaa708ed5823ec7 (подпись) и commit 6fcfe0924b0a4c3d439b935174c1e937b0dcccfa (cache-bust).
+  * dashboard/style.css: commit 58fad99bcda3ae7e070bcda96c8e687199834125.
+  * Asset cache versions: app.js?v=20261127-shop-development1; style.css?v=20261127-shop-development1.
+- Повторная проверка GitHub файлов подтвердила подпись, disabled на обеих кнопках навигации, защиту showPage(), наличие loadShop(), GET /api/shop и POST /api/shop/purchase, а также обновлённые версии assets. Backend магазина не изменялся.
+- CI и browser/live проверка после деплоя не выполнялись. Для применения обновить Gandon-bot main и выполнить Ctrl+F5.
+- Секреты не добавлялись.
