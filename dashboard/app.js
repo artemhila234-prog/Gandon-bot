@@ -1,4 +1,4 @@
-const pageNames={dashboard:"Главная",bots:"Боты",discord:"Discord",players:"Игроки",requests:"Заявки",shop:"Магазин",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",allowedGuilds:"Разрешённые серверы",ticketBot:"Ticket Bot",settings:"Настройки"};
+const pageNames={dashboard:"Главная",bots:"Боты",discord:"Discord",players:"Игроки",requests:"Заявки",shop:"Магазин (в разработке)",messages:"Сообщения",tickets:"Тикеты",logs:"Логи",console:"Консоль",access:"Доступ",allowedGuilds:"Разрешённые серверы",ticketBot:"Ticket Bot",settings:"Настройки"};
 const content=document.getElementById("pageContent");
 const breadcrumb=document.getElementById("breadcrumb");
 const sidebar=document.getElementById("sidebar");
@@ -8,6 +8,7 @@ let currentTicketBotAccess="none";
 let ticketBotOnlySession=false;
 const pageMinimumAccess={dashboard:"none",bots:"adm",discord:"adm",players:"media",shop:"media",requests:"co_adm",messages:"adm",tickets:"adm",logs:"adm",console:"adm",access:"adm",allowedGuilds:"full",ticketBot:"adm",settings:"none"};
 const accessRank={none:0,media:1,co_adm:2,adm:3,full:4};
+const pagesInDevelopment=new Set(["shop"]);
 function canOpenPage(page){
   if(!pageNames[page])return false;
   if(!isAuthenticated)return page==="dashboard";
@@ -52,6 +53,18 @@ function applyAccessNavigation(){
   document.querySelectorAll(".nav-item[data-page]").forEach(button=>{
     const page=button.dataset.page;
     button.hidden=!canOpenPage(page);
+    if(pagesInDevelopment.has(page)){
+      button.disabled=true;
+      button.setAttribute("aria-disabled","true");
+      button.title="Магазин временно находится в разработке.";
+    }
+  });
+  document.querySelectorAll("[data-go]").forEach(button=>{
+    if(pagesInDevelopment.has(button.dataset.go)){
+      button.disabled=true;
+      button.setAttribute("aria-disabled","true");
+      button.title="Магазин временно находится в разработке.";
+    }
   });
   document.querySelectorAll(".nav-group[data-nav-group]").forEach(group=>{
     const nav=group.querySelector(".nav-list");
@@ -62,6 +75,7 @@ function applyAccessNavigation(){
 applyAccessNavigation();
 function showPage(page){
   if(!pageNames[page]) return;
+  if(pagesInDevelopment.has(page)) return;
   if(!canOpenPage(page)){page=ticketBotOnlySession?"ticketBot":"dashboard";}
   const botSwitcherWrap=document.getElementById("botQuickSwitcherWrap");
   const botSwitcher=document.getElementById("botQuickSwitcher");
