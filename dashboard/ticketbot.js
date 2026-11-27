@@ -320,7 +320,7 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
       controls.append(button("Открыть","tb-button",()=>{currentTicket=Number(ticket.id);renderTickets().catch(showError);}));
       if(ticket.status==="open") {
         controls.append(button("Забрать","tb-button",async()=>runAction(()=>request("/tickets/"+ticket.id+"/claim","POST",{}),"Тикет назначен.",renderTickets)));
-        controls.append(button("Закрыть","tb-button is-danger",async()=>runAction(async()=>{const result=await request("/tickets/"+ticket.id+"/close","POST",{reason:"Closed from GastWorld dashboard"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Тикет закрыт, канал удалён и запись отправлена в логи.",renderTickets)));
+        controls.append(button("Закрыть","tb-button is-danger",async()=>runAction(async()=>{const result=await request("/tickets/"+ticket.id+"/close","POST",{reason:"Закрыт через панель GastWorld"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Тикет закрыт, канал удалён и запись отправлена в логи.",renderTickets)));
       } else {
         controls.append(make("small","","При закрытии канал удаляется"));
         controls.append(button("Повторить удаление","tb-button",async()=>runAction(async()=>{const result=await request("/tickets/"+ticket.id+"/close","POST",{reason:"Retry ticket channel deletion"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Канал удалён или уже отсутствует.",renderTickets)));
@@ -360,7 +360,7 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
     const tools=make("div","tb-actions");tools.append(back);
     if(ticket.status==="open") {
       tools.append(button("Забрать","tb-button",()=>runAction(()=>request("/tickets/"+ticketId+"/claim","POST",{}),"Тикет назначен.",()=>renderTicketDetail(ticketId))));
-      tools.append(button("Закрыть","tb-button is-danger",()=>runAction(async()=>{const result=await request("/tickets/"+ticketId+"/close","POST",{reason:"Closed from dashboard"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Тикет закрыт, канал удалён и запись отправлена в логи.",()=>renderTicketDetail(ticketId))));
+      tools.append(button("Закрыть","tb-button is-danger",()=>runAction(async()=>{const result=await request("/tickets/"+ticketId+"/close","POST",{reason:"Закрыт через панель управления"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Тикет закрыт, канал удалён и запись отправлена в логи.",()=>renderTicketDetail(ticketId))));
     } else {
       tools.append(make("small","","При закрытии канал удаляется"));
       tools.append(button("Повторить удаление","tb-button",()=>runAction(async()=>{const result=await request("/tickets/"+ticketId+"/close","POST",{reason:"Retry ticket channel deletion"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Канал удалён или уже отсутствует.",()=>renderTicketDetail(ticketId))));
@@ -708,7 +708,7 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
       ["ro","Română"],["hu","Magyar"],["ja","日本語"],["ko","한국어"],["zh","中文"],["ar","العربية"],
       ["bg","Български"],["el","Ελληνικά"],["hr","Hrvatski"],["id","Bahasa Indonesia"],["vi","Tiếng Việt"]
     ].map(x=>({value:x[0],label:x[1]}));
-    const language=select(languageOptions,s.language||"en");
+    const language=select(languageOptions,s.language||"ru");
     const timezone=input("text",s.timezone||"UTC","Europe/Tallinn");
     const category=select(channelOptions(true),s.ticket_category_id,"Категория каналов тикетов");
     const transcript=select(channelOptions(false),s.transcript_channel_id,"Канал транскриптов");
