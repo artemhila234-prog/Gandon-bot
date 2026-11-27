@@ -1,7 +1,7 @@
 GASTWORLD — ПАМЯТКА ПРОЕКТА
 Файл: chatgpt.txt
 Назначение: перенос контекста между чатами ChatGPT.
-Последнее обновление: 2026-11-25
+Последнее обновление: 2026-11-28
 
 ВАЖНО
 - Этот файл — основная памятка для переноса контекста между чатами; правильное имя: chatgpt.txt. Старый файл chatgpd.txt оставлен как историческая копия.
@@ -2938,3 +2938,15 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Static checks: Python snippets for watcher and sheet reader compiled; normalizer smoke tests confirmed «ПРИНЯТ» → accepted and «ОТКАЗ» → rejected; mocked column reader confirmed A/C/D/J mapping. GitHub combined status arrays for latest bot and sheet commits were empty; CI success not confirmed. Real gspread access and live Discord DM have not been tested.
 - To enable live behavior: share the response spreadsheet to Service Account client_email with Viewer; deploy latest aaaa/bot.py and aaaa/gastworld_sheets.py from main, restart the GastWorld bot process. Then change a new/blank row's J cell to «ПРИНЯТ» or «ОТКАЗ». Existing decisions present during the first successful sync are deliberately not messaged.
 - Secrets or service-account JSON were not added to this note.
+
+
+76. ОДНОРАЗОВОЕ ПРИГЛАШЕНИЕ ПОСЛЕ ОДОБРЕНИЯ ЗАЯВКИ (2026-11-28)
+- Пользователь попросил: при статусе «ПРИНЯТ» в Google Forms автоматически создавать и отправлять заявителю приглашение на первый сервер GastWorld (guild ID 1492974397001171176).
+- В `aaaa/bot.py` добавлена функция `create_application_invite(guild)`: ищет системный текстовый канал, затем другие текстовые каналы, где у бота есть `View Channel` и `Create Instant Invite`; создаёт приглашение с `max_age=0`, `max_uses=1`, `unique=True`.
+- В `send_application_decision_dm` при одобрении сначала создаётся приглашение, затем ссылка включается в русское личное сообщение. При отказе приглашение не создаётся. Если создать приглашение не удалось, отправка сообщения об успешном принятии не выполняется; причина записывается в существующий лог watcher.
+- В DM явно указано, что ссылка бессрочная, одноразовая, её нельзя пересылать, а вступление на сервер само по себе не выдаёт роли Медиа и не отменяет действующую проверку.
+- Изменён файл: `aaaa/bot.py`, commit `ef92b045da07ebf8ca7f833cbb0326a426e7d512`.
+- `chatgpt.txt` обновляется отдельным коммитом после этой записи.
+- Требуемые права бота на первом сервере: `View Channel` и `Create Instant Invite` хотя бы в одном текстовом канале. Канал выбирается автоматически: сначала системный, затем первый доступный текстовый.
+- Важно: Discord-приглашение с одним использованием не привязано технически к Discord ID получателя; если заявитель перешлёт ссылку, первым её может использовать другой человек. Однако ссылка сама по себе не назначает роли и не отменяет существующие проверки сервера. Для строгой персональной привязки нужен отдельный контроль вступления по allowlist.
+- Не подтверждены реальное создание приглашения и отправка DM на работающем Discord-сервере; требуется обновить Bot-Hosting и проверить новую заявку.
