@@ -320,9 +320,9 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
       controls.append(button("Открыть","tb-button",()=>{currentTicket=Number(ticket.id);renderTickets().catch(showError);}));
       if(ticket.status==="open") {
         controls.append(button("Забрать","tb-button",async()=>runAction(()=>request("/tickets/"+ticket.id+"/claim","POST",{}),"Тикет назначен.",renderTickets)));
-        controls.append(button("Закрыть","tb-button is-danger",async()=>runAction(()=>request("/tickets/"+ticket.id+"/close","POST",{reason:"Closed from GastWorld dashboard"}),"Тикет закрыт.",renderTickets)));
+        controls.append(button("Закрыть","tb-button is-danger",async()=>runAction(async()=>{const result=await request("/tickets/"+ticket.id+"/close","POST",{reason:"Closed from GastWorld dashboard"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Тикет закрыт, канал удалён и запись отправлена в логи.",renderTickets)));
       } else {
-        controls.append(button("Открыть снова","tb-button",async()=>runAction(()=>request("/tickets/"+ticket.id+"/reopen","POST",{}),"Тикет открыт снова.",renderTickets)));
+        controls.append(make("small","","Канал удалён после закрытия"));
       }
       row.append(info,controls);list.append(row);
     }
@@ -359,9 +359,9 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
     const tools=make("div","tb-actions");tools.append(back);
     if(ticket.status==="open") {
       tools.append(button("Забрать","tb-button",()=>runAction(()=>request("/tickets/"+ticketId+"/claim","POST",{}),"Тикет назначен.",()=>renderTicketDetail(ticketId))));
-      tools.append(button("Закрыть","tb-button is-danger",()=>runAction(()=>request("/tickets/"+ticketId+"/close","POST",{reason:"Closed from dashboard"}),"Тикет закрыт.",()=>renderTicketDetail(ticketId))));
+      tools.append(button("Закрыть","tb-button is-danger",()=>runAction(async()=>{const result=await request("/tickets/"+ticketId+"/close","POST",{reason:"Closed from dashboard"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Тикет закрыт, канал удалён и запись отправлена в логи.",()=>renderTicketDetail(ticketId))));
     } else {
-      tools.append(button("Открыть снова","tb-button",()=>runAction(()=>request("/tickets/"+ticketId+"/reopen","POST",{}),"Тикет открыт.",()=>renderTicketDetail(ticketId))));
+      tools.append(make("small","","Канал удалён после закрытия"));
     }
     tools.append(button("Транскрипт","tb-button",()=>window.open("/api/ticketbot/guilds/"+encodeURIComponent(guildId)+"/transcript/"+ticketId,"_blank","noopener")));
     view.append(heading("Тикет #"+ticket.ticket_number,ticket.subject||"Обращение",tools));
