@@ -294,15 +294,23 @@ def _applications_worksheet():
         ) from exc
 
 
+def _column_letter(column_number: int) -> str:
+    result = ""
+    number = int(column_number)
+    while number > 0:
+        number, remainder = divmod(number - 1, 26)
+        result = chr(65 + remainder) + result
+    return result
+
+
 def read_application_decision_rows() -> list[dict[str, str]]:
-    """Read Google Form decisions without changing any cells in the response sheet.
+    """Read only the four Google Form columns needed to send decision DMs.
 
     Defaults match the screenshot: response timestamp in A, Minecraft nickname
     in C, Discord username/mention in D, and decision dropdown in J.
-    Column numbers and header row can be overridden with environment variables.
+    No age, links, view counts, time zone, or other form answers are read.
     """
     worksheet = _applications_worksheet()
-    values = worksheet.get_all_values()
 
     header_row = _positive_int_setting("GASTWORLD_APPLICATIONS_HEADER_ROW", 4)
     timestamp_col = _positive_int_setting("GASTWORLD_APPLICATIONS_TIMESTAMP_COLUMN", 1)
@@ -311,19 +319,32 @@ def read_application_decision_rows() -> list[dict[str, str]]:
     status_col = _positive_int_setting("GASTWORLD_APPLICATIONS_STATUS_COLUMN", 10)
     first_data_row = header_row + 1
 
-    max_col = max(timestamp_col, nickname_col, discord_col, status_col)
+    selected_columns = [timestamp_col, nickname_col, discord_col, status_col]
+    ranges = [
+        f"{_column_letter(column)}{first_data_row}:{_column_letter(column)}"
+        for column in selected_columns
+    ]
+    column_data = worksheet.batch_get(ranges)
+    row_count = max((len(column) for column in column_data), default=0)
+
     result: list[dict[str, str]] = []
-    for row_number, row in enumerate(values[header_row:], start=first_data_row):
-        padded = row + [""] * max(0, max_col - len(row))
-        submitted_at = str(padded[timestamp_col - 1] or "").strip()
-        nickname = str(padded[nickname_col - 1] or "").strip()
-        discord_identifier = str(padded[discord_col - 1] or "").strip()
-        status = str(padded[status_col - 1] or "").strip()
+    for offset in range(row_count):
+        def cell(column_index: int) -> str:
+            values = column_data[column_index]
+            if offset >= len(values) or not values[offset]:
+                return ""
+            return str(values[offset][0] or "").strip()
+
+        submitted_at = cell(0)
+        nickname = cell(1)
+        discord_identifier = cell(2)
+        status = cell(3)
         if not submitted_at and not discord_identifier and not nickname:
             continue
 
         # Google Forms timestamps are immutable and unique to a response.
         # Fallback fields cover manually added rows without a timestamp.
+        row_number = first_data_row + offset
         identity = submitted_at or "|".join(
             (str(row_number), nickname.casefold(), discord_identifier.casefold())
         )
