@@ -2551,6 +2551,10 @@ async def resolve_application_member(guild, discord_identifier):
         return member, ""
 
     lookup = raw[1:].strip() if raw.startswith("@") else raw
+    if "#" in lookup:
+        username_part, discriminator = lookup.rsplit("#", 1)
+        if discriminator.isdigit():
+            lookup = username_part.strip()
     if not lookup:
         return None, "Поле Discord пустое."
 
@@ -2722,16 +2726,23 @@ async def application_decision_watcher():
         "(лист «Ответы на форму (1)», проверка каждые 20 секунд).",
         flush=True,
     )
+    last_error_message = None
     while not bot.is_closed():
         try:
             records = await asyncio.to_thread(read_application_decision_rows)
             await process_application_decision_rows(records)
+            if last_error_message is not None:
+                print("✅ [ЗАЯВКИ GOOGLE FORMS] Доступ к таблице ответов восстановлен.", flush=True)
+                last_error_message = None
         except Exception as error:
-            print(
-                f"⚠️ [ЗАЯВКИ GOOGLE FORMS] Не удалось проверить ответы: {type(error).__name__}: {error}. "
-                "Проверь доступ Service Account к таблице ответов.",
-                flush=True,
-            )
+            error_message = f"{type(error).__name__}: {error}"
+            if error_message != last_error_message:
+                print(
+                    f"⚠️ [ЗАЯВКИ GOOGLE FORMS] Не удалось проверить ответы: {error_message}. "
+                    "Проверь доступ Service Account к таблице ответов.",
+                    flush=True,
+                )
+                last_error_message = error_message
         await asyncio.sleep(20)
 
 
