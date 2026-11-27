@@ -2869,3 +2869,26 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Проверка исходников после commit подтвердила соответствие UI и backend порогов ADM; GitHub combined status для commit вернул пустой список — CI не подтверждён. Live-проверка Discord API/сессии после deploy не выполнялась.
 - Для применения обновить Gandon-bot main и перезапустить backend; затем выйти/войти через Discord или обновить сессию. Ожидается уровень ADM и видимые Discord, «Консоль», «Логи».
 - Секреты не добавлялись.
+
+
+81. ПОЛНОСТЬЮ READ-ONLY КОНСОЛЬ И АВТОМАТИЧЕСКИЙ FULL ДЛЯ DISCORD ADMINISTRATOR (2026-11-27)
+- Пользователь уточнил: консоль должна быть только для просмотра; всем пользователям с настоящим Discord permission Administrator на любом из двух серверов GastWorld назначать уровень Full.
+- В dashboard/backend/main.py обновлён refresh_session_user():
+  * has_primary_discord_admin и has_support_discord_admin объединяются.
+  * При реальном Discord Administrator permission на первом (1492974397001171176) ИЛИ втором (1454858971084230822) сервере access_level теперь становится "full", а не "adm".
+  * Это именно системный Discord permission bit 1 << 3 у одной из ролей, назначенных участнику; совпадение названия роли "Администратор" без permission не даёт Full.
+  * Благодаря access rank Full автоматически доступны все страницы с требованиями Adm, Full и Ticket Bot ADM; это включает Discord, «Логи», Ticket Bot, «Разрешённые серверы» и остальные функции Full.
+- Консоль переведена на строгий режим только просмотра:
+  * dashboard/app.js: loadConsole() полностью переписан — показывает онлайн/офлайн, имя бота, сервер, задержку и поток вывода в read-only терминале; кнопки быстрых действий, рестарт, Shell, ввод в приложение, поля команд и обработчики отправки удалены.
+  * В описании раздела указано «Просмотр состояния Discord-подключения и потока вывода. Режим только чтения».
+  * dashboard/backend/main.py: все публичные POST /api/console/action, /api/console/command, /api/console/app-command требуют как минимум ADM и после проверки отвечают HTTP 403 с объяснением, что консоль read-only.
+  * Те же три внутренние POST /api/internal/console/action, /api/internal/console/command, /api/internal/console/app-command по-прежнему проверяют BOT_DATA_API_SECRET и теперь всегда отвечают HTTP 403. Это закрывает обход через internal controller endpoint.
+  * GET /api/console и GET /api/console/output оставлены для просмотра. Вкладка «Логи» отдельно сохраняет чтение файлов логов.
+- Коммиты:
+  * dashboard/backend/main.py: a060a46075d777fb8b3c94867158fa84fa6ca6b3 — Full для реального Discord Administrator + блокировка всех консольных POST.
+  * dashboard/app.js: 66a8ed718ec3c943887c8db913e7606b847f8112 — read-only интерфейс консоли.
+  * dashboard/app.js: 08f94c5ec57f3f2f1c48063e61a03affdc149e94 — подпись раздела только для просмотра.
+  * dashboard/index.html: 012f07f9b681e4120f0536a220ecabe54ef21470 — cache-bust app.js до 20261127-readonly-full-admin1.
+- Статическая проверка загруженных GitHub файлов после commits: Full escalation видна в backend; все три public и три internal POST console routes отвечают 403; loadConsole не содержит fetch к action/command endpoints, создания input/form, действий, перезапуска или Shell. GET polling сохранён. Combined status GitHub для backend и frontend commits вернул пустые массивы; успешный CI не подтверждён.
+- Не выполнено: полный py_compile, browser E2E, тест реальной сессии с Discord Administrator на первом и втором серверах, проверка после деплоя. Для применения обновить Gandon-bot main, перезапустить backend и выйти/войти через Discord; обновить сайт Ctrl+F5.
+- Важно: Full даёт полный доступ ко всем разделам, включая настройки разрешённых серверов и остальные Full-only функции, кроме исполнения действий через вкладку «Консоль», которое теперь заблокировано для всех уровней, включая Full. Секреты не добавлялись.
