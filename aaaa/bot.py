@@ -2521,7 +2521,7 @@ async def apply_bot_profile_presence():
 
 # ================== GOOGLE FORMS: УВЕДОМЛЕНИЯ О РЕШЕНИИ ==================
 def normalize_application_decision(value):
-    text = re.sub(r"\\s+", " ", str(value or "").strip().casefold())
+    text = re.sub(r"\s+", " ", str(value or "").strip().casefold())
     if text.startswith(("принят", "одобрен")) or text in {"accepted", "accept", "approved", "approve"}:
         return "accepted"
     if text.startswith(("отказ", "отклон")) or text in {"rejected", "reject", "declined", "decline"}:
@@ -2535,7 +2535,7 @@ async def resolve_application_member(guild, discord_identifier):
     if not raw:
         return None, "В форме не указано поле Discord."
 
-    mention = re.fullmatch(r"<@!?(\\d+)>", raw)
+    mention = re.fullmatch(r"<@!?(\d+)>", raw)
     numeric_id = mention.group(1) if mention else (raw if raw.isdigit() else "")
     if numeric_id:
         member = guild.get_member(int(numeric_id))
@@ -2604,17 +2604,17 @@ async def send_application_decision_dm(record, decision):
         return False, resolve_error
 
     nickname = str(record.get("minecraft_nickname") or "").strip()
-    greeting = f"Привет, **{nickname}**!\\n\\n" if nickname else "Привет!\\n\\n"
+    greeting = f"Привет, **{nickname}**!\n\n" if nickname else "Привет!\n\n"
     if decision == "accepted":
         message = (
-            "🎉 **Твоя заявка принята!**\\n\\n"
+            "🎉 **Твоя заявка принята!**\n\n"
             + greeting
-            + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.\\n"
+            + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.\n"
             "Добро пожаловать в команду! Следи за сообщениями на Discord-сервере — там будет дальнейшая информация."
         )
     else:
         message = (
-            "❌ **Твоя заявка не принята.**\\n\\n"
+            "❌ **Твоя заявка не принята.**\n\n"
             + greeting
             + "Спасибо за интерес к команде Медиа GastWorld. К сожалению, по результатам рассмотрения "
             "сейчас мы не можем принять твою заявку. Спасибо за уделённое время."
