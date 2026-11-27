@@ -10,7 +10,7 @@ from collections import deque
 import uvicorn
 from discord import app_commands
 from discord.ext import commands
-from aaaa.gastworld_sheets import sync_staff_row, remove_staff_row
+from aaaa.gastworld_sheets import sync_staff_row, remove_staff_row, read_application_decision_rows
 import sqlite3
 import json
 import os
@@ -165,6 +165,22 @@ cursor.execute("PRAGMA table_info(pending_requests)")
 pending_request_columns = {row[1] for row in cursor.fetchall()}
 if "message_id" not in pending_request_columns:
     cursor.execute("ALTER TABLE pending_requests ADD COLUMN message_id INTEGER")
+conn.commit()
+
+# Google Form decision notifications. Existing decisions are baselined on the
+# first successful poll; only later status changes trigger Discord DMs.
+cursor.execute("""CREATE TABLE IF NOT EXISTS application_status_notifications (
+    application_key TEXT PRIMARY KEY,
+    decision_status TEXT NOT NULL DEFAULT '',
+    last_attempted_status TEXT NOT NULL DEFAULT '',
+    last_notified_at TEXT,
+    last_error TEXT,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+)""")
+cursor.execute("""CREATE TABLE IF NOT EXISTS application_status_watcher_meta (
+    meta_key TEXT PRIMARY KEY,
+    meta_value TEXT NOT NULL
+)""")
 conn.commit()
 
 # TikTok reward rule: one point for every five video views (round down).
@@ -2503,6 +2519,222 @@ async def apply_bot_profile_presence():
     await bot.change_presence(status=status, activity=activity)
 
 
+# ================== GOOGLE FORMS: УВЕДОМЛЕНИЯ О РЕШЕНИИ ==================
+def normalize_application_decision(value):
+    text = re.sub(r"\\s+", " ", str(value or "").strip().casefold())
+    if text.startswith(("принят", "одобрен")) or text in {"accepted", "accept", "approved", "approve"}:
+        return "accepted"
+    if text.startswith(("отказ", "отклон")) or text in {"rejected", "reject", "declined", "decline"}:
+        return "rejected"
+    return ""
+
+
+async def resolve_application_member(guild, discord_identifier):
+    """Resolve the form's Discord field only by a unique exact username/mention/ID."""
+    raw = str(discord_identifier or "").strip()
+    if not raw:
+        return None, "В форме не указано поле Discord."
+
+    mention = re.fullmatch(r"<@!?(\\d+)>", raw)
+    numeric_id = mention.group(1) if mention else (raw if raw.isdigit() else "")
+    if numeric_id:
+        member = guild.get_member(int(numeric_id))
+        if member is None:
+            try:
+                member = await guild.fetch_member(int(numeric_id))
+            except discord.NotFound:
+                return None, "Участник с указанным Discord ID не найден на сервере."
+            except discord.Forbidden:
+                return None, "Бот не может получить участника по Discord ID."
+            except discord.HTTPException as error:
+                return None, f"Discord API: {error}"
+        return member, ""
+
+    lookup = raw[1:].strip() if raw.startswith("@") else raw
+    if not lookup:
+        return None, "Поле Discord пустое."
+
+    candidates = list(guild.members)
+    username_matches = [member for member in candidates if member.name.casefold() == lookup.casefold()]
+    if len(username_matches) == 1:
+        return username_matches[0], ""
+    if len(username_matches) > 1:
+        return None, "Discord username совпал с несколькими участниками."
+
+    if not candidates or not username_matches:
+        try:
+            queried = await guild.query_members(query=lookup, limit=100, cache=True)
+            known_ids = {member.id for member in candidates}
+            candidates.extend(member for member in queried if member.id not in known_ids)
+        except (discord.Forbidden, discord.HTTPException) as error:
+            print(f"⚠️ [ЗАЯВКИ GOOGLE FORMS] Не удалось выполнить поиск Discord-участника: {error}", flush=True)
+
+    exact_matches = []
+    for member in candidates:
+        names = {
+            str(member.name or "").casefold(),
+            str(member.display_name or "").casefold(),
+            str(getattr(member, "global_name", "") or "").casefold(),
+        }
+        names.discard("")
+        if lookup.casefold() in names:
+            exact_matches.append(member)
+
+    # Deduplicate by user ID; never guess if a display name is shared.
+    unique = {member.id: member for member in exact_matches}
+    if len(unique) == 1:
+        return next(iter(unique.values())), ""
+    if len(unique) > 1:
+        return None, "Указанное Discord-имя совпадает с несколькими участниками."
+    return None, (
+        f"Не найден участник с точным Discord username/именем «{lookup}». "
+        "Проверь значение в столбце Discord формы."
+    )
+
+
+async def send_application_decision_dm(record, decision):
+    guild = bot.get_guild(VERIFICATION_GUILD_ID)
+    if guild is None:
+        return False, f"Основной сервер {VERIFICATION_GUILD_ID} не найден у бота."
+
+    member, resolve_error = await resolve_application_member(
+        guild, record.get("discord_identifier", "")
+    )
+    if member is None:
+        return False, resolve_error
+
+    nickname = str(record.get("minecraft_nickname") or "").strip()
+    greeting = f"Привет, **{nickname}**!\\n\\n" if nickname else "Привет!\\n\\n"
+    if decision == "accepted":
+        message = (
+            "🎉 **Твоя заявка принята!**\\n\\n"
+            + greeting
+            + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.\\n"
+            "Добро пожаловать в команду! Следи за сообщениями на Discord-сервере — там будет дальнейшая информация."
+        )
+    else:
+        message = (
+            "❌ **Твоя заявка не принята.**\\n\\n"
+            + greeting
+            + "Спасибо за интерес к команде Медиа GastWorld. К сожалению, по результатам рассмотрения "
+            "сейчас мы не можем принять твою заявку. Спасибо за уделённое время."
+        )
+
+    try:
+        await member.send(message)
+        return True, f"DM отправлено {member} ({member.id})."
+    except discord.Forbidden:
+        return False, f"Не удалось отправить DM {member} ({member.id}): личные сообщения закрыты или бот заблокирован."
+    except discord.HTTPException as error:
+        return False, f"Discord не принял DM для {member} ({member.id}): {error}"
+
+
+async def process_application_decision_rows(records):
+    baseline_row = conn.execute(
+        "SELECT meta_value FROM application_status_watcher_meta WHERE meta_key='baseline_complete'"
+    ).fetchone()
+    first_scan = baseline_row is None
+
+    for record in records:
+        application_key = str(record.get("key") or "").strip()
+        if not application_key:
+            continue
+        decision = normalize_application_decision(record.get("status"))
+        saved = conn.execute(
+            "SELECT decision_status,last_attempted_status FROM application_status_notifications WHERE application_key=?",
+            (application_key,),
+        ).fetchone()
+
+        if saved is None:
+            if first_scan:
+                # Do not DM people whose applications were already decided before this feature was enabled.
+                conn.execute(
+                    """INSERT OR IGNORE INTO application_status_notifications
+                       (application_key,decision_status,last_attempted_status)
+                       VALUES (?,?,?)""",
+                    (application_key, decision, decision),
+                )
+                continue
+            conn.execute(
+                """INSERT OR IGNORE INTO application_status_notifications
+                   (application_key,decision_status,last_attempted_status)
+                   VALUES (?,'','')""",
+                (application_key,),
+            )
+            saved = ("", "")
+
+        current_status, last_attempted_status = saved
+        if decision == current_status:
+            continue
+
+        conn.execute(
+            """UPDATE application_status_notifications
+               SET decision_status=?,updated_at=CURRENT_TIMESTAMP
+               WHERE application_key=?""",
+            (decision, application_key),
+        )
+        if decision and decision != last_attempted_status:
+            # Store the attempt before sending so a reconnect cannot duplicate a delivered DM.
+            conn.execute(
+                """UPDATE application_status_notifications
+                   SET last_attempted_status=?,last_error=NULL,updated_at=CURRENT_TIMESTAMP
+                   WHERE application_key=?""",
+                (decision, application_key),
+            )
+            conn.commit()
+            success, detail = await send_application_decision_dm(record, decision)
+            if success:
+                conn.execute(
+                    """UPDATE application_status_notifications
+                       SET last_notified_at=CURRENT_TIMESTAMP,last_error=NULL,updated_at=CURRENT_TIMESTAMP
+                       WHERE application_key=?""",
+                    (application_key,),
+                )
+                print(f"✅ [ЗАЯВКИ GOOGLE FORMS] {detail}", flush=True)
+            else:
+                conn.execute(
+                    """UPDATE application_status_notifications
+                       SET last_error=?,updated_at=CURRENT_TIMESTAMP
+                       WHERE application_key=?""",
+                    (detail[:1000], application_key),
+                )
+                print(f"⚠️ [ЗАЯВКИ GOOGLE FORMS] {detail}", flush=True)
+            conn.commit()
+        else:
+            conn.commit()
+
+    if first_scan:
+        conn.execute(
+            """INSERT OR REPLACE INTO application_status_watcher_meta(meta_key,meta_value)
+               VALUES ('baseline_complete','1')"""
+        )
+        conn.commit()
+        print(
+            f"📋 [ЗАЯВКИ GOOGLE FORMS] Первичная синхронизация завершена: "
+            f"{len(records)} старых строк отмечены без отправки DM.",
+            flush=True,
+        )
+
+
+async def application_decision_watcher():
+    print(
+        "🧾 [ЗАЯВКИ GOOGLE FORMS] Мониторинг статусов запущен "
+        "(лист «Ответы на форму (1)», проверка каждые 20 секунд).",
+        flush=True,
+    )
+    while not bot.is_closed():
+        try:
+            records = await asyncio.to_thread(read_application_decision_rows)
+            await process_application_decision_rows(records)
+        except Exception as error:
+            print(
+                f"⚠️ [ЗАЯВКИ GOOGLE FORMS] Не удалось проверить ответы: {type(error).__name__}: {error}. "
+                "Проверь доступ Service Account к таблице ответов.",
+                flush=True,
+            )
+        await asyncio.sleep(20)
+
+
 # ================== ЗАПУСК ==================
 @bot.event
 async def on_ready():
@@ -2533,6 +2765,12 @@ async def on_ready():
             except Exception as error:
                 print(f"❌ [ИГРОКИ] Ошибка синхронизации ролей Команды медиа: {error}", flush=True)
         bot._media_team_roles_synced = True
+    if not getattr(bot, "_application_decision_watcher_task", None) or bot._application_decision_watcher_task.done():
+        bot._application_decision_watcher_task = asyncio.create_task(
+            application_decision_watcher(),
+            name="google-form-application-decisions",
+        )
+
     if not _console_reader_started:
         _console_reader_started = True
         asyncio.create_task(console_input_loop())
