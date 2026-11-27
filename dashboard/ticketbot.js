@@ -322,7 +322,8 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
         controls.append(button("Забрать","tb-button",async()=>runAction(()=>request("/tickets/"+ticket.id+"/claim","POST",{}),"Тикет назначен.",renderTickets)));
         controls.append(button("Закрыть","tb-button is-danger",async()=>runAction(async()=>{const result=await request("/tickets/"+ticket.id+"/close","POST",{reason:"Closed from GastWorld dashboard"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Тикет закрыт, канал удалён и запись отправлена в логи.",renderTickets)));
       } else {
-        controls.append(make("small","","Канал удалён после закрытия"));
+        controls.append(make("small","","При закрытии канал удаляется"));
+        controls.append(button("Повторить удаление","tb-button",async()=>runAction(async()=>{const result=await request("/tickets/"+ticket.id+"/close","POST",{reason:"Retry ticket channel deletion"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Канал удалён или уже отсутствует.",renderTickets)));
       }
       row.append(info,controls);list.append(row);
     }
@@ -361,7 +362,8 @@ window.loadTicketBot = async function(section, sessionUser = {}) {
       tools.append(button("Забрать","tb-button",()=>runAction(()=>request("/tickets/"+ticketId+"/claim","POST",{}),"Тикет назначен.",()=>renderTicketDetail(ticketId))));
       tools.append(button("Закрыть","tb-button is-danger",()=>runAction(async()=>{const result=await request("/tickets/"+ticketId+"/close","POST",{reason:"Closed from dashboard"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Тикет закрыт, канал удалён и запись отправлена в логи.",()=>renderTicketDetail(ticketId))));
     } else {
-      tools.append(make("small","","Канал удалён после закрытия"));
+      tools.append(make("small","","При закрытии канал удаляется"));
+      tools.append(button("Повторить удаление","tb-button",()=>runAction(async()=>{const result=await request("/tickets/"+ticketId+"/close","POST",{reason:"Retry ticket channel deletion"});if(result.ticket?.channel_deleted===false)throw new Error(result.ticket.close_warning||"Не удалось удалить канал тикета.");return result;},"Канал удалён или уже отсутствует.",()=>renderTicketDetail(ticketId))));
     }
     tools.append(button("Транскрипт","tb-button",()=>window.open("/api/ticketbot/guilds/"+encodeURIComponent(guildId)+"/transcript/"+ticketId,"_blank","noopener")));
     view.append(heading("Тикет #"+ticket.ticket_number,ticket.subject||"Обращение",tools));
