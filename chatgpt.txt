@@ -2761,3 +2761,17 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - GitHub Actions после добавления зависимости: Ticket Bot CI run 45877381931 завершился success (workflow установил requirements.txt, выполнил compileall и unittest). Это подтверждает установку зависимости и прохождение текущих unit tests, но не заменяет live отправку сообщения в Discord.
 - Следующий обязательный тест после деплоя: отправить простой текст в текстовый канал от GastWorld и от Ticket Bot; затем повторить для DM и вложения. Проверить логи Ticket Bot и HTTP-ответы. Не считать проблему закрытой до успешного реального сообщения в Discord.
 - Секреты, токены и значения API key в памятку не записывались.
+
+75. ИСПРАВЛЕНИЕ ВЫДАЧИ И СНЯТИЯ РОЛЕЙ ЧЕРЕЗ TICKET BOT (2026-11-27)
+- Найдена прямая причина, почему в Discord-панели нельзя было менять роли участника при выбранном Ticket Bot: в Ticket-Bot/ticketbot/api.py POST /api/v1/discord/guilds/{guild_id}/members/{member_id}/roles был намеренно заглушен и всегда возвращал HTTP 403 с текстом «Управление Discord-ролями через Ticket Bot отключено в этом режиме».
+- Вторая причина блокировки интерфейса: выдаваемые Ticket Bot endpoints GET списка участников и GET профиля участника возвращали discord_role_payload(role) с manageable=False по умолчанию. Фронтенд отключает checkbox для ролей, у которых manageable не true, поэтому роли были недоступны даже до запроса изменения.
+- Исправлено в Ticket-Bot/ticketbot/api.py, commit 54b25b8ab47bdb934a2145e6ef8ba8b6c8b380a0:
+  * Добавлена проверка Manage Roles у Ticket Bot.
+  * Для списка ролей рассчитывается manageable с учётом Manage Roles, managed/default роли и позиции относительно высшей роли Ticket Bot.
+  * Реализованы выдача и снятие роли через discord.py Member.add_roles / Member.remove_roles.
+  * Добавлены проверки валидности role_id/action, существования участника и роли, владельца сервера, иерархии ролей бота и иерархии участника.
+  * Возвращается актуальное состояние участника и роли.
+- Gandon dashboard frontend уже отправлял POST /api/discord/guilds/{guild_id}/members/{member_id}/roles с {role_id, action:add/remove}; основной backend проксирует этот путь на Ticket Bot через /api/ticketbot-discord, поэтому отдельное изменение фронтенда для этого сценария не требуется.
+- GitHub Actions для commit 54b25b8ab47bdb934a2145e6ef8ba8b6c8b380a0 запущен, run ID 46011636011; на момент записи статус in_progress. Не заявлять CI success до повторной проверки статуса.
+- Для реального использования необходимо обновить Ticket-Bot и перезапустить отдельный сервис. В Discord у роли Ticket Bot должны быть Manage Roles, а её высшая роль должна стоять выше ролей, которыми требуется управлять. Роли интеграций, @everyone, роли выше/на уровне бота и роли участников с иерархией выше бота менять нельзя — это ограничения Discord.
+- Не проверено live на сервере: успешная выдача/снятие роли через Discord после деплоя. Проверить обе операции в профиле участника, сначала на обычной тестовой роли ниже роли Ticket Bot.
