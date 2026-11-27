@@ -2573,23 +2573,17 @@ async def resolve_application_member(guild, discord_identifier):
         except (discord.Forbidden, discord.HTTPException) as error:
             print(f"⚠️ [ЗАЯВКИ GOOGLE FORMS] Не удалось выполнить поиск Discord-участника: {error}", flush=True)
 
-    exact_matches = []
-    for member in candidates:
-        names = {
-            str(member.name or "").casefold(),
-            str(member.display_name or "").casefold(),
-            str(getattr(member, "global_name", "") or "").casefold(),
-        }
-        names.discard("")
-        if lookup.casefold() in names:
-            exact_matches.append(member)
-
-    # Deduplicate by user ID; never guess if a display name is shared.
+    # Only the account username is accepted here; display names and server
+    # nicknames are intentionally ignored because they are not unique identifiers.
+    exact_matches = [
+        member for member in candidates
+        if str(member.name or "").casefold() == lookup.casefold()
+    ]
     unique = {member.id: member for member in exact_matches}
     if len(unique) == 1:
         return next(iter(unique.values())), ""
     if len(unique) > 1:
-        return None, "Указанное Discord-имя совпадает с несколькими участниками."
+        return None, "Discord username совпал с несколькими участниками."
     return None, (
         f"Не найден участник с точным Discord username/именем «{lookup}». "
         "Проверь значение в столбце Discord формы."
@@ -2608,7 +2602,8 @@ async def send_application_decision_dm(record, decision):
         return False, resolve_error
 
     nickname = str(record.get("minecraft_nickname") or "").strip()
-    greeting = f"Привет, **{nickname}**!\n\n" if nickname else "Привет!\n\n"
+    safe_nickname = re.sub(r"[\\r\\n]+", " ", nickname)[:32].replace("@", "@\\u200b").replace("<", "‹").replace(">", "›")
+    greeting = f"Привет, {safe_nickname}!\n\n" if safe_nickname else "Привет!\n\n"
     if decision == "accepted":
         message = (
             "🎉 **Твоя заявка принята!**\n\n"
