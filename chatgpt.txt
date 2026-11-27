@@ -2911,3 +2911,30 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - Повторная проверка GitHub файлов подтвердила подпись, disabled на обеих кнопках навигации, защиту showPage(), наличие loadShop(), GET /api/shop и POST /api/shop/purchase, а также обновлённые версии assets. Backend магазина не изменялся.
 - CI и browser/live проверка после деплоя не выполнялись. Для применения обновить Gandon-bot main и выполнить Ctrl+F5.
 - Секреты не добавлялись.
+
+
+83. DM ЗАЯВИТЕЛЮ ПРИ ИЗМЕНЕНИИ СТАТУСА GOOGLE FORM «ЗАЯВКИ НА МЕДИЮ/ЮТ» (2026-11-27)
+- Пользователь прислал screenshot Google Sheets «Заявки на Медию/ЮТ на GastWorld (Ответы)», лист «Ответы на форму (1)». В таблице row 4 — заголовки; данные начинаются с row 5. По screenshot: A — timestamp формы, C — игровой/Minecraft ник, D — введённый Discord username, J — dropdown-решение (значения «ПРИНЯТ» / «ОТКАЗ»).
+- Добавлена отдельная read-only интеграция для response workbook; существующий roster workbook Таблица Медия и его sync_staff_row/remove_staff_row не менялись.
+- Google Form response spreadsheet ID извлечён из URL screenshot: 1urQf3pgud56nQ5uZya8vZQ5M7w3VkgBJnS-JwJRz3Ko; tab name по screenshot: Ответы на форму (1).
+- В aaaa/gastworld_sheets.py:
+  * Добавлены DEFAULT_APPLICATIONS_SPREADSHEET_ID и DEFAULT_APPLICATIONS_WORKSHEET; optional env overrides: GASTWORLD_APPLICATIONS_SHEETS_ID, GASTWORLD_APPLICATIONS_WORKSHEET.
+  * read_application_decision_rows() читает через gspread только нужные колонки A, C, D, J (один batch_get), не загружает возраст, ссылки, просмотры, часовой пояс и прочие личные ответы. Ничего в ответной таблице не записывает.
+  * Настройки колонок/шапки при необходимости переопределяются env: GASTWORLD_APPLICATIONS_HEADER_ROW (default 4), GASTWORLD_APPLICATIONS_TIMESTAMP_COLUMN (1), GASTWORLD_APPLICATIONS_NICKNAME_COLUMN (3), GASTWORLD_APPLICATIONS_DISCORD_COLUMN (4), GASTWORLD_APPLICATIONS_STATUS_COLUMN (10).
+  * Стабильный application_key берётся из timestamp формы; fallback — row number + ник + Discord username.
+- В aaaa/bot.py:
+  * На on_ready запускается один фоновый watcher application_decision_watcher() с интервалом 20 секунд.
+  * При первом успешном чтении текущие статусы всех существующих строк фиксируются как baseline; старые заявки не получают массовые/задним числом DM.
+  * После baseline любое изменение пустого статуса на «ПРИНЯТ»/«ОТКАЗ» вызывает DM на основном сервере VERIFICATION_GUILD_ID=1492974397001171176.
+  * Текст DM на русском: при принятии — поздравление и подтверждение одобрения заявки в команду Медиа GastWorld; при отказе — вежливое уведомление, что заявка не принята.
+  * Получатель определяется строго: точный Discord username (case-insensitive, допускает ведущий @ и старый суффикс #1234), numeric Discord ID или mention <@ID>. Display name и серверный nickname намеренно не используются, чтобы не отправить DM не тому человеку. При нулевом/неоднозначном совпадении DM пропускается и причина пишется в latest.log.
+  * Если личные сообщения закрыты/бот заблокирован, ошибка логируется; попытка отмечается в SQLite, чтобы бот не дублировал отправки каждые 20 секунд. Изменение на другой статус (например accepted → rejected) создаёт новую попытку/уведомление.
+  * SQLite tables application_status_notifications и application_status_watcher_meta хранят состояние/попытки и baseline между перезапусками. Повторный polling и reconnect не создают дубликаты.
+  * Ошибка доступа к таблице выводится один раз до изменения текста ошибки; после восстановления доступа пишется одно сообщение о восстановлении.
+- Для чтения response workbook используется текущий Google Service Account (GOOGLE_SERVICE_ACCOUNT_FILE либо GOOGLE_SERVICE_ACCOUNT_JSON, тот же, что настроен для Таблица Медия). Важно: отдельный файл ответов должен быть расшарен на адрес client_email этого Service Account минимум с ролью Viewer. JSON-ключ никому не отправлять. Если нужно, ID таблицы можно переопределить env GASTWORLD_APPLICATIONS_SHEETS_ID.
+- Commits:
+  * aaaa/gastworld_sheets.py: initial reader 557939c4be2f74f0dd44f84d76363da9c8edaae7; read only four needed columns 7404283d3bd00bb6152ef68f3dff3e4e1f1b2361.
+  * aaaa/bot.py: watcher and DM flow f6b15028711ef57ab53bfcf50f7035ebae0c6a38; regex/message escaping corrections a4577e6c308d0b53b523930565d83bfcff72eb89; error log throttling and legacy username support 6d42a64fd1ccd95223cb0f5d6682aca510bce130; exact-username-only matching and mention safety e93f8bc789c07156a453afa59c9fe3656f6ea24a; nickname sanitization correction e07a583b1a189e688daf612a99b8acec925c2087; clearer lookup errors 6484288f8bd86caba6e54a259afede1c20303b84.
+- Static checks: Python snippets for watcher and sheet reader compiled; normalizer smoke tests confirmed «ПРИНЯТ» → accepted and «ОТКАЗ» → rejected; mocked column reader confirmed A/C/D/J mapping. GitHub combined status arrays for latest bot and sheet commits were empty; CI success not confirmed. Real gspread access and live Discord DM have not been tested.
+- To enable live behavior: share the response spreadsheet to Service Account client_email with Viewer; deploy latest aaaa/bot.py and aaaa/gastworld_sheets.py from main, restart the GastWorld bot process. Then change a new/blank row's J cell to «ПРИНЯТ» or «ОТКАЗ». Existing decisions present during the first successful sync are deliberately not messaged.
+- Secrets or service-account JSON were not added to this note.
