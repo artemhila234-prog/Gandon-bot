@@ -2636,26 +2636,26 @@ async def send_application_decision_dm(record, decision):
         return False, resolve_error
 
     nickname = str(record.get("minecraft_nickname") or "").strip()
-    safe_nickname = re.sub(r"[\\r\\n]+", " ", nickname)[:32].replace("@", "@\\u200b").replace("<", "‹").replace(">", "›")
-    greeting = f"Привет, {safe_nickname}!\\n\\n" if safe_nickname else "Привет!\\n\\n"
+    safe_nickname = re.sub(r"[\r\n]+", " ", nickname)[:32].replace("@", "@\u200b").replace("<", "‹").replace(">", "›")
+    greeting = f"Привет, {safe_nickname}!\n\n" if safe_nickname else "Привет!\n\n"
 
     if decision == "accepted":
         invite, invite_error = await create_application_invite(guild)
         if invite is None:
             return False, f"Заявка одобрена, но приглашение не создано: {invite_error}"
         message = (
-            "🎉 **Твоя заявка принята!**\\n\\n"
+            "🎉 **Твоя заявка принята!**\n\n"
             + greeting
-            + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.\\n"
-            "Добро пожаловать! Вот твоя персональная одноразовая ссылка для входа на сервер:\\n"
-            f"{invite.url}\\n\\n"
+            + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.\n"
+            "Добро пожаловать! Вот твоя персональная одноразовая ссылка для входа на сервер:\n"
+            f"{invite.url}\n\n"
             "Ссылка действует без ограничения по времени и может быть использована только один раз. "
             "Не пересылай её другим людям. Вступление на сервер само по себе не выдаёт роли Медиа "
             "и не отменяет действующую проверку."
         )
     else:
         message = (
-            "❌ **Твоя заявка не принята.**\\n\\n"
+            "❌ **Твоя заявка не принята.**\n\n"
             + greeting
             + "Спасибо за интерес к команде Медиа GastWorld. К сожалению, по результатам рассмотрения "
             "сейчас мы не можем принять твою заявку. Спасибо за уделённое время."
