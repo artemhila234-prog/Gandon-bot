@@ -72,7 +72,7 @@ function showPage(page){
   document.querySelectorAll(".nav-item").forEach(button=>button.classList.toggle("active",button.dataset.page===page));
   breadcrumb.textContent=pageNames[page];
   if(page!=="dashboard"){
-    const descriptions={bots:"Единый центр управления подключёнными Discord-ботами. Выбирай GastWorld или отдельный Ticket Bot и переключайся между ними без повторного входа.",players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",tickets:"Обращения игроков по ошибкам сайта и Discord-бота.",logs:"Просмотр latest.log и audit.log.",console:"Мониторинг и безопасное управление ботом.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям.",allowedGuilds:"Управление серверами, на которых бот может выполнять команды GastWorld. Доступно только Full.",ticketBot:"Полноценное управление отдельным Ticket Bot: панели, тикеты, сотрудники, часы поддержки, база знаний, аналитика и аудит."};
+    const descriptions={bots:"Единый центр управления подключёнными Discord-ботами. Выбирай GastWorld или отдельный Ticket Bot и переключайся между ними без повторного входа.",players:"Управление участниками, балансами, варнами и ролями.",requests:"Проверка заявок на вступление и получение баллов.",shop:"Настройка товаров, наборов, донатов и стоимости.",messages:"Отправка сообщений и Embed-панелей в Discord.",tickets:"Обращения игроков по ошибкам сайта и Discord-бота.",logs:"Просмотр latest.log и audit.log.",console:"Просмотр состояния бота и потока вывода. Только чтение.",settings:"Подключения, роли, каналы и параметры панели.",access:"Все участники сервера, их Discord-роли и фильтрация по ролям.",allowedGuilds:"Управление серверами, на которых бот может выполнять команды GastWorld. Доступно только Full.",ticketBot:"Полноценное управление отдельным Ticket Bot: панели, тикеты, сотрудники, часы поддержки, база знаний, аналитика и аудит."};
     const existing=document.getElementById("comingPage");
     if(existing) existing.remove();
     const section=document.createElement("section");
@@ -1016,117 +1016,75 @@ async function loadAccess(section){
 async function loadConsole(section){
   const root=section.querySelector("#consoleWorkspace"),refresh=section.querySelector("#refreshConsole");
   if(!root)return;
-  let pollBusy=false,outputPollBusy=false,commandBusy=false,history=[],historyIndex=0,lastConsoleLineId=0;
-  const actions=[["sync_commands","Синхронизировать slash-команды","Обновит команды GastWorld на Discord-сервере."],["sync_roles","Синхронизировать роли доступа","Проверит и обновит роли доступа Control Panel."],["refresh_presence","Обновить активность бота","Повторно установит статус «/shop | модерация»."]];
-  const append=(output,text,tone="")=>{const line=document.createElement("div");if(tone)line.className="console-output-"+tone;line.textContent=text;output.append(line);while(output.children.length>800)output.firstElementChild.remove();output.scrollTop=output.scrollHeight;};
-  const render=data=>{
-    const status=data.status||{},workspace=document.createElement("div");workspace.className="console-workspace-inner";
-    const cards=document.createElement("div");cards.className="console-status-grid";
-    [["СОСТОЯНИЕ",status.online?"В сети":"Не в сети",status.online?"online":"offline"],["DISCORD",status.bot_name||"GastWorld",""],["СЕРВЕР",status.guild_name||"—",""],["ЗАДЕРЖКА",status.latency_ms==null?"—":status.latency_ms+" мс",""]].forEach(([label,value,tone])=>{const card=document.createElement("article");card.className="console-status-card";const small=document.createElement("small");small.textContent=label;const strong=document.createElement("strong");strong.textContent=value;if(tone)strong.classList.add(tone);card.append(small,strong);cards.append(card);});
-    const controls=document.createElement("div");controls.className="console-controls";const heading=document.createElement("div");heading.className="console-section-heading";const h=document.createElement("h3");h.textContent="Быстрые действия";const note=document.createElement("span");note.textContent=currentAccessLevel==="full"?"Полный доступ: команды, действия и перезапуск":"Adm: просмотр, быстрые действия и перезапуск · ввод команд доступен только Full";heading.append(h,note);controls.append(heading);
-    actions.forEach(([key,label,description])=>{const card=document.createElement("div");card.className="console-action-card";const copy=document.createElement("div");copy.className="console-action-copy";const title=document.createElement("strong");title.textContent=label;const desc=document.createElement("small");desc.textContent=description;copy.append(title,desc);const button=document.createElement("button");button.type="button";button.className="console-action-button";button.textContent="Выполнить";button.disabled=!status.online||!["adm","full"].includes(currentAccessLevel);button.title=!["adm","full"].includes(currentAccessLevel)?"Требуется уровень Adm":(!status.online?"Бот не подключён":"");button.addEventListener("click",async()=>{button.disabled=true;button.textContent="Выполняется…";try{const response=await fetch("/api/console/action",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:key})});const result=await response.json();if(!response.ok)throw new Error(result.detail||"Действие не выполнено.");showToast(result.message||"Действие выполнено.");await poll();}catch(error){showToast(error.message||"Ошибка управления.");}finally{button.textContent="Выполнить";button.disabled=!status.online||!["adm","full"].includes(currentAccessLevel);}});card.append(copy,button);controls.append(card);});
-    const terminal=document.createElement("section");terminal.className="console-terminal";const top=document.createElement("div");top.className="console-terminal-top";const terminalTitle=document.createElement("div");terminalTitle.className="console-terminal-title";const led=document.createElement("i");led.className=status.online?"online":"";const termName=document.createElement("strong");termName.textContent="Терминал GastWorld · host";terminalTitle.append(led,termName);const tools=document.createElement("div");tools.className="console-terminal-tools";
-    const clear=document.createElement("button");clear.type="button";clear.className="console-tool-button";clear.textContent="Очистить";clear.addEventListener("click",()=>{output.replaceChildren();append(output,"Терминал очищен. Напиши help для списка команд.","muted");});if(currentAccessLevel==="full")tools.append(clear);top.append(terminalTitle,tools);
-    const output=document.createElement("div");output.className="console-terminal-output";append(output,"GastWorld Host Terminal","system");append(output,"Подключение к процессу бота установлено.","muted");append(output,currentAccessLevel==="full"?"Full: команды shell выполняются на первом хостинге. Любые символы передаются без фильтрации.":"Режим просмотра: вывод хостинга доступен, ввод команд отключён для Adm.","muted");
-    const form=document.createElement("form");form.className="console-command-form";const prompt=document.createElement("label");prompt.className="console-command-prompt";prompt.textContent="container~";const input=document.createElement("input");input.className="console-command-input";input.type="text";input.autocomplete="off";input.spellcheck=false;input.placeholder="Введите команду или символ…";input.disabled=currentAccessLevel!=="full";const run=document.createElement("button");run.type="submit";run.className="console-action-button";run.textContent="Выполнить";run.disabled=currentAccessLevel!=="full";form.append(prompt,input,run);
-    const restartRow=document.createElement("div");restartRow.className="console-restart-row";const restartHint=document.createElement("small");restartHint.textContent="Перезапуск заменит текущий процесс бота и временно отключит Discord.";const restart=document.createElement("button");restart.type="button";restart.className="console-restart-button";restart.textContent="↻ Перезапустить бота";restart.disabled=!["adm","full"].includes(currentAccessLevel);restart.addEventListener("click",()=>{
-      const previous=document.getElementById("consoleRestartModal");if(previous)previous.remove();
-      const modal=document.createElement("div");modal.id="consoleRestartModal";modal.className="action-modal";
-      const dialog=document.createElement("div");dialog.className="action-modal-card";dialog.setAttribute("role","dialog");dialog.setAttribute("aria-modal","true");dialog.setAttribute("aria-labelledby","consoleRestartTitle");
-      const close=document.createElement("button");close.type="button";close.className="action-modal-close";close.textContent="×";close.setAttribute("aria-label","Закрыть");
-      const icon=document.createElement("div");icon.className="action-modal-icon";icon.textContent="↻";
-      const eyebrow=document.createElement("div");eyebrow.className="action-modal-eyebrow";eyebrow.textContent="GASTWORLD CONTROL PANEL";
-      const title=document.createElement("h2");title.id="consoleRestartTitle";title.textContent="Перезапустить бота?";
-      const description=document.createElement("p");description.className="action-modal-description";description.textContent="Discord-бот временно отключится и запустится заново. Панель может на несколько секунд потерять соединение.";
-      const note=document.createElement("div");note.className="action-modal-note";note.textContent="Перезапуск затронет весь процесс бота и встроенного API. Продолжить?";
-      const footer=document.createElement("div");footer.className="action-modal-footer";
-      const cancel=document.createElement("button");cancel.type="button";cancel.className="action-modal-cancel";cancel.textContent="Отмена";
-      const confirm=document.createElement("button");confirm.type="button";confirm.className="action-modal-confirm";confirm.textContent="Да, перезапустить";
-      const dismiss=()=>modal.remove();close.addEventListener("click",dismiss);cancel.addEventListener("click",dismiss);modal.addEventListener("click",event=>{if(event.target===modal)dismiss();});
-      const originalProcessStartedAt=(data.status||{}).process_started_at||"";
-      const waitForRestart=async()=>{
-        let sawDisconnect=false;
-        const deadline=Date.now()+45000;
-        while(Date.now()<deadline){
-          await new Promise(resolve=>setTimeout(resolve,1200));
-          try{
-            const check=await fetch("/api/console",{credentials:"same-origin",cache:"no-store"});
-            if(!check.ok){sawDisconnect=true;continue;}
-            const state=await check.json(),status=state.status||{};
-            if(!status.online){sawDisconnect=true;continue;}
-            // PID может сохраниться при os.execv, поэтому сверяем timestamp запуска модуля.
-            if(status.process_started_at&&status.process_started_at!==originalProcessStartedAt)return true;
-            if(sawDisconnect&&!originalProcessStartedAt)return true;
-          }catch(_error){sawDisconnect=true;}
-        }
-        return false;
-      };
-      confirm.addEventListener("click",async()=>{
-        confirm.disabled=true;cancel.disabled=true;close.disabled=true;confirm.textContent="Отправка…";restart.disabled=true;restart.textContent="Перезапуск…";
-        try{
-          const response=await fetch("/api/console/action",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"restart"})});
-          const result=await response.json();
-          if(!response.ok)throw new Error(result.detail||"Не удалось отправить команду перезапуска.");
-          note.textContent="Команда принята. Проверяем отключение и повторное подключение бота…";
-          note.classList.remove("error");confirm.textContent="Ожидание…";
-          append(output,"Команда перезапуска отправлена. Ожидаем переподключения…","system");
-          const restarted=await waitForRestart();
-          if(!restarted)throw new Error("За 45 секунд не удалось подтвердить перезапуск. Проверь консоль первого хостинга: там должна появиться запись «Выполняю os.execv…» или ошибка перезапуска.");
-          note.textContent="Бот отключился и успешно подключился заново. Перезапуск подтверждён.";
-          confirm.textContent="Перезапуск подтверждён";append(output,"Бот снова в сети. Перезапуск подтверждён.","success");
-          setTimeout(dismiss,2200);
-        }catch(error){
-          note.textContent=error.message||"Не удалось подтвердить перезапуск.";
-          note.classList.add("error");confirm.disabled=false;cancel.disabled=false;close.disabled=false;
-          confirm.textContent="Повторить";restart.disabled=false;restart.textContent="↻ Перезапустить бота";
-          append(output,"Ошибка: "+(error.message||"Перезапуск не подтверждён."),"error");
-        }
-      });
-      footer.append(cancel,confirm);dialog.append(close,icon,eyebrow,title,description,note,footer);modal.append(dialog);document.body.append(modal);confirm.focus();
-    });restartRow.append(restartHint,restart);
-    const tabs=document.createElement("div");tabs.className="console-mode-tabs";
-    const shellTab=document.createElement("button");shellTab.type="button";shellTab.className="console-mode-tab active";shellTab.textContent="Shell";
-    const appTab=document.createElement("button");appTab.type="button";appTab.className="console-mode-tab";appTab.textContent="Ввод в приложение";
-    tabs.append(shellTab,appTab);
-    const shellPane=document.createElement("div");shellPane.className="console-mode-pane";
-    const appPane=document.createElement("div");appPane.className="console-mode-pane";appPane.hidden=true;
-    const appOutput=document.createElement("div");appOutput.className="console-terminal-output console-app-output";
-    append(appOutput,"GastWorld Application Input","system");
-    append(appOutput,"Ввод передаётся обработчику приложения. Неизвестные команды тоже принимаются и возвращают ответ приложения.","muted");
-    const appForm=document.createElement("form");appForm.className="console-command-form";
-    const appPrompt=document.createElement("label");appPrompt.className="console-command-prompt";appPrompt.textContent="GastWorld>";
-    const appInput=document.createElement("input");appInput.className="console-command-input";appInput.type="text";appInput.autocomplete="off";appInput.spellcheck=false;appInput.placeholder="Введите команду приложения или любой текст…";appInput.disabled=currentAccessLevel!=="full";
-    const appRun=document.createElement("button");appRun.type="submit";appRun.className="console-action-button";appRun.textContent="Выполнить";appRun.disabled=currentAccessLevel!=="full";
-    appForm.append(appPrompt,appInput,appRun);
-    const appFoot=document.createElement("div");appFoot.className="console-terminal-foot";appFoot.textContent="Ввод в приложение · произвольная строка до 2000 символов · доступ Full. Команда обрабатывается логикой GastWorld, а не Linux.";
-    appPane.append(appOutput,appForm,appFoot);
-    const foot=document.createElement("div");foot.className="console-terminal-foot";foot.textContent=currentAccessLevel==="full"?"Shell · Linux первого хостинга · произвольные команды и символы · доступ Full. Команды могут изменять файлы и настройки сервера.":"Adm: live-просмотр вывода первого хостинга, быстрые действия и перезапуск. Команды доступны только Full.";
-    shellPane.append(output);
-    if(currentAccessLevel==="full")shellPane.append(form,restartRow,foot);else shellPane.append(restartRow,foot);
-    const switchMode=(mode)=>{const shell=mode==="shell";shellTab.classList.toggle("active",shell);appTab.classList.toggle("active",!shell);shellPane.hidden=!shell;appPane.hidden=shell;};
-    shellTab.addEventListener("click",()=>switchMode("shell"));appTab.addEventListener("click",()=>switchMode("app"));
-    if(currentAccessLevel==="full")terminal.append(top,tabs,shellPane,appPane);else terminal.append(top,tabs,shellPane,appPane);
-    workspace.append(cards,controls,terminal);root.replaceChildren(workspace);
-    form.addEventListener("submit",async event=>{event.preventDefault();const command=input.value;if(!command.trim()||commandBusy)return;if(command.toLowerCase()==="clear"){output.replaceChildren();append(output,"Терминал очищен.","muted");input.value="";return;}if(command.toLowerCase()==="restart"){restart.click();input.value="";return;}if(currentAccessLevel!=="full"){append(output,"Недостаточно прав. Требуется уровень Full.","error");return;}commandBusy=true;history.push(command);historyIndex=history.length;append(output,"container~ "+command,"command");input.value="";run.disabled=true;run.textContent="…";try{const response=await fetch("/api/console/command",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({command})});const result=await response.json();if(!response.ok)throw new Error(result.detail||"Команда не выполнена.");append(output,result.output||"Команда выполнена.",Number(result.exit_code)===0?"success":"error");if(Number(result.exit_code)!==0)append(output,"Код завершения: "+result.exit_code,"muted");}catch(error){append(output,"Ошибка: "+(error.message||"Команда не выполнена."),"error");}finally{commandBusy=false;run.disabled=currentAccessLevel!=="full";run.textContent="Выполнить";input.focus();}});
-    appForm.addEventListener("submit",async event=>{
-      event.preventDefault();
-      const command=appInput.value;
-      if(!command.trim()||commandBusy)return;
-      if(command.toLowerCase()==="clear"){appOutput.replaceChildren();append(appOutput,"Вывод приложения очищен.","muted");appInput.value="";return;}
-      if(currentAccessLevel!=="full"){append(appOutput,"Недостаточно прав. Требуется уровень Full.","error");return;}
-      commandBusy=true;append(appOutput,"GastWorld> "+command,"command");appInput.value="";appRun.disabled=true;appRun.textContent="…";
-      try{
-        const response=await fetch("/api/console/app-command",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({command})});
-        const result=await response.json();
-        if(!response.ok)throw new Error(result.detail||"Ввод в приложение не выполнен.");
-        append(appOutput,result.output||"Приложение не вернуло ответ.",Number(result.exit_code)===0?"success":"error");
-        if(Number(result.exit_code)!==0)append(appOutput,"Код ответа: "+result.exit_code,"muted");
-      }catch(error){append(appOutput,"Ошибка: "+(error.message||"Не удалось передать ввод."),"error");}
-      finally{commandBusy=false;appRun.disabled=currentAccessLevel!=="full";appRun.textContent="Выполнить";appInput.focus();}
-    });
-    input.addEventListener("keydown",event=>{if(event.key==="ArrowUp"){event.preventDefault();if(history.length){historyIndex=Math.max(0,historyIndex-1);input.value=history[historyIndex]||"";}}if(event.key==="ArrowDown"){event.preventDefault();if(history.length){historyIndex=Math.min(history.length,historyIndex+1);input.value=history[historyIndex]||"";}}});
-    input.focus();
+  let pollBusy=false,outputPollBusy=false,lastConsoleLineId=0;
+
+  const append=(output,text,tone="")=>{
+    const line=document.createElement("div");
+    if(tone)line.className="console-output-"+tone;
+    line.textContent=text;
+    output.append(line);
+    while(output.children.length>800)output.firstElementChild.remove();
+    output.scrollTop=output.scrollHeight;
   };
+
+  const render=data=>{
+    const status=data.status||{};
+    const workspace=document.createElement("div");
+    workspace.className="console-workspace-inner";
+
+    const cards=document.createElement("div");
+    cards.className="console-status-grid";
+    [
+      ["СОСТОЯНИЕ",status.online?"В сети":"Не в сети",status.online?"online":"offline"],
+      ["DISCORD",status.bot_name||"GastWorld",""],
+      ["СЕРВЕР",status.guild_name||"—",""],
+      ["ЗАДЕРЖКА",status.latency_ms==null?"—":status.latency_ms+" мс",""]
+    ].forEach(([label,value,tone])=>{
+      const card=document.createElement("article");
+      card.className="console-status-card";
+      const small=document.createElement("small");
+      small.textContent=label;
+      const strong=document.createElement("strong");
+      strong.textContent=value;
+      if(tone)strong.classList.add(tone);
+      card.append(small,strong);
+      cards.append(card);
+    });
+
+    const readOnly=document.createElement("div");
+    readOnly.className="console-section-heading";
+    const note=document.createElement("span");
+    note.textContent="Режим только просмотра · выполнение команд и действия отключены";
+    readOnly.append(note);
+
+    const terminal=document.createElement("section");
+    terminal.className="console-terminal";
+    const top=document.createElement("div");
+    top.className="console-terminal-top";
+    const title=document.createElement("div");
+    title.className="console-terminal-title";
+    const led=document.createElement("i");
+    led.className=status.online?"online":"";
+    const name=document.createElement("strong");
+    name.textContent="Вывод GastWorld · host";
+    title.append(led,name);
+    const mode=document.createElement("span");
+    mode.className="console-readonly-label";
+    mode.textContent="ТОЛЬКО ЧТЕНИЕ";
+    top.append(title,mode);
+
+    const output=document.createElement("div");
+    output.className="console-terminal-output";
+    append(output,"GastWorld Host · просмотр журнала процесса","system");
+    append(output,"Команды, перезапуск и изменение состояния через эту вкладку недоступны.","muted");
+    const foot=document.createElement("div");
+    foot.className="console-terminal-foot";
+    foot.textContent="Поток вывода обновляется автоматически. Для просмотра подробных файлов используй вкладку «Логи».";
+    terminal.append(top,output,foot);
+    workspace.append(cards,readOnly,terminal);
+    root.replaceChildren(workspace);
+  };
+
   const pollOutput=async()=>{
     if(outputPollBusy)return;
     outputPollBusy=true;
@@ -1136,17 +1094,72 @@ async function loadConsole(section){
       if(!output)return;
       (result.lines||[]).forEach(item=>{
         const id=Number(item.id)||0;
-        if(id>lastConsoleLineId){append(output,item.text||"","live");lastConsoleLineId=id;}
+        if(id>lastConsoleLineId){
+          append(output,item.text||"","live");
+          lastConsoleLineId=id;
+        }
       });
       if(Number(result.latest_id)>lastConsoleLineId)lastConsoleLineId=Number(result.latest_id);
     }catch(error){
-      // Ошибки короткого опроса не засоряют терминал; статус соединения виден в карточках.
-    }finally{outputPollBusy=false;}
+      const output=root.querySelector(".console-terminal-output");
+      if(output)append(output,"[соединение] "+(error.message||"Не удалось получить вывод"),"error");
+    }finally{
+      outputPollBusy=false;
+    }
   };
-  const poll=async()=>{if(pollBusy)return;pollBusy=true;try{const data=await apiGet("/api/console"),status=data.status||{};const strong=root.querySelectorAll(".console-status-card strong");if(strong[0]){strong[0].textContent=status.online?"В сети":"Не в сети";strong[0].className=status.online?"online":"offline";}if(strong[1])strong[1].textContent=status.bot_name||"GastWorld";if(strong[2])strong[2].textContent=status.guild_name||"—";if(strong[3])strong[3].textContent=status.latency_ms==null?"—":status.latency_ms+" мс";const led=root.querySelector(".console-terminal-title i");if(led)led.className=status.online?"online":"";}catch(error){const output=root.querySelector(".console-terminal-output");if(output)append(output,"[соединение] "+error.message,"error");}finally{pollBusy=false;}await pollOutput();};
-  refresh?.addEventListener("click",async()=>{refresh.disabled=true;refresh.textContent="Загрузка…";await poll();refresh.disabled=false;refresh.textContent="↻ Обновить";});
-  try{const data=await apiGet("/api/console");render(data);await pollOutput();}catch(error){root.replaceChildren();const msg=document.createElement("div");msg.className="console-error";msg.textContent="Не удалось подключиться к консоли: "+error.message;root.append(msg);}
-  const timer=window.setInterval(()=>{if(!section.isConnected){window.clearInterval(timer);return;}if(!document.hidden){poll();pollOutput();}},1800);
+
+  const poll=async()=>{
+    if(pollBusy)return;
+    pollBusy=true;
+    try{
+      const data=await apiGet("/api/console");
+      const status=data.status||{};
+      const strong=root.querySelectorAll(".console-status-card strong");
+      if(strong[0]){
+        strong[0].textContent=status.online?"В сети":"Не в сети";
+        strong[0].className=status.online?"online":"offline";
+      }
+      if(strong[1])strong[1].textContent=status.bot_name||"GastWorld";
+      if(strong[2])strong[2].textContent=status.guild_name||"—";
+      if(strong[3])strong[3].textContent=status.latency_ms==null?"—":status.latency_ms+" мс";
+      const led=root.querySelector(".console-terminal-title i");
+      if(led)led.className=status.online?"online":"";
+    }catch(error){
+      const output=root.querySelector(".console-terminal-output");
+      if(output)append(output,"[соединение] "+(error.message||"Не удалось получить состояние бота"),"error");
+    }finally{
+      pollBusy=false;
+    }
+    await pollOutput();
+  };
+
+  refresh?.addEventListener("click",async()=>{
+    refresh.disabled=true;
+    refresh.textContent="Загрузка…";
+    await poll();
+    refresh.disabled=false;
+    refresh.textContent="↻ Обновить";
+  });
+
+  try{
+    const data=await apiGet("/api/console");
+    render(data);
+    await pollOutput();
+  }catch(error){
+    root.replaceChildren();
+    const msg=document.createElement("div");
+    msg.className="console-error";
+    msg.textContent="Не удалось подключиться к консоли: "+(error.message||String(error));
+    root.append(msg);
+  }
+
+  const timer=window.setInterval(()=>{
+    if(!section.isConnected){
+      window.clearInterval(timer);
+      return;
+    }
+    if(!document.hidden)poll();
+  },1800);
 }
 
 async function loadLogs(section){
