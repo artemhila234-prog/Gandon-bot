@@ -210,10 +210,18 @@ async def refresh_session_user(request: Request) -> dict[str, Any] | None:
 
     role_ids = [str(role_id) for role_id in (primary_member or {}).get("roles", [])]
     access = calculate_access(role_ids) if primary_member else "none"
-    has_discord_admin = (
-        member_has_discord_administrator(primary_member, primary_roles)
-        or member_has_discord_administrator(support_member, support_roles)
-    )
+
+    # Main GastWorld access is anchored to the primary server. An actual Discord
+    # Administrator permission on that server must also grant ADM, even when the
+    # role has not separately been added to the panel's access_roles mapping.
+    has_primary_discord_admin = member_has_discord_administrator(primary_member, primary_roles)
+    has_support_discord_admin = member_has_discord_administrator(support_member, support_roles)
+    if has_primary_discord_admin and ACCESS_RANK.get(access, 0) < ACCESS_RANK["adm"]:
+        access = "adm"
+
+    # Ticket Bot administration is valid when Administrator is present on either
+    # GastWorld server; support-only server admin does not change primary panel rank.
+    has_discord_admin = has_primary_discord_admin or has_support_discord_admin
     if ACCESS_RANK.get(access, 0) >= ACCESS_RANK["adm"] or has_discord_admin:
         ticketbot_access = "admin"
     elif TICKETBOT_SUPPORT_ROLE_ID in {
