@@ -181,6 +181,20 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS application_status_watcher_meta (
     meta_key TEXT PRIMARY KEY,
     meta_value TEXT NOT NULL
 )""")
+
+# One-time marker for the "application received" DM.
+cursor.execute("PRAGMA table_info(application_status_notifications)")
+application_notification_columns = {row[1] for row in cursor.fetchall()}
+if "submission_attempted_at" not in application_notification_columns:
+    cursor.execute(
+        "ALTER TABLE application_status_notifications ADD COLUMN submission_attempted_at TEXT"
+    )
+    # Do not mass-message applications that were already stored before this feature.
+    cursor.execute(
+        """UPDATE application_status_notifications
+           SET submission_attempted_at=CURRENT_TIMESTAMP
+           WHERE submission_attempted_at IS NULL"""
+    )
 conn.commit()
 
 # TikTok reward rule: one point for every five video views (round down).
@@ -276,6 +290,20 @@ class GastWorldCommandTree(app_commands.CommandTree):
     """Проверяет allowlist серверов и индивидуальные запреты slash-команд."""
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.guild_id is None:
+            dm_command_data = interaction.data or {}
+            dm_command_name = str(dm_command_data.get("name") or "").strip()
+            if dm_command_name == "status":
+                return True
+            if interaction.type == discord.InteractionType.application_command and not interaction.response.is_done():
+                try:
+                    await interaction.response.send_message(
+                        "В личных сообщениях боту доступна только команда /status."
+                    )
+                except discord.HTTPException:
+                    pass
+            return False
+
         if interaction.guild_id not in ALLOWED_GUILDS:
             # Приватно отвечаем на старые/остаточные регистрации команд на чужих серверах.
             if (
@@ -2639,19 +2667,29 @@ async def send_application_decision_dm(record, decision):
     safe_nickname = re.sub(r"[\r\n]+", " ", nickname)[:32].replace("@", "@\u200b").replace("<", "‹").replace(">", "›")
     greeting = f"Привет, {safe_nickname}!\n\n" if safe_nickname else "Привет!\n\n"
 
+    invite = None
+    invite_error = ""
     if decision == "accepted":
         invite, invite_error = await create_application_invite(guild)
-        if invite is None:
-            return False, f"Заявка одобрена, но приглашение не создано: {invite_error}"
+        if invite is not None:
+            invite_message = (
+                "Вот твоя одноразовая ссылка для входа на сервер:\n"
+                f"{invite.url}\n\n"
+                "Ссылка действует без ограничения по времени и может быть использована только один раз. "
+                "Не пересылай её другим людям. Вступление на сервер само по себе не выдаёт роли Медиа "
+                "и не отменяет действующую проверку."
+            )
+        else:
+            invite_message = (
+                "Заявка одобрена, но бот пока не смог создать приглашение. "
+                "Администрация должна выдать боту право «Создать приглашение» хотя бы в одном текстовом канале. "
+                "Проверь статус позже командой /status или обратись к администрации."
+            )
         message = (
             "🎉 **Твоя заявка принята!**\n\n"
             + greeting
             + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.\n"
-            "Добро пожаловать! Вот твоя персональная одноразовая ссылка для входа на сервер:\n"
-            f"{invite.url}\n\n"
-            "Ссылка действует без ограничения по времени и может быть использована только один раз. "
-            "Не пересылай её другим людям. Вступление на сервер само по себе не выдаёт роли Медиа "
-            "и не отменяет действующую проверку."
+            + invite_message
         )
     else:
         message = (
@@ -2664,12 +2702,125 @@ async def send_application_decision_dm(record, decision):
     try:
         await member.send(message)
         if decision == "accepted":
-            return True, f"DM с одноразовым приглашением отправлено {member} ({member.id}); канал: {invite.channel}."
+            if invite is not None:
+                return True, f"DM с одноразовым приглашением отправлено {member} ({member.id}); канал: {invite.channel}."
+            return True, (
+                f"DM о принятии отправлено {member} ({member.id}), но приглашение не создано: {invite_error}"
+            )
         return True, f"DM отправлено {member} ({member.id})."
     except discord.Forbidden:
         return False, f"Не удалось отправить DM {member} ({member.id}): личные сообщения закрыты или бот заблокирован."
     except discord.HTTPException as error:
         return False, f"Discord не принял DM для {member} ({member.id}): {error}"
+
+
+async def send_application_pending_dm(record):
+    """Tell a newly submitted applicant that the application is being reviewed."""
+    guild = bot.get_guild(VERIFICATION_GUILD_ID)
+    if guild is None:
+        return False, f"Основной сервер {VERIFICATION_GUILD_ID} не найден у бота."
+
+    member, resolve_error = await resolve_application_member(
+        guild, record.get("discord_identifier", "")
+    )
+    if member is None:
+        return False, resolve_error
+
+    nickname = str(record.get("minecraft_nickname") or "").strip()
+    safe_nickname = re.sub(r"[\r\n]+", " ", nickname)[:32].replace("@", "@\u200b").replace("<", "‹").replace(">", "›")
+    greeting = f"Привет, {safe_nickname}!\n\n" if safe_nickname else "Привет!\n\n"
+    message = (
+        "📨 **Твоя заявка получена!**\n\n"
+        + greeting
+        + "Твоя заявка на вступление в команду Медиа GastWorld находится на рассмотрении. "
+        "Когда администрация примет решение, я отправлю тебе сообщение в этот личный чат.\n\n"
+        "Проверить текущий статус можно командой **/status** здесь, в личных сообщениях боту."
+    )
+    try:
+        await member.send(message)
+        return True, f"Уведомление о получении заявки отправлено {member} ({member.id})."
+    except discord.Forbidden:
+        return False, f"Не удалось отправить уведомление о получении заявки {member} ({member.id}): личные сообщения закрыты или бот заблокирован."
+    except discord.HTTPException as error:
+        return False, f"Discord не принял уведомление о получении заявки для {member} ({member.id}): {error}"
+
+
+def application_identifier_matches_user(identifier, user):
+    """Match the exact Discord username, numeric ID, or mention stored in the form."""
+    raw = str(identifier or "").strip()
+    if not raw:
+        return False
+
+    mention = re.fullmatch(r"<@!?(\d+)>", raw)
+    numeric_id = mention.group(1) if mention else (raw if raw.isdigit() else "")
+    if numeric_id:
+        return int(numeric_id) == int(user.id)
+
+    lookup = raw[1:].strip() if raw.startswith("@") else raw
+    if "#" in lookup:
+        username_part, discriminator = lookup.rsplit("#", 1)
+        if discriminator.isdigit():
+            lookup = username_part.strip()
+    return bool(lookup) and lookup.casefold() == str(user.name or "").casefold()
+
+
+@bot.tree.command(name="status", description="Проверить статус своей заявки в команду Медиа")
+@app_commands.allowed_contexts(guilds=False, dms=True, private_channels=False)
+async def application_status_command(interaction: discord.Interaction):
+    # This command is intentionally available only in a direct DM with the bot.
+    if interaction.guild is not None or not isinstance(interaction.channel, discord.DMChannel):
+        await interaction.response.send_message(
+            "Команда /status работает только в личных сообщениях с ботом."
+        )
+        return
+
+    await interaction.response.defer(thinking=True)
+    try:
+        records = await asyncio.to_thread(read_application_decision_rows)
+    except Exception as error:
+        print(f"⚠️ [ЗАЯВКИ GOOGLE FORMS] /status не смог прочитать таблицу: {error}", flush=True)
+        await interaction.followup.send(
+            "⚠️ Сейчас не удалось проверить таблицу заявок. Попробуй ещё раз немного позже."
+        )
+        return
+
+    matches = [
+        record for record in records
+        if application_identifier_matches_user(record.get("discord_identifier", ""), interaction.user)
+    ]
+    if not matches:
+        await interaction.followup.send(
+            "🔎 Я не нашёл заявку, связанную с твоим Discord username. "
+            "Проверь, что в поле Discord формы указан именно твой username, "
+            "либо отправь заявку и попробуй снова."
+        )
+        return
+
+    latest = max(matches, key=lambda item: int(item.get("row_number") or 0))
+    decision = normalize_application_decision(latest.get("status"))
+    nickname = str(latest.get("minecraft_nickname") or "").strip()
+    if decision == "accepted":
+        status_text = (
+            "✅ **Твоя заявка принята!**\n"
+            "Решение администрации: одобрено. Если ссылка-приглашение не пришла, "
+            "напиши администрации GastWorld."
+        )
+    elif decision == "rejected":
+        status_text = "❌ **Твоя заявка не принята.**\nРешение администрации: отказ."
+    else:
+        status_text = "⏳ **Твоя заявка находится на рассмотрении.**\nРешение ещё не выставлено."
+
+    nickname_line = f"Заявка на ник: **{nickname[:80]}**\n" if nickname else ""
+    submitted_line = (
+        f"Отправлена: {latest.get('submitted_at')}\n"
+        if latest.get("submitted_at") else ""
+    )
+    await interaction.followup.send(
+        "📋 **Статус заявки GastWorld**\n"
+        + nickname_line
+        + submitted_line
+        + status_text
+    )
 
 
 async def process_application_decision_rows(records):
@@ -2684,17 +2835,18 @@ async def process_application_decision_rows(records):
             continue
         decision = normalize_application_decision(record.get("status"))
         saved = conn.execute(
-            "SELECT decision_status,last_attempted_status FROM application_status_notifications WHERE application_key=?",
+            """SELECT decision_status,last_attempted_status,submission_attempted_at
+               FROM application_status_notifications WHERE application_key=?""",
             (application_key,),
         ).fetchone()
 
         if saved is None:
             if first_scan:
-                # Do not DM people whose applications were already decided before this feature was enabled.
+                # Do not send messages about rows that existed before monitoring was enabled.
                 conn.execute(
                     """INSERT OR IGNORE INTO application_status_notifications
-                       (application_key,decision_status,last_attempted_status)
-                       VALUES (?,?,?)""",
+                       (application_key,decision_status,last_attempted_status,submission_attempted_at)
+                       VALUES (?,?,?,CURRENT_TIMESTAMP)""",
                     (application_key, decision, decision),
                 )
                 continue
@@ -2704,9 +2856,40 @@ async def process_application_decision_rows(records):
                    VALUES (?,'','')""",
                 (application_key,),
             )
-            saved = ("", "")
+            saved = ("", "", None)
 
-        current_status, last_attempted_status = saved
+        current_status, last_attempted_status, submission_attempted_at = saved
+
+        # A newly appearing row with no decision is a newly submitted application.
+        # Mark before sending so reconnects cannot produce duplicate DMs.
+        if not decision and submission_attempted_at is None:
+            conn.execute(
+                """UPDATE application_status_notifications
+                   SET submission_attempted_at=CURRENT_TIMESTAMP,last_error=NULL,
+                       updated_at=CURRENT_TIMESTAMP
+                   WHERE application_key=?""",
+                (application_key,),
+            )
+            conn.commit()
+            success, detail = await send_application_pending_dm(record)
+            if success:
+                conn.execute(
+                    """UPDATE application_status_notifications
+                       SET last_error=NULL,updated_at=CURRENT_TIMESTAMP
+                       WHERE application_key=?""",
+                    (application_key,),
+                )
+                print(f"📨 [ЗАЯВКИ GOOGLE FORMS] {detail}", flush=True)
+            else:
+                conn.execute(
+                    """UPDATE application_status_notifications
+                       SET last_error=?,updated_at=CURRENT_TIMESTAMP
+                       WHERE application_key=?""",
+                    (detail[:1000], application_key),
+                )
+                print(f"⚠️ [ЗАЯВКИ GOOGLE FORMS] {detail}", flush=True)
+            conn.commit()
+
         if decision == current_status:
             continue
 
@@ -2717,7 +2900,7 @@ async def process_application_decision_rows(records):
             (decision, application_key),
         )
         if decision and decision != last_attempted_status:
-            # Store the attempt before sending so a reconnect cannot duplicate a delivered DM.
+            # Store the attempt before sending so reconnects cannot duplicate a delivered DM.
             conn.execute(
                 """UPDATE application_status_notifications
                    SET last_attempted_status=?,last_error=NULL,updated_at=CURRENT_TIMESTAMP
@@ -2859,37 +3042,40 @@ async def on_ready():
         else:
             print(f"⚠️ [ТИКЕТЫ] Первый сервер {ticket_guild_id} не найден в подключении бота.", flush=True)
 
-    # Keep an immutable source for later Full-authorized guild additions.
-    # Global registrations are removed below, so runtime additions must not
-    # depend on bot.tree.copy_global_to() after startup.
+    # /status remains a global application command, restricted to direct bot DMs.
+    status_command = bot.tree.get_command("status")
     if getattr(bot, "_global_command_templates", None) is None:
         bot._global_command_templates = [
             copy.copy(command) for command in bot.tree.get_commands()
+            if command.name != "status"
         ]
 
-    # Регистрируем команды только как серверные (guild commands).
-    # Старые глобальные команды удаляем ниже, чтобы Discord не показывал
-    # две версии каждой slash-команды одновременно.
+    # All other slash commands are published only to allowed servers.
     for guild_id in ALLOWED_GUILDS:
         guild = bot.get_guild(guild_id)
         if guild:
             try:
                 bot.tree.clear_commands(guild=guild)
                 await bot.tree.sync(guild=guild)
-
-                bot.tree.copy_global_to(guild=guild)
+                for command in bot._global_command_templates:
+                    bot.tree.add_command(copy.copy(command), guild=guild, override=True)
                 synced = await bot.tree.sync(guild=guild)
                 print(f'✅ Обновлено {len(synced)} серверных slash-команд на сервере {guild.name}')
             except Exception as e:
                 print(f'❌ Ошибка синхронизации на {guild_id}: {e}')
 
-    # Удаляем прежние глобальные регистрации. Серверные копии выше остаются.
+    # Remove global copies of normal commands, but keep the DM-only /status.
     try:
         bot.tree.clear_commands(guild=None)
-        await bot.tree.sync()
-        print('✅ Старые глобальные slash-команды удалены — дубликатов больше не будет.')
+        if status_command is not None:
+            bot.tree.add_command(copy.copy(status_command))
+        synced_global = await bot.tree.sync()
+        print(
+            f'✅ Глобально синхронизированы только DM-команды: '
+            f'{", ".join(command.name for command in synced_global) or "нет"}'
+        )
     except Exception as e:
-        print(f'❌ Ошибка удаления глобальных команд: {e}')
+        print(f'❌ Ошибка синхронизации глобальной DM-команды: {e}')
 
     await apply_bot_profile_presence()
 
@@ -3400,19 +3586,32 @@ async def panel_console_status():
 async def panel_sync_commands():
     if not bot.is_ready(): raise RuntimeError("Discord-бот ещё не подключён.")
     results = []
+    templates = getattr(bot, "_global_command_templates", None)
+    if templates is None:
+        templates = [
+            copy.copy(command) for command in bot.tree.get_commands()
+            if command.name != "status"
+        ]
+        bot._global_command_templates = templates
+
     for guild_id in ALLOWED_GUILDS:
         guild = bot.get_guild(guild_id)
         if guild is None: continue
         bot.tree.clear_commands(guild=guild)
         await bot.tree.sync(guild=guild)
-        bot.tree.copy_global_to(guild=guild)
+        for command in templates:
+            bot.tree.add_command(copy.copy(command), guild=guild, override=True)
         synced = await bot.tree.sync(guild=guild)
         results.append({"guild": guild.name, "count": len(synced)})
         print(f"🖥️ [ПАНЕЛЬ] Синхронизировано {len(synced)} slash-команд на сервере {guild.name}.", flush=True)
+
+    status_command = bot.tree.get_command("status")
     bot.tree.clear_commands(guild=None)
+    if status_command is not None:
+        bot.tree.add_command(copy.copy(status_command))
     await bot.tree.sync()
     if not results: raise RuntimeError("Доступный Discord-сервер не найден.")
-    return {"message": "Slash-команды синхронизированы.", "results": results}
+    return {"message": "Серверные slash-команды синхронизированы; DM-команда /status сохранена.", "results": results}
 
 async def panel_sync_roles():
     if not bot.is_ready(): raise RuntimeError("Discord-бот ещё не подключён.")
