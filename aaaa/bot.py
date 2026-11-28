@@ -2663,6 +2663,24 @@ async def create_application_invite(guild):
     )
 
 
+def build_application_status_embed(title, description, color, *, nickname="", status_label="", submitted_at="", footer="GastWorld • Медиа"):
+    """Build a consistent colored Embed for applicant DM and /status responses."""
+    embed = discord.Embed(
+        title=title,
+        description=description,
+        color=color,
+        timestamp=discord.utils.utcnow()
+    )
+    if nickname:
+        embed.add_field(name="🎮 Игровой ник", value=str(nickname)[:1024], inline=True)
+    if status_label:
+        embed.add_field(name="📌 Статус заявки", value=status_label, inline=True)
+    if submitted_at:
+        embed.add_field(name="📅 Отправлена", value=str(submitted_at)[:1024], inline=False)
+    embed.set_footer(text=footer)
+    return embed
+
+
 async def send_application_decision_dm(record, decision):
     guild = bot.get_guild(VERIFICATION_GUILD_ID)
     if guild is None:
@@ -2675,50 +2693,64 @@ async def send_application_decision_dm(record, decision):
         return False, resolve_error
 
     nickname = str(record.get("minecraft_nickname") or "").strip()
-    safe_nickname = re.sub(r"[\r\n]+", " ", nickname)[:32].replace("@", "@\u200b").replace("<", "‹").replace(">", "›")
-    greeting = f"Привет, {safe_nickname}!\n\n" if safe_nickname else "Привет!\n\n"
+    safe_nickname = re.sub(r"[\\r\\n]+", " ", nickname)[:32].replace("@", "@\\u200b").replace("<", "‹").replace(">", "›")
+    greeting = f"Привет, {safe_nickname}!\\n\\n" if safe_nickname else "Привет!\\n\\n"
+    submitted_at = str(record.get("submitted_at") or "").strip()
 
     invite = None
     invite_error = ""
     if decision == "accepted":
         invite, invite_error = await create_application_invite(guild)
+        embed = build_application_status_embed(
+            "🎉 ТВОЯ ЗАЯВКА ПРИНЯТА",
+            greeting + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.",
+            discord.Color.green(),
+            nickname=safe_nickname,
+            status_label="🟢 Принята",
+            submitted_at=submitted_at,
+        )
         if invite is not None:
-            invite_message = (
-                "Вот твоя одноразовая ссылка для входа на сервер:\n"
-                f"{invite.url}\n\n"
-                "Ссылка действует без ограничения по времени и может быть использована только один раз. "
-                "Не пересылай её другим людям. Вступление на сервер само по себе не выдаёт роли Медиа "
-                "и не отменяет действующую проверку."
+            embed.add_field(
+                name="🔗 Приглашение на сервер",
+                value=(
+                    f"[Войти на сервер GastWorld]({invite.url})\\n"
+                    "Ссылка действует без ограничения по времени и может быть использована только один раз. "
+                    "Не пересылай её другим людям. Вступление на сервер само по себе не выдаёт роли Медиа "
+                    "и не отменяет действующую проверку."
+                ),
+                inline=False,
             )
         else:
-            invite_message = (
-                "Заявка одобрена, но бот пока не смог создать приглашение. "
-                "Администрация должна выдать боту право «Создать приглашение» хотя бы в одном текстовом канале. "
-                "Проверь статус позже командой /status или обратись к администрации."
+            embed.add_field(
+                name="⚠️ Приглашение",
+                value=(
+                    "Заявка одобрена, но бот пока не смог создать приглашение. "
+                    "Администрация должна выдать боту право «Создать приглашение» хотя бы в одном текстовом канале. "
+                    "Проверь статус позже командой /status или обратись к администрации."
+                ),
+                inline=False,
             )
-        message = (
-            "🎉 **Твоя заявка принята!**\n\n"
-            + greeting
-            + "Мы рассмотрели твою заявку на вступление в команду Медиа GastWorld и одобрили её.\n"
-            + invite_message
-        )
     else:
-        message = (
-            "❌ **Твоя заявка не принята.**\n\n"
-            + greeting
+        embed = build_application_status_embed(
+            "❌ ТВОЯ ЗАЯВКА НЕ ПРИНЯТА",
+            greeting
             + "Спасибо за интерес к команде Медиа GastWorld. К сожалению, по результатам рассмотрения "
-            "сейчас мы не можем принять твою заявку. Спасибо за уделённое время."
+            "сейчас мы не можем принять твою заявку. Спасибо за уделённое время.",
+            discord.Color.red(),
+            nickname=safe_nickname,
+            status_label="🔴 Не принята",
+            submitted_at=submitted_at,
         )
 
     try:
-        await member.send(message)
+        await member.send(embed=embed)
         if decision == "accepted":
             if invite is not None:
-                return True, f"DM с одноразовым приглашением отправлено {member} ({member.id}); канал: {invite.channel}."
+                return True, f"DM Embed с одноразовым приглашением отправлен {member} ({member.id}); канал: {invite.channel}."
             return True, (
-                f"DM о принятии отправлено {member} ({member.id}), но приглашение не создано: {invite_error}"
+                f"DM Embed о принятии отправлен {member} ({member.id}), но приглашение не создано: {invite_error}"
             )
-        return True, f"DM отправлено {member} ({member.id})."
+        return True, f"DM Embed об отказе отправлен {member} ({member.id})."
     except discord.Forbidden:
         return False, f"Не удалось отправить DM {member} ({member.id}): личные сообщения закрыты или бот заблокирован."
     except discord.HTTPException as error:
@@ -2726,7 +2758,7 @@ async def send_application_decision_dm(record, decision):
 
 
 async def send_application_pending_dm(record):
-    """Tell a newly submitted applicant that the application is being reviewed."""
+    """Send a yellow Embed telling a newly submitted applicant that review is pending."""
     guild = bot.get_guild(VERIFICATION_GUILD_ID)
     if guild is None:
         return False, f"Основной сервер {VERIFICATION_GUILD_ID} не найден у бота."
@@ -2738,22 +2770,28 @@ async def send_application_pending_dm(record):
         return False, resolve_error
 
     nickname = str(record.get("minecraft_nickname") or "").strip()
-    safe_nickname = re.sub(r"[\r\n]+", " ", nickname)[:32].replace("@", "@\u200b").replace("<", "‹").replace(">", "›")
-    greeting = f"Привет, {safe_nickname}!\n\n" if safe_nickname else "Привет!\n\n"
-    message = (
-        "📨 **Твоя заявка получена!**\n\n"
-        + greeting
+    safe_nickname = re.sub(r"[\\r\\n]+", " ", nickname)[:32].replace("@", "@\\u200b").replace("<", "‹").replace(">", "›")
+    greeting = f"Привет, {safe_nickname}!\\n\\n" if safe_nickname else "Привет!\\n\\n"
+    embed = build_application_status_embed(
+        "📨 ТВОЯ ЗАЯВКА ПОЛУЧЕНА",
+        greeting
         + "Твоя заявка на вступление в команду Медиа GastWorld находится на рассмотрении. "
-        "Когда администрация примет решение, я отправлю тебе сообщение в этот личный чат.\n\n"
-        "Проверить текущий статус можно командой **/status** здесь, в личных сообщениях боту."
+        "Когда администрация примет решение, я отправлю тебе сообщение в этот личный чат.\\n\\n"
+        "Проверить текущий статус можно командой **/status** здесь, в личных сообщениях боту.",
+        discord.Color.from_rgb(255, 210, 0),
+        nickname=safe_nickname,
+        status_label="🟡 На рассмотрении",
+        submitted_at=str(record.get("submitted_at") or "").strip(),
     )
     try:
-        await member.send(message)
-        return True, f"Уведомление о получении заявки отправлено {member} ({member.id})."
+        await member.send(embed=embed)
+        return True, f"Жёлтый DM Embed о получении заявки отправлен {member} ({member.id})."
     except discord.Forbidden:
         return False, f"Не удалось отправить уведомление о получении заявки {member} ({member.id}): личные сообщения закрыты или бот заблокирован."
     except discord.HTTPException as error:
         return False, f"Discord не принял уведомление о получении заявки для {member} ({member.id}): {error}"
+
+
 
 
 def application_identifier_matches_user(identifier, user):
@@ -2810,29 +2848,42 @@ async def application_status_command(interaction: discord.Interaction):
     latest = max(matches, key=lambda item: int(item.get("row_number") or 0))
     decision = normalize_application_decision(latest.get("status"))
     nickname = str(latest.get("minecraft_nickname") or "").strip()
+    safe_nickname = re.sub(r"[\\r\\n]+", " ", nickname)[:32].replace("@", "@\\u200b").replace("<", "‹").replace(">", "›")
+    submitted_at = str(latest.get("submitted_at") or "").strip()
+
     if decision == "accepted":
-        status_text = (
-            "✅ **Твоя заявка принята!**\n"
-            "Решение администрации: одобрено. Если ссылка-приглашение не пришла, "
-            "напиши администрации GastWorld."
+        embed = build_application_status_embed(
+            "✅ СТАТУС ЗАЯВКИ: ПРИНЯТА",
+            "Решение администрации: заявка одобрена. Если ссылка-приглашение не пришла, "
+            "напиши администрации GastWorld.",
+            discord.Color.green(),
+            nickname=safe_nickname,
+            status_label="🟢 Принята",
+            submitted_at=submitted_at,
+            footer="GastWorld • Статус заявки",
         )
     elif decision == "rejected":
-        status_text = "❌ **Твоя заявка не принята.**\nРешение администрации: отказ."
+        embed = build_application_status_embed(
+            "❌ СТАТУС ЗАЯВКИ: ОТКАЗ",
+            "Решение администрации: заявка не принята.",
+            discord.Color.red(),
+            nickname=safe_nickname,
+            status_label="🔴 Не принята",
+            submitted_at=submitted_at,
+            footer="GastWorld • Статус заявки",
+        )
     else:
-        status_text = "⏳ **Твоя заявка находится на рассмотрении.**\nРешение ещё не выставлено."
+        embed = build_application_status_embed(
+            "⏳ СТАТУС ЗАЯВКИ: НА РАССМОТРЕНИИ",
+            "Администрация ещё не выставила решение. Когда статус изменится, я отправлю тебе отдельное уведомление.",
+            discord.Color.from_rgb(255, 210, 0),
+            nickname=safe_nickname,
+            status_label="🟡 На рассмотрении",
+            submitted_at=submitted_at,
+            footer="GastWorld • Статус заявки",
+        )
 
-    nickname_line = f"Заявка на ник: **{nickname[:80]}**\n" if nickname else ""
-    submitted_line = (
-        f"Отправлена: {latest.get('submitted_at')}\n"
-        if latest.get("submitted_at") else ""
-    )
-    await interaction.followup.send(
-        "📋 **Статус заявки GastWorld**\n"
-        + nickname_line
-        + submitted_line
-        + status_text
-    )
-
+    await interaction.followup.send(embed=embed)
 
 async def process_application_decision_rows(records):
     baseline_row = conn.execute(
