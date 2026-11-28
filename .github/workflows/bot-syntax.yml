@@ -1,0 +1,24 @@
+name: GastWorld Bot Syntax
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "aaaa/**/*.py"
+      - ".github/workflows/bot-syntax.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "aaaa/**/*.py"
+      - ".github/workflows/bot-syntax.yml"
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile GastWorld bot and Sheets integration
+        run: python -m py_compile aaaa/bot.py aaaa/gastworld_sheets.py
