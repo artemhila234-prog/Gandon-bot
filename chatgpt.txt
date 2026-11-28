@@ -2972,3 +2972,14 @@ API / CAPABILITY MATRIX (do not confuse Discord client features with bot feature
 - GitHub Actions run `46144409956` завершился `completed / success`. Шаг `Compile GastWorld bot and Sheets integration` (`python -m py_compile aaaa/bot.py aaaa/gastworld_sheets.py`) завершился `success`. Живая регистрация `/status`, доступ Google Sheets credentials и отправка DM на работающем Discord не проверены.
 - Новые переменные окружения не требуются. Нужны уже настроенные Google Service Account credentials и доступ service account к таблице ответов. Для приглашения после принятия боту требуется `View Channel` + `Create Instant Invite` хотя бы в одном текстовом канале первого сервера.
 - Для применения: синхронизировать `Gandon-bot` main на Bot-Hosting и перезапустить основной GastWorld Bot. Проверить, что в логах есть синхронизация глобальной DM-команды `/status`, затем открыть DM боту; команда может появиться с задержкой глобальной регистрации Discord. После этого отправить новую тестовую заявку и проверить получение pending DM, а затем выставить в J «ПРИНЯТ»/«ОТКАЗ».
+
+79. ЦВЕТОВЫЕ СТАТУСЫ EMBED-ПАНЕЛИ ЗАЯВОК (2026-11-28)
+- Пользователь подтвердил, что уведомления о получении заявки в DM приходят корректно.
+- По запросу в Embed-панели верификации добавлено отдельное поле `📌 Статус`, которое всегда обновляется вместе с цветом Embed:
+  - 🟡 `На проверке` — новая заявка; жёлтый цвет `discord.Color.from_rgb(255, 210, 0)`.
+  - 🔴 `Отклонена` — при отказе; красный цвет `discord.Color.red()`.
+  - 🟢 `Принята` — после успешного принятия; зелёный цвет `discord.Color.green()`.
+- Заголовок новой заявки теперь прямо показывает «🟡 ЗАЯВКА НА ПРОВЕРКЕ». При решении обновляются и заголовок, и поле статуса, и цвет; после решения кнопки остаются отключёнными, как и раньше.
+- Реализация в `aaaa/bot.py`, commit `c6fb2dcaf199a4f7d4a2b6321e8a5ddbac6ff176`.
+- GitHub Actions run `46148400398` (`GastWorld Bot Syntax`) завершился `completed / success`; компиляция `aaaa/bot.py` и `aaaa/gastworld_sheets.py` прошла успешно.
+- Изменения сохранены в GitHub, но ещё не подтверждены на работающем Discord после синхронизации/перезапуска Bot-Hosting. Для применения нужно синхронизировать репозиторий `Gandon-bot` и перезапустить основной GastWorld Bot.
