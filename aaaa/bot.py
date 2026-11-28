@@ -2693,8 +2693,8 @@ async def send_application_decision_dm(record, decision):
         return False, resolve_error
 
     nickname = str(record.get("minecraft_nickname") or "").strip()
-    safe_nickname = re.sub(r"[\\r\\n]+", " ", nickname)[:32].replace("@", "@\\u200b").replace("<", "‹").replace(">", "›")
-    greeting = f"Привет, {safe_nickname}!\\n\\n" if safe_nickname else "Привет!\\n\\n"
+    safe_nickname = re.sub(r"[\r\n]+", " ", nickname)[:32].replace("@", "@\u200b").replace("<", "‹").replace(">", "›")
+    greeting = f"Привет, {safe_nickname}!\n\n" if safe_nickname else "Привет!\n\n"
     submitted_at = str(record.get("submitted_at") or "").strip()
 
     invite = None
@@ -2713,7 +2713,7 @@ async def send_application_decision_dm(record, decision):
             embed.add_field(
                 name="🔗 Приглашение на сервер",
                 value=(
-                    f"[Войти на сервер GastWorld]({invite.url})\\n"
+                    f"[Войти на сервер GastWorld]({invite.url})\n"
                     "Ссылка действует без ограничения по времени и может быть использована только один раз. "
                     "Не пересылай её другим людям. Вступление на сервер само по себе не выдаёт роли Медиа "
                     "и не отменяет действующую проверку."
@@ -2770,13 +2770,13 @@ async def send_application_pending_dm(record):
         return False, resolve_error
 
     nickname = str(record.get("minecraft_nickname") or "").strip()
-    safe_nickname = re.sub(r"[\\r\\n]+", " ", nickname)[:32].replace("@", "@\\u200b").replace("<", "‹").replace(">", "›")
-    greeting = f"Привет, {safe_nickname}!\\n\\n" if safe_nickname else "Привет!\\n\\n"
+    safe_nickname = re.sub(r"[\r\n]+", " ", nickname)[:32].replace("@", "@\u200b").replace("<", "‹").replace(">", "›")
+    greeting = f"Привет, {safe_nickname}!\n\n" if safe_nickname else "Привет!\n\n"
     embed = build_application_status_embed(
         "📨 ТВОЯ ЗАЯВКА ПОЛУЧЕНА",
         greeting
         + "Твоя заявка на вступление в команду Медиа GastWorld находится на рассмотрении. "
-        "Когда администрация примет решение, я отправлю тебе сообщение в этот личный чат.\\n\\n"
+        "Когда администрация примет решение, я отправлю тебе сообщение в этот личный чат.\n\n"
         "Проверить текущий статус можно командой **/status** здесь, в личных сообщениях боту.",
         discord.Color.from_rgb(255, 210, 0),
         nickname=safe_nickname,
@@ -2790,8 +2790,6 @@ async def send_application_pending_dm(record):
         return False, f"Не удалось отправить уведомление о получении заявки {member} ({member.id}): личные сообщения закрыты или бот заблокирован."
     except discord.HTTPException as error:
         return False, f"Discord не принял уведомление о получении заявки для {member} ({member.id}): {error}"
-
-
 
 
 def application_identifier_matches_user(identifier, user):
@@ -2848,7 +2846,7 @@ async def application_status_command(interaction: discord.Interaction):
     latest = max(matches, key=lambda item: int(item.get("row_number") or 0))
     decision = normalize_application_decision(latest.get("status"))
     nickname = str(latest.get("minecraft_nickname") or "").strip()
-    safe_nickname = re.sub(r"[\\r\\n]+", " ", nickname)[:32].replace("@", "@\\u200b").replace("<", "‹").replace(">", "›")
+    safe_nickname = re.sub(r"[\r\n]+", " ", nickname)[:32].replace("@", "@\u200b").replace("<", "‹").replace(">", "›")
     submitted_at = str(latest.get("submitted_at") or "").strip()
 
     if decision == "accepted":
