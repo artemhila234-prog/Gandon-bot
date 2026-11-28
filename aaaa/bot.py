@@ -2944,7 +2944,7 @@ async def process_application_decision_rows(records):
 
 async def application_decision_watcher():
     print(
-        "🧾 [ЗАЯВКИ GOOGLE FORMS] Мониторинг статусов запущен "
+        "🧾 [ЗАЯВКИ GOOGLE FORMS] Мониторинг новых заявок и решений запущен "
         "(лист «Ответы на форму (1)», проверка каждые 20 секунд).",
         flush=True,
     )
@@ -4049,7 +4049,10 @@ async def sync_allowed_guild_commands(guild):
     """Publish the saved application-command templates to one allowed guild."""
     templates = getattr(bot, "_global_command_templates", None)
     if templates is None:
-        templates = [copy.copy(command) for command in bot.tree.get_commands()]
+        templates = [
+            copy.copy(command) for command in bot.tree.get_commands()
+            if command.name != "status"
+        ]
         bot._global_command_templates = templates
     if not templates:
         raise RuntimeError("Не удалось найти шаблоны slash-команд для синхронизации.")
