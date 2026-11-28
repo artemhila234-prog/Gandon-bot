@@ -1832,6 +1832,16 @@ async def ensure_verification_guide(guild):
             print(f"⚠️ [ВЕРИФИКАЦИЯ] Не удалось закрепить инструкцию: {error}", flush=True)
 
 
+def set_verification_embed_status(embed, status, color):
+    """Keep the review panel's visible status label and embed color in sync."""
+    embed.color = color
+    for index, field in enumerate(embed.fields):
+        if field.name == "📌 Статус":
+            embed.set_field_at(index, name="📌 Статус", value=status, inline=True)
+            return
+    embed.add_field(name="📌 Статус", value=status, inline=True)
+
+
 class VerificationReviewView(discord.ui.View):
     def __init__(self, applicant_id):
         super().__init__(timeout=None)
@@ -1883,7 +1893,7 @@ async def process_verification_decision(interaction, applicant_id, *, accepted):
     if not accepted:
         embed = panel_message.embeds[0].copy() if panel_message.embeds else discord.Embed()
         embed.title = "❌ ЗАЯВКА ОТКЛОНЕНА"
-        embed.color = discord.Color.red()
+        set_verification_embed_status(embed, "🔴 Отклонена", discord.Color.red())
         embed.set_footer(text=f"GASTWORLD MEDIA • Отклонил: {interaction.user.display_name}")
         disabled_view = VerificationReviewView(applicant_id)
         for child in disabled_view.children:
@@ -2060,7 +2070,7 @@ async def process_verification_decision(interaction, applicant_id, *, accepted):
 
     embed = panel_message.embeds[0].copy() if panel_message.embeds else discord.Embed()
     embed.title = "✅ ЗАЯВКА ОДОБРЕНА"
-    embed.color = discord.Color.green()
+    set_verification_embed_status(embed, "🟢 Принята", discord.Color.green())
     embed.set_footer(text=f"GASTWORLD MEDIA • Принял: {interaction.user.display_name}")
     disabled_view = VerificationReviewView(applicant_id)
     for child in disabled_view.children:
@@ -2245,7 +2255,7 @@ async def on_message(message):
                     print(f"[WARN] Не удалось выдать роль ожидания: {error}", flush=True)
 
             application_embed = discord.Embed(
-                title="📩 НОВАЯ ЗАЯВКА В GASTWORLD MEDIA",
+                title="🟡 ЗАЯВКА НА ПРОВЕРКЕ",
                 description=f"Игрок {message.author.mention} отправил заявку и ожидает рассмотрения.",
                 color=discord.Color.from_rgb(255, 210, 0),
                 timestamp=discord.utils.utcnow()
@@ -2254,6 +2264,7 @@ async def on_message(message):
             application_embed.add_field(name="🛡️ Должность", value=position, inline=True)
             application_embed.add_field(name="🔗 Ссылка на канал", value=profile_url[:1024], inline=False)
             application_embed.add_field(name="👤 Автор заявки", value=f"{message.author.mention}\nID: {message.author.id}", inline=False)
+            set_verification_embed_status(application_embed, "🟡 На проверке", discord.Color.from_rgb(255, 210, 0))
             application_embed.set_footer(text="GASTWORLD MEDIA • Используйте кнопки для решения")
             reviewer_role = message.guild.get_role(VERIFICATION_REVIEW_ROLE_ID)
             panel_message = await message.channel.send(
